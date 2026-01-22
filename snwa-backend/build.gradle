@@ -22,6 +22,8 @@ configurations {
 
 repositories {
     mavenCentral()
+    // Spring AI 마일스톤 버전을 받기 위해 필요한 저장소
+    maven { url 'https://repo.spring.io/milestone' }
 }
 
 dependencies {
@@ -67,6 +69,20 @@ dependencies {
     annotationProcessor "com.querydsl:querydsl-apt:5.1.0:jakarta"
     annotationProcessor "jakarta.annotation:jakarta.annotation-api"
     annotationProcessor "jakarta.persistence:jakarta.persistence-api"
+
+    // Selenium & Jsoup
+    implementation 'org.seleniumhq.selenium:selenium-java:4.22.0'
+    implementation 'org.jsoup:jsoup:1.18.3'
+
+    // Spring AI (버전은 BOM에서 관리하므로 적지 않음)
+    implementation 'org.springframework.ai:spring-ai-openai-spring-boot-starter'
+}
+
+// 괄호 위치 수정됨
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.ai:spring-ai-bom:1.0.0-M5" // 2026년 기준 더 최신 마일스톤 권장
+    }
 }
 
 tasks.named('test') {
