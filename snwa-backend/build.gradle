@@ -77,6 +77,12 @@ dependencies {
 
     // Spring AI
     implementation 'org.springframework.ai:spring-ai-openai-spring-boot-starter'
+
+    // DeepL
+    implementation "com.deepl.api:deepl-java:1.14.0"
+
+    // WebClient
+    implementation 'org.springframework.boot:spring-boot-starter-webflux'
 }
 
 dependencyManagement {
