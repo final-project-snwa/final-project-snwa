@@ -2,6 +2,12 @@ spring:
   application:
     name: snwa-backend
 
+  datasource:
+    url: jdbc:mysql://localhost:3306/snwa
+    username: root
+    password: root1234
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
   jpa:
     hibernate:
       ddl-auto: update
@@ -9,8 +15,6 @@ spring:
     properties:
       hibernate:
         default_batch_fetch_size: 100
-#        format_sql: true
-#        dialect: org.hibernate.dialect.MySQLDialect
 
   # aws/s3
   cloud:
@@ -22,6 +26,7 @@ spring:
         static: ${AWS_REGION_STATIC}
       s3:
         bucket: ${AWS_S3_BUCKET}
+        enabled: false
 
   # mail
   mail:
@@ -36,3 +41,8 @@ spring:
           starttls:
             enable: true
 
+translation:
+  deepl:
+    api:
+      key: ${DEEPL_API_KEY}
+      base-url: ${DEEPL_API_BASE_URL}

@@ -3,6 +3,7 @@ package com.team.snwa.snwabackend.domain.article.entity;
 import com.team.snwa.snwabackend.global.common.BaseTimeEntity;
 import jakarta.persistence.*;
 import lombok.Getter;
+import lombok.Setter;
 
 @Entity
 @Table(name = "articles")
@@ -23,7 +24,11 @@ public class Article extends BaseTimeEntity {
     @Column(columnDefinition = "LONGTEXT")
     private String content;
 
+    @Setter
+    private String translatedTitle;
+
     @Column(columnDefinition = "LONGTEXT")
+    @Setter
     private String translatedContent;
 
     private String summary;
