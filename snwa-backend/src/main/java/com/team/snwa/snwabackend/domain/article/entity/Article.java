@@ -18,6 +18,8 @@ public class Article extends BaseTimeEntity {
 
     private String title;
 
+    private String translatedTitle;
+
     @Column(columnDefinition = "LONGTEXT")
     private String content;
 
