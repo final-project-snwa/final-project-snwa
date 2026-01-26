@@ -13,5 +13,6 @@ public class Category {
     private Long id;
 
     @Enumerated(EnumType.STRING)
+    @Column(unique = true, length = 20)
     private CategoryName categoryName;
 }

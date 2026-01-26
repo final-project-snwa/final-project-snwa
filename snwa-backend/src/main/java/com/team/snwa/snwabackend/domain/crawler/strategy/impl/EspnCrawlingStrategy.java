@@ -31,13 +31,14 @@ import java.util.List;
 public class EspnCrawlingStrategy implements CrawlingStrategy {
 
     private final ObjectMapper objectMapper;
-    private static final String ESPN_NBA_API_URL = "http://site.api.espn.com/apis/site/v2/sports/basketball/nba/news";
+//    private static final String ESPN_NBA_API_URL = "http://site.api.espn.com/apis/site/v2/sports/basketball/nba/news";
+
 
     /**
-     * 지정된 타겟 URL(API)에 접속하여 기사 리스트를 수집하고 파싱을 수행함
-     * 차단 방지를 위해 상세 페이지 접근 시 딜레이(Thread.sleep)를 적용함
+     * DB(CrawlingJob)에서 전달받은 타겟 URL(API)에 접속하여 기사를 수집함
+     * URL만 바꾸면 NBA뿐만 아니라 Soccer, MLB도 크롤링 가능함
      *
-     * @param url 크롤링할 타겟 URL (내부적으로 상수를 우선 사용할 수 있음)
+     * @param url 크롤링할 타겟 API URL
      * @return 수집 완료된 기사 DTO 리스트
      * @author 허준형
      * @DateOfCreated 2026-01-26
@@ -45,12 +46,13 @@ public class EspnCrawlingStrategy implements CrawlingStrategy {
      */
     @Override
     public List<CrawledArticleDto> crawl(String url) {
-        log.info("ESPN Crawling started... Target: {}", ESPN_NBA_API_URL);
+
+        log.info("ESPN Crawling started... Target: {}", url);
         List<CrawledArticleDto> resultList = new ArrayList<>();
 
         try {
-            //
-            String jsonResponse = Jsoup.connect(ESPN_NBA_API_URL)
+
+            String jsonResponse = Jsoup.connect(url)
                     .ignoreContentType(true)
                     .method(Connection.Method.GET)
                     .execute()
@@ -72,7 +74,7 @@ public class EspnCrawlingStrategy implements CrawlingStrategy {
             }
 
         } catch (Exception e) {
-            log.error("ESPN Crawling failed", e);
+            log.error("ESPN Crawling failed for URL", url, e);
             throw new RuntimeException("ESPN 크롤링 중 오류 발생", e);
         }
 

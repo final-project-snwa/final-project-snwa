@@ -9,4 +9,5 @@ import java.util.List;
 @Repository
 public interface CrawlingJobRepository extends JpaRepository<CrawlingJob, Long> {
     List<CrawlingJob> findByIsActiveTrue();
+    boolean existsByJobName(String jobName);
 }
