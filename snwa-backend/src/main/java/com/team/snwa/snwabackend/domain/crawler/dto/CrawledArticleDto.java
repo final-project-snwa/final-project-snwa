@@ -10,8 +10,8 @@ import lombok.ToString;
 public class CrawledArticleDto {
     private String title;
     private String content;
-    private String articleUrl;
-    private String publisher;
-    private String author;
+    private String originalUrl;
+    private String publisherName;
+    private String authorName;
     private String imageUrl;
 }

@@ -2,6 +2,7 @@ package com.team.snwa.snwabackend.domain.article.entity;
 
 import com.team.snwa.snwabackend.global.common.BaseTimeEntity;
 import jakarta.persistence.*;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -36,4 +37,23 @@ public class Article extends BaseTimeEntity {
 
     private String authorName;
     private String publisherName;
+
+    private String imageUrl;
+
+    @Builder
+    public Article(Category category, String title, String content, String translatedContent,
+                    String summary, String originalUrl, String authorName, String publisherName,
+                    String imageUrl) { // ✅ 생성자에도 추가
+        this.category = category;
+        this.title = title;
+        this.content = content;
+        this.translatedContent = translatedContent;
+        this.summary = summary;
+        this.originalUrl = originalUrl;
+        this.authorName = authorName;
+        this.publisherName = publisherName;
+        this.imageUrl = imageUrl; // ✅ 할당
+    }
+
+    public Article() {}
 }
