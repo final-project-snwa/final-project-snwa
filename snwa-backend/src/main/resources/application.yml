@@ -19,6 +19,10 @@ spring:
       hibernate:
         default_batch_fetch_size: 100
 
+  sql:
+    init:
+      mode: always # 항상 data.sql 실행 시도
+
   # aws/s3
   cloud:
     aws:

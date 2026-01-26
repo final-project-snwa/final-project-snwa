@@ -4,8 +4,7 @@ import com.team.snwa.snwabackend.domain.article.entity.Category;
 import com.team.snwa.snwabackend.domain.crawler.entity.enums.SourceName;
 import com.team.snwa.snwabackend.global.common.BaseTimeEntity;
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 
 import java.time.LocalDateTime;
 
@@ -20,6 +19,9 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "crawling_job")
 @Getter
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
 public class CrawlingJob extends BaseTimeEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -32,6 +34,8 @@ public class CrawlingJob extends BaseTimeEntity {
     @Enumerated(EnumType.STRING)
     private SourceName sourceName; // ESPN, BBC 등
 
+    private String jobName;
+
     private String targetUrl; // 타겟 URL
 
     private String cronExpression; // 수집 주기
@@ -40,4 +44,8 @@ public class CrawlingJob extends BaseTimeEntity {
     private boolean isActive; // 활성 여부
 
     private LocalDateTime lastRunAt; // 마지막 실행일
+
+    public void updateLastRunAt() {
+        this.lastRunAt = LocalDateTime.now();
+    }
 }

@@ -1,8 +1,11 @@
 package com.team.snwa.snwabackend.domain.crawler.service;
 
 import com.team.snwa.snwabackend.domain.article.entity.Article;
+import com.team.snwa.snwabackend.domain.article.entity.Category;
 import com.team.snwa.snwabackend.domain.article.repository.ArticleRepository;
+import com.team.snwa.snwabackend.domain.article.repository.CategoryRepository;
 import com.team.snwa.snwabackend.domain.crawler.dto.CrawledArticleDto;
+import com.team.snwa.snwabackend.domain.crawler.dto.CrawlingJobRequestDto;
 import com.team.snwa.snwabackend.domain.crawler.entity.ArticleCrawlingTracking;
 import com.team.snwa.snwabackend.domain.crawler.entity.CrawlingJob;
 import com.team.snwa.snwabackend.domain.crawler.entity.CrawlingLog;
@@ -38,6 +41,9 @@ public class CrawlerService {
     private final CrawlingLogRepository logRepository;
     private final ArticleRepository articleRepository;
     private final ArticleCrawlingTrackingRepository trackingRepository;
+    private final CategoryRepository categoryRepository;
+
+    private static final String ESPN_BASE_URL = "http://site.api.espn.com/apis/site/v2/sports/";
 
     /**
      * 특정 Job ID를 받아 크롤링 프로세스를 실행함
@@ -157,4 +163,56 @@ public class CrawlerService {
 
         return true;
     }
+
+    /**
+     * 관리자 요청을 받아 새로운 크롤링 Job을 DB에 저장함
+     *
+     * @param request Job 생성 요청 DTO
+     * @author 허준형
+     * @DateOfCreated 2026-01-26
+     * @DateOfEdit 2026-01-26
+     */
+    @Transactional
+    public void createCrawlingJob(CrawlingJobRequestDto request) {
+
+        // 카테고리 검증
+        Category category = categoryRepository.findById(request.getCategoryId())
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 카테고리 ID입니다: " + request.getCategoryId()));
+
+
+        // URL 생성 로직
+        String finalUrl;
+
+        if (request.getLeague() != null) {
+            finalUrl = ESPN_BASE_URL + request.getLeague().getApiPath() + "/news";
+        } else if (request.getCustomTargetUrl() != null && !request.getCustomTargetUrl().isEmpty()) {
+            finalUrl = request.getCustomTargetUrl();
+        } else {
+            throw new IllegalArgumentException("리그를 선택하거나 타겟 URL을 입력해야 합니다.");
+        }
+
+
+        String cron = request.getCronExpression();
+        if (cron == null || cron.isEmpty()) {
+            cron = "0 0 * * * *";
+        }
+
+
+        CrawlingJob newJob = CrawlingJob.builder()
+                .sourceName(request.getSourceName())
+                .jobName(request.getJobName())
+                .targetUrl(finalUrl)
+                .category(category)
+                .cronExpression(cron)
+                .isActive(true)
+                .build();
+
+        if (jobRepository.existsByJobName(request.getJobName())) {
+            throw new IllegalArgumentException("이미 존재하는 Job 이름입니다: " + request.getJobName());
+        }
+
+        jobRepository.save(newJob);
+        log.info("새로운 크롤링 Job 생성 완료: {} (주기: {})", newJob.getJobName(), cron);
+    }
+
 }
