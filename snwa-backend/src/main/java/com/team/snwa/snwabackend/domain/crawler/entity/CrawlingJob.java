@@ -25,6 +25,7 @@ public class CrawlingJob extends BaseTimeEntity {
     private SourceName sourceName; // ESPN, BBC 등
 
     private String targetUrl; // 타겟 URL
+
     private String cronExpression; // 수집 주기
 
     @Column(columnDefinition = "TINYINT(1)")
