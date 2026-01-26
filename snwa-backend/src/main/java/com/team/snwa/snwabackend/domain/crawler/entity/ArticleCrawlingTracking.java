@@ -19,6 +19,7 @@ public class ArticleCrawlingTracking {
     private Article article; // 실제 기사 테이블과 1:1 연결
 
     private Long jobId; // 수집 출처 Job ID (FK)
+
     private Long categoryId; // 기사 종목
 
     @Column(name = "article_url")
