@@ -1,6 +1,5 @@
 package com.team.snwa.snwabackend.domain.article.entity;
 
-import com.team.snwa.snwabackend.domain.user.entity.User;
 import com.team.snwa.snwabackend.global.common.BaseTimeEntity;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -32,8 +31,4 @@ public class Article extends BaseTimeEntity {
 
     private String authorName;
     private String publisherName;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "author_id")
-    private User author;
 }
