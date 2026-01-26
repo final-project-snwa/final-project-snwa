@@ -58,6 +58,7 @@ dependencies {
 
     // aws/s3
     implementation 'io.awspring.cloud:spring-cloud-aws-starter-s3:3.1.1'
+    implementation 'software.amazon.awssdk:s3'
 
     // mail
     implementation 'org.springframework.boot:spring-boot-starter-mail'
