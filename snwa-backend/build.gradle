@@ -1,6 +1,6 @@
 plugins {
     id 'java'
-    id 'org.springframework.boot' version '4.0.1'
+    id 'org.springframework.boot' version '3.5.9'
     id 'io.spring.dependency-management' version '1.1.7'
 }
 
@@ -22,11 +22,14 @@ configurations {
 
 repositories {
     mavenCentral()
+    // Spring AI 마일스톤 버전을 받기 위해 필요한 저장소
+    maven { url 'https://repo.spring.io/milestone' }
 }
 
 dependencies {
     // web
     implementation 'org.springframework.boot:spring-boot-starter-web'
+
 
     // database
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
@@ -55,6 +58,7 @@ dependencies {
 
     // aws/s3
     implementation 'io.awspring.cloud:spring-cloud-aws-starter-s3:3.1.1'
+    implementation 'software.amazon.awssdk:s3'
 
     // mail
     implementation 'org.springframework.boot:spring-boot-starter-mail'
@@ -67,6 +71,25 @@ dependencies {
     annotationProcessor "com.querydsl:querydsl-apt:5.1.0:jakarta"
     annotationProcessor "jakarta.annotation:jakarta.annotation-api"
     annotationProcessor "jakarta.persistence:jakarta.persistence-api"
+
+    // Selenium & Jsoup
+    implementation 'org.seleniumhq.selenium:selenium-java:4.22.0'
+    implementation 'org.jsoup:jsoup:1.18.3'
+
+    // Spring AI
+    implementation 'org.springframework.ai:spring-ai-openai-spring-boot-starter'
+
+    // DeepL
+    implementation "com.deepl.api:deepl-java:1.14.0"
+
+    // WebClient
+    implementation 'org.springframework.boot:spring-boot-starter-webflux'
+}
+
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.ai:spring-ai-bom:1.0.0-M5"
+    }
 }
 
 tasks.named('test') {

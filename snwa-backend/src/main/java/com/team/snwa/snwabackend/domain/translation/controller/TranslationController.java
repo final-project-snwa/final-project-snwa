@@ -1,0 +1,30 @@
+//package com.team.snwa.snwabackend.domain.translation.controller;
+//
+//import com.team.snwa.snwabackend.domain.translation.dto.request.CrawledArticleRequestDto;
+//import com.team.snwa.snwabackend.domain.translation.dto.response.TranslatedArticleResponseDto;
+//import com.team.snwa.snwabackend.domain.translation.service.TranslationService;
+//import lombok.RequiredArgsConstructor;
+//import lombok.extern.slf4j.Slf4j;
+//import org.springframework.http.ResponseEntity;
+//import org.springframework.web.bind.annotation.*;
+//
+//@Slf4j
+//@RestController
+//@RequestMapping("/api/article/{articleId}")
+//@RequiredArgsConstructor
+//public class TranslationController {
+//
+//    private final TranslationService translationService;
+//
+//    @PostMapping("/translation/test")
+//    public ResponseEntity<TranslatedArticleResponseDto> translateArticle(
+//            @PathVariable Long articleId) {
+//        log.info("번역 요청 받음: articleId={}", articleId);
+//
+//        TranslatedArticleResponseDto response = translationService.translateArticle(articleId);
+//
+//        return ResponseEntity.ok(response);
+//    }
+//}
+
+//Postman 테스트용 컨트롤
