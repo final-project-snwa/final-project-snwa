@@ -1,7 +1,8 @@
 //package com.team.snwa.snwabackend.domain.translation.controller;
 //
-//import com.team.snwa.snwabackend.domain.translation.dto.request.CrawledArticleRequestDto;
+//import com.team.snwa.snwabackend.domain.translation.dto.response.SummaryResponseDto;
 //import com.team.snwa.snwabackend.domain.translation.dto.response.TranslatedArticleResponseDto;
+//import com.team.snwa.snwabackend.domain.translation.service.SummaryService;
 //import com.team.snwa.snwabackend.domain.translation.service.TranslationService;
 //import lombok.RequiredArgsConstructor;
 //import lombok.extern.slf4j.Slf4j;
@@ -15,6 +16,7 @@
 //public class TranslationController {
 //
 //    private final TranslationService translationService;
+//    private final SummaryService summaryService;
 //
 //    @PostMapping("/translation/test")
 //    public ResponseEntity<TranslatedArticleResponseDto> translateArticle(
@@ -23,6 +25,13 @@
 //
 //        TranslatedArticleResponseDto response = translationService.translateArticle(articleId);
 //
+//        return ResponseEntity.ok(response);
+//    }
+//
+//    @PostMapping("/summary")
+//    public ResponseEntity<SummaryResponseDto> summarizeArticle(@PathVariable Long articleId) {
+//        log.info("요약 요청 받음: articleId={}", articleId);
+//        SummaryResponseDto response = summaryService.summarizeArticle(articleId);
 //        return ResponseEntity.ok(response);
 //    }
 //}

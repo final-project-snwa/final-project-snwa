@@ -2,9 +2,6 @@ spring:
   application:
     name: snwa-backend
 
-  ai:
-    enabled: false
-
   datasource:
     url: jdbc:mysql://localhost:3306/snwa
     username: root
@@ -23,17 +20,22 @@ spring:
     init:
       mode: always # 항상 data.sql 실행 시도
 
-  # aws/s3
-  cloud:
-    aws:
-      credentials:
-        access-key: ${AWS_ACCESS_KEY_ID}
-        secret-key: ${AWS_SECRET_ACCESS_KEY}
-      region:
-        static: ${AWS_REGION_STATIC}
-      s3:
-        bucket: ${AWS_S3_BUCKET}
-        enabled: false
+  #S3 오류 해결시 삭제
+  autoconfigure:
+    exclude:
+      - io.awspring.cloud.autoconfigure.s3.S3AutoConfiguration
+
+#  # aws/s3
+#  cloud:
+#    aws:
+#      credentials:
+#        access-key: ${AWS_ACCESS_KEY_ID}
+#        secret-key: ${AWS_SECRET_ACCESS_KEY}
+#      region:
+#        static: ${AWS_REGION_STATIC}
+#      s3:
+#        bucket: ${AWS_S3_BUCKET}
+#        #enabled: false
 
   # mail
   mail:
@@ -47,6 +49,15 @@ spring:
           auth: true
           starttls:
             enable: true
+
+  ai:
+    google:
+      genai:
+        api-key: ${GEMINI_API_KEY}
+        chat:
+          options:
+            model: gemini-2.5-flash-lite
+            temperature: 0.2
 
 translation:
   deepl:
