@@ -30,6 +30,7 @@ public class Article extends BaseTimeEntity {
     @Setter
     private String translatedContent;
 
+    @Setter
     private String summary;
 
     @Column(unique = true)
