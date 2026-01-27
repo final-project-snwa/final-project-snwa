@@ -47,5 +47,23 @@ public class Wallet extends BaseTimeEntity {
         return wallet;
     }
 
+    //todo: 에러코드 추가하기
+    public void increase(Long amount) {
+        if (amount == null || amount <= 0) {
+            throw new IllegalArgumentException("amount must be positive");
+        }
+        this.balance += amount;
+    }
+
+    public void decrease(Long amount) {
+        if (amount == null || amount <= 0) {
+            throw new IllegalArgumentException("amount must be positive");
+        }
+        if (this.balance < amount) {
+            throw new IllegalStateException("insufficient balance");
+        }
+        this.balance -= amount;
+    }
+
 
 }
