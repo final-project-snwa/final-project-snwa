@@ -12,16 +12,19 @@ import java.util.Optional;
 public interface ArticleRepository extends JpaRepository<Article, Long> {
 
     @Query("SELECT a FROM Article a " +
-           "LEFT JOIN FETCH a.category " +
-           "WHERE (:categoryId IS NULL OR a.category.id = :categoryId) " +
-           "ORDER BY a.createdDate DESC")
+            "LEFT JOIN FETCH a.category " +
+            "WHERE (:categoryId IS NULL OR a.category.id = :categoryId) " +
+            "ORDER BY a.createdDate DESC")
     Page<Article> findAllWithCategory(
             @Param("categoryId") Long categoryId,
             Pageable pageable
     );
 
     @Query("SELECT a FROM Article a " +
-           "LEFT JOIN FETCH a.category " +
-           "WHERE a.id = :id")
+            "LEFT JOIN FETCH a.category " +
+            "WHERE a.id = :id")
     Optional<Article> findByIdWithCategory(@Param("id") Long id);
+
+    // 크롤링한 기사 중복 검사용
+    boolean existsByOriginalUrl(String originalUrl);
 }
