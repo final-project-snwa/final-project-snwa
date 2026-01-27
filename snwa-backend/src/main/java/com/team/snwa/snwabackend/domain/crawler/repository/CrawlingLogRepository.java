@@ -4,4 +4,5 @@ import com.team.snwa.snwabackend.domain.crawler.entity.CrawlingLog;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface CrawlingLogRepository extends JpaRepository<CrawlingLog, Long> {
+    void deleteByCrawlingJobId(Long jobId);
 }

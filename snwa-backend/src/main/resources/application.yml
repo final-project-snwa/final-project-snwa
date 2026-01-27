@@ -62,5 +62,11 @@ spring:
 translation:
   deepl:
     api:
-      key: ${DEEPL_API_KEY}
-      base-url: ${DEEPL_API_BASE_URL}
+      key: cabd1d9a-b911-472a-8b5a-d82f07c7d03e:fx
+      base-url: https://api-free.deepl.com/v2
+
+#translation:
+#  deepl:
+#    api:
+#      key: ${DEEPL_API_KEY}
+#      base-url: ${DEEPL_API_BASE_URL}

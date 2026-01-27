@@ -48,4 +48,26 @@ public class CrawlingJob extends BaseTimeEntity {
     public void updateLastRunAt() {
         this.lastRunAt = LocalDateTime.now();
     }
+
+    /**
+     * 크롤링 실행 주기를 변경함 (Dirty Checking용)
+     *
+     * @param cronExpression 변경할 Cron 표현식
+     * @author 허준형
+     * @DateOfCreated 2026-01-27
+     */
+    public void updateCron(String cronExpression) {
+        this.cronExpression = cronExpression;
+    }
+
+    /**
+     * 작업의 활성/비활성 상태를 변경함 (Dirty Checking용)
+     *
+     * @param isActive true: 활성, false: 중지
+     * @author 허준형
+     * @DateOfCreated 2026-01-27
+     */
+    public void updateActive(boolean isActive) {
+        this.isActive = isActive;
+    }
 }
