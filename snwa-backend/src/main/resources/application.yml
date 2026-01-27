@@ -3,10 +3,14 @@ spring:
     name: snwa-backend
 
   datasource:
-    url: jdbc:mysql://localhost:3306/snwa
-    username: root
-    password: root1234
-    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/snwa}
+    username: ${SPRING_DATASOURCE_USERNAME:root}
+    password: ${SPRING_DATASOURCE_PASSWORD:root1234}
+    # driver-class-name은 Spring Boot 3.x에서 자동 감지되므로 생략 가능
+    hikari:
+      connection-timeout: 5000
+      maximum-pool-size: 5
+      minimum-idle: 1
 
   jpa:
     hibernate:
@@ -14,16 +18,26 @@ spring:
     show-sql: true
     properties:
       hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
         default_batch_fetch_size: 100
+        format_sql: true
+    database-platform: org.hibernate.dialect.MySQLDialect
 
   sql:
     init:
-      mode: always # 항상 data.sql 실행 시도
+      mode: never
 
-  #S3 오류 해결시 삭제
-  autoconfigure:
-    exclude:
-      - io.awspring.cloud.autoconfigure.s3.S3AutoConfiguration
+  # aws/s3
+  cloud:
+    aws:
+      credentials:
+        access-key: ${AWS_ACCESS_KEY_ID}
+        secret-key: ${AWS_SECRET_ACCESS_KEY}
+      region:
+        static: ${AWS_REGION_STATIC}
+      s3:
+        bucket: ${AWS_S3_BUCKET}
+#        enabled: false
 
 #  # aws/s3
 #  cloud:
@@ -39,18 +53,27 @@ spring:
 
   # mail
   mail:
-    host: smtp.gmail.com
-    port: 587
+    host: ${MAIL_HOST:smtp.gmail.com}  # 기본값: Gmail, 다른 서비스 사용 시 환경 변수로 변경
+    port: ${MAIL_PORT:587}  # 기본값: 587, SSL 사용 시 465
     username: ${MAIL_USERNAME}
     password: ${MAIL_PASSWORD}
     properties:
       mail:
         smtp:
-          auth: true
+          auth: ${MAIL_SMTP_AUTH:true}
           starttls:
-            enable: true
+            enable: ${MAIL_SMTP_STARTTLS_ENABLE:true}
+            required: true
+          ssl:
+            enable: ${MAIL_SMTP_SSL_ENABLE:false}  # SSL 사용 시 true (포트 465)
+            trust: ${MAIL_SMTP_SSL_TRUST:smtp.gmail.com}  # Gmail SMTP 서버 신뢰
+            protocols: TLSv1.2
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
 
   ai:
+    enabled: false
     google:
       genai:
         api-key: ${GEMINI_API_KEY}
@@ -62,11 +85,14 @@ spring:
 translation:
   deepl:
     api:
-      key: cabd1d9a-b911-472a-8b5a-d82f07c7d03e:fx
-      base-url: https://api-free.deepl.com/v2
+      key: ${DEEPL_API_KEY}
+      base-url: ${DEEPL_API_BASE_URL}
 
-#translation:
-#  deepl:
-#    api:
-#      key: ${DEEPL_API_KEY}
-#      base-url: ${DEEPL_API_BASE_URL}
+# JWT 설정
+jwt:
+  secret: ${JWT_SECRET:your-secret-key-minimum-512-bits-for-hs512-algorithm-please-use-a-strong-secret-key-in-production-environment}
+  expiration: 86400  # 24시간 (초 단위)
+
+# 앱 설정
+app:
+  base-url: ${APP_BASE_URL:http://localhost:70}  # 이메일 인증 링크에 사용할 기본 URL (nginx 포트)

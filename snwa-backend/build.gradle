@@ -33,7 +33,7 @@ dependencies {
 
     // database
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-    runtimeOnly 'com.mysql:mysql-connector-j'
+    implementation 'com.mysql:mysql-connector-j'
 
     // dev
     compileOnly 'org.projectlombok:lombok'

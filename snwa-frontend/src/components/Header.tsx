@@ -74,7 +74,7 @@ export default function Header({ showCategories = false, selectedCategory, onCat
                     <User className="w-4 h-4 text-white" />
                   </div>
                   <span className="text-sm text-gray-700 hidden sm:inline">
-                    {user.email.split('@')[0]}
+                    {user.nickname || user.email.split('@')[0]}
                   </span>
                 </button>
 
