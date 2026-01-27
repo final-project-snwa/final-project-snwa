@@ -16,6 +16,7 @@ public class ArticleListResponseDto {
     private String categoryName;
     private String authorName;
     private String publisherName;
+    private String imageUrl;
     private LocalDateTime createdDate;
     private LocalDateTime updatedDate;
 
@@ -30,6 +31,7 @@ public class ArticleListResponseDto {
                         : null)
                 .authorName(article.getAuthorName())
                 .publisherName(article.getPublisherName())
+                .imageUrl(article.getImageUrl())
                 .createdDate(article.getCreatedDate())
                 .updatedDate(article.getUpdatedDate())
                 .build();
