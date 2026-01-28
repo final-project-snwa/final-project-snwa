@@ -16,10 +16,13 @@ import com.team.snwa.snwabackend.domain.crawler.repository.ArticleCrawlingTracki
 import com.team.snwa.snwabackend.domain.crawler.repository.CrawlingJobRepository;
 import com.team.snwa.snwabackend.domain.crawler.repository.CrawlingLogRepository;
 import com.team.snwa.snwabackend.domain.crawler.strategy.CrawlingStrategy;
+import com.team.snwa.snwabackend.domain.translation.service.TranslationSummaryScheduler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronizationAdapter;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -43,6 +46,7 @@ public class CrawlerService {
     private final ArticleRepository articleRepository;
     private final ArticleCrawlingTrackingRepository trackingRepository;
     private final CategoryRepository categoryRepository;
+    private final TranslationSummaryScheduler translationSummaryScheduler;
 
     private static final String ESPN_BASE_URL = "http://site.api.espn.com/apis/site/v2/sports/";
 
@@ -88,6 +92,26 @@ public class CrawlerService {
 
             // 성공 상태 업데이트
             crawlingLog.updateSuccess(savedCount);
+
+            // 크롤링 완료 후 번역/요약 스케줄러 실행 (트랜잭션 커밋 후 실행)
+            if (savedCount > 0) {
+                log.info("크롤링 완료: {}개 기사 저장됨. 번역/요약 스케줄러는 트랜잭션 커밋 후 실행됩니다.", savedCount);
+
+                // 트랜잭션 커밋 후 스케줄러 실행
+                TransactionSynchronizationManager.registerSynchronization(
+                        new TransactionSynchronizationAdapter() {
+                            @Override
+                            public void afterCommit() {
+                                try {
+                                    log.info("트랜잭션 커밋 완료. 번역/요약 스케줄러 실행");
+                                    translationSummaryScheduler.processTranslationAndSummary();
+                                } catch (Exception e) {
+                                    log.error("번역/요약 스케줄러 실행 중 오류 발생", e);
+                                }
+                            }
+                        }
+                );
+            }
 
         } catch (Exception e) {
             log.error("크롤링 작업 실패: JobId=" + jobId, e);

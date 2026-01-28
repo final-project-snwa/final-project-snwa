@@ -9,6 +9,7 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StreamUtils;
 
@@ -24,7 +25,7 @@ public class SummaryService {
     private final ArticleRepository articleRepository;
     private final ResourceLoader resourceLoader;    // 파일, url등 추상적으로 불러올 수 있도록 해줌(Spring Framework 기능)
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public SummaryResponseDto summarizeArticle(Long articleId) {
         log.info("기사 요약 시작: articleId={}", articleId);
 
