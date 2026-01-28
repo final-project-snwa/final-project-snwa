@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface ArticleRepository extends JpaRepository<Article, Long> {
@@ -91,4 +92,36 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
 
     // 크롤링한 기사 중복 검사용
     boolean existsByOriginalUrl(String originalUrl);
+
+    /**
+     * 번역이 안된 기사 조회 (translatedTitle 또는 translatedContent가 null인 기사)
+     * @param pageable 페이징 정보
+     * @return 번역이 필요한 기사 목록
+     */
+    @Query(value = "SELECT a FROM Article a " +
+            "LEFT JOIN FETCH a.category " +
+            "WHERE (a.translatedTitle IS NULL OR a.translatedContent IS NULL) " +
+            "AND a.title IS NOT NULL " +
+            "AND a.content IS NOT NULL " +
+            "ORDER BY a.createdDate ASC",
+            countQuery = "SELECT COUNT(a) FROM Article a " +
+                    "WHERE (a.translatedTitle IS NULL OR a.translatedContent IS NULL) " +
+                    "AND a.title IS NOT NULL AND a.content IS NOT NULL")
+    Page<Article> findArticlesNeedingTranslation(Pageable pageable);
+
+    /**
+     * 요약이 안된 기사 조회 (summary가 null이고 translatedContent가 있는 기사)
+     * @param pageable 페이징 정보
+     * @return 요약이 필요한 기사 목록
+     */
+    @Query(value = "SELECT a FROM Article a " +
+            "LEFT JOIN FETCH a.category " +
+            "WHERE a.summary IS NULL " +
+            "AND a.translatedContent IS NOT NULL " +
+            "AND a.translatedContent != '' " +
+            "ORDER BY a.createdDate ASC",
+            countQuery = "SELECT COUNT(a) FROM Article a " +
+                    "WHERE a.summary IS NULL " +
+                    "AND a.translatedContent IS NOT NULL AND a.translatedContent != ''")
+    Page<Article> findArticlesNeedingSummary(Pageable pageable);
 }

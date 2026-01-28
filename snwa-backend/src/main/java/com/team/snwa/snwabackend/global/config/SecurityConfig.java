@@ -55,6 +55,7 @@ public class SecurityConfig {
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()  // 인증 관련 엔드포인트는 허용
+                                .requestMatchers("/api/scheduler/**").permitAll()  // 요약 및 번역테스트용 스케줄러
                         .requestMatchers("/error").permitAll()  // 에러 페이지 허용
                         .requestMatchers("/api/admin/crawler/**").permitAll() // 테스트용
 //                        .requestMatchers("/api/admin/crawler/**").hasRole("ADMIN") // 서비스용
