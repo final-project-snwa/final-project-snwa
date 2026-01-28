@@ -6,6 +6,7 @@ import com.team.snwa.snwabackend.domain.article.repository.ArticleRepository;
 import com.team.snwa.snwabackend.domain.article.repository.CategoryRepository;
 import com.team.snwa.snwabackend.domain.crawler.dto.CrawledArticleDto;
 import com.team.snwa.snwabackend.domain.crawler.dto.CrawlingJobRequestDto;
+import com.team.snwa.snwabackend.domain.crawler.dto.CrawlingJobUpdateDto;
 import com.team.snwa.snwabackend.domain.crawler.entity.ArticleCrawlingTracking;
 import com.team.snwa.snwabackend.domain.crawler.entity.CrawlingJob;
 import com.team.snwa.snwabackend.domain.crawler.entity.CrawlingLog;
@@ -168,21 +169,18 @@ public class CrawlerService {
      * 관리자 요청을 받아 새로운 크롤링 Job을 DB에 저장함
      *
      * @param request Job 생성 요청 DTO
+     * @return 생성된 CrawlingJob의 ID
      * @author 허준형
      * @DateOfCreated 2026-01-26
      * @DateOfEdit 2026-01-26
      */
     @Transactional
-    public void createCrawlingJob(CrawlingJobRequestDto request) {
+    public Long createCrawlingJob(CrawlingJobRequestDto request) {
 
-        // 카테고리 검증
         Category category = categoryRepository.findById(request.getCategoryId())
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 카테고리 ID입니다: " + request.getCategoryId()));
 
-
-        // URL 생성 로직
         String finalUrl;
-
         if (request.getLeague() != null) {
             finalUrl = ESPN_BASE_URL + request.getLeague().getApiPath() + "/news";
         } else if (request.getCustomTargetUrl() != null && !request.getCustomTargetUrl().isEmpty()) {
@@ -191,12 +189,10 @@ public class CrawlerService {
             throw new IllegalArgumentException("리그를 선택하거나 타겟 URL을 입력해야 합니다.");
         }
 
-
         String cron = request.getCronExpression();
         if (cron == null || cron.isEmpty()) {
-            cron = "0 0 * * * *";
+            cron = "0 0 * * * *"; // 기본 1시간
         }
-
 
         CrawlingJob newJob = CrawlingJob.builder()
                 .sourceName(request.getSourceName())
@@ -211,8 +207,58 @@ public class CrawlerService {
             throw new IllegalArgumentException("이미 존재하는 Job 이름입니다: " + request.getJobName());
         }
 
-        jobRepository.save(newJob);
-        log.info("새로운 크롤링 Job 생성 완료: {} (주기: {})", newJob.getJobName(), cron);
+        CrawlingJob savedJob = jobRepository.save(newJob);
+        log.info("새로운 크롤링 Job 생성 완료: {} (ID: {})", savedJob.getJobName(), savedJob.getId());
+
+        return savedJob.getId();
+    }
+
+
+    /**
+     * 모든 크롤링 작업 목록을 조회함
+     */
+    @Transactional(readOnly = true)
+    public List<CrawlingJob> getAllJobs() {
+        return jobRepository.findAll();
+    }
+
+    /**
+     * 크롤링 작업의 정보를 수정함 (스케줄 변경, 활성/비활성 상태 변경)
+     * 변경 감지(Dirty Checking)를 이용해 DB 업데이트 수행
+     * * @return 수정된 CrawlingJob 엔티티 (스케줄러 반영을 위해 반환)
+     */
+    @Transactional
+    public CrawlingJob updateCrawlingJob(Long jobId, CrawlingJobUpdateDto dto) {
+        CrawlingJob job = jobRepository.findById(jobId)
+                .orElseThrow(() -> new IllegalArgumentException("Job not found: " + jobId));
+
+        // Cron 변경 요청이 있으면 업데이트
+        if (dto.getCronExpression() != null && !dto.getCronExpression().isEmpty()) {
+            job.updateCron(dto.getCronExpression()); // Entity에 해당 메서드 혹은 setter 필요
+        }
+
+        // 활성/비활성 상태 변경 요청이 있으면 업데이트
+        if (dto.getIsActive() != null) {
+            job.updateActive(dto.getIsActive());
+        }
+
+        return job;
+    }
+
+    /**
+     * 크롤링 작업을 삭제함
+     */
+    @Transactional
+    public void deleteCrawlingJob(Long jobId) {
+        if (!jobRepository.existsById(jobId)) {
+            throw new IllegalArgumentException("Job not found: " + jobId);
+        }
+
+        logRepository.deleteByCrawlingJobId(jobId);
+        trackingRepository.deleteByJobId(jobId);
+        jobRepository.deleteById(jobId);
+
+        log.info("Job ID {} 및 관련 로그/추적 데이터 삭제 완료", jobId);
     }
 
 }

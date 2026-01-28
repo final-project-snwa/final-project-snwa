@@ -1,6 +1,6 @@
 plugins {
     id 'java'
-    id 'org.springframework.boot' version '3.5.9'
+    id 'org.springframework.boot' version '3.4.2'
     id 'io.spring.dependency-management' version '1.1.7'
 }
 
@@ -33,7 +33,7 @@ dependencies {
 
     // database
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-    runtimeOnly 'com.mysql:mysql-connector-j'
+    implementation 'com.mysql:mysql-connector-j'
 
     // dev
     compileOnly 'org.projectlombok:lombok'
@@ -77,18 +77,21 @@ dependencies {
     implementation 'org.jsoup:jsoup:1.18.3'
 
     // Spring AI
-    implementation 'org.springframework.ai:spring-ai-openai-spring-boot-starter'
+    implementation 'org.springframework.ai:spring-ai-starter-model-google-genai'
 
     // DeepL
     implementation "com.deepl.api:deepl-java:1.14.0"
 
     // WebClient
     implementation 'org.springframework.boot:spring-boot-starter-webflux'
+
+    // test
+    testImplementation 'com.h2database:h2'
 }
 
 dependencyManagement {
     imports {
-        mavenBom "org.springframework.ai:spring-ai-bom:1.0.0-M5"
+        mavenBom "org.springframework.ai:spring-ai-bom:1.1.2"
     }
 }
 

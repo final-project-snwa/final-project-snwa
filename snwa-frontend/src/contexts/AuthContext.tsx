@@ -2,6 +2,7 @@ import { createContext, useContext, useState, ReactNode, useEffect } from 'react
 
 interface User {
   email: string;
+  nickname?: string;
   preferredSports: string[];
 }
 
@@ -22,7 +23,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const savedUser = localStorage.getItem('snwa_user');
     if (savedUser) {
-      setUser(JSON.parse(savedUser));
+      try {
+        setUser(JSON.parse(savedUser));
+      } catch (e) {
+        console.error('Failed to parse user data:', e);
+      }
     }
   }, []);
 

@@ -1,0 +1,58 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  jpa:
+    defer-datasource-initialization: true
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+
+  cloud:
+    aws:
+      s3:
+        bucket: test-bucket
+      region:
+        static: us-east-1
+      credentials:
+        access-key: test-access-key
+        secret-key: test-secret-key
+
+  ai:
+    google:
+      genai:
+        project-id: test-project-id
+        location: us-central1
+        api-key: test-ai-api-key
+        chat:
+          options:
+            model: gemini-pro
+
+  # [NEW] 가짜 이메일 설정 (이 부분이 없어서 방금 오류가 났습니다)
+  mail:
+    host: localhost
+    port: 2525
+    username: test-user
+    password: test-password
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+# --- spring과 줄맞춤 주의 (여기부터는 spring 밖입니다) ---
+
+translation:
+  deepl:
+    api:
+      key: test-deepl-api-key
+      base-url: https://api.test.com
+
+jwt:
+  secret: this-is-a-very-long-dummy-secret-key-for-test-environment-configuration-to-pass-security-config
+  expiration: 3600000
+  refresh-expiration: 86400000

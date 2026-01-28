@@ -1,19 +1,22 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { useAuth } from '../contexts/AuthContext';
+
+const API_BASE_URL = '/api/auth';
 
 export default function SignupPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [nickname, setNickname] = useState('');
   const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signup } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setMessage('');
 
     // Validation
     if (password !== confirmPassword) {
@@ -21,18 +24,63 @@ export default function SignupPage() {
       return;
     }
 
-    if (password.length < 6) {
-      setError('비밀번호는 6자 이상이어야 합니다.');
+    // 비밀번호 검증: 영문+숫자+특수문자 8자 이상
+    const passwordRegex = /^(?=.*[a-zA-Z])(?=.*[0-9])(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>/?]).{8,}$/;
+    if (!passwordRegex.test(password)) {
+      setError('비밀번호는 영문, 숫자, 특수문자를 포함하여 8자 이상이어야 합니다.');
+      return;
+    }
+
+    if (!nickname || nickname.length < 1 || nickname.length > 12) {
+      setError('닉네임은 1자 이상 12자 이하여야 합니다.');
       return;
     }
 
     setLoading(true);
-    const success = await signup(email, password);
-    
-    if (success) {
-      navigate('/');
-    } else {
-      setError('이미 사용 중인 이메일입니다.');
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/signup`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          password,
+          nickname,
+        }),
+      });
+
+      // 응답 본문이 있는지 확인
+      const contentType = response.headers.get('content-type');
+      let data = { message: '' };
+      
+      if (contentType && contentType.includes('application/json')) {
+        const text = await response.text();
+        if (text) {
+          try {
+            data = JSON.parse(text);
+          } catch (e) {
+            console.error('JSON 파싱 오류:', e);
+          }
+        }
+      }
+
+      if (response.ok) {
+        setMessage(data.message || '회원가입이 완료되었습니다. 이메일을 확인하여 인증을 완료해주세요.');
+        setEmail('');
+        setPassword('');
+        setConfirmPassword('');
+        setNickname('');
+        // 3초 후 로그인 페이지로 이동
+        setTimeout(() => {
+          navigate('/login');
+        }, 3000);
+      } else {
+        setError(data.message || `회원가입에 실패했습니다. (${response.status})`);
+      }
+    } catch (err) {
+      setError(`서버 연결 실패: ${err instanceof Error ? err.message : '알 수 없는 오류'}`);
     }
     
     setLoading(false);
@@ -78,7 +126,7 @@ export default function SignupPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                placeholder="6자 이상 입력"
+                placeholder="영문+숫자+특수문자 8자 이상"
               />
             </div>
 
@@ -97,6 +145,27 @@ export default function SignupPage() {
               />
             </div>
 
+            <div>
+              <label htmlFor="nickname" className="block text-sm font-medium text-gray-700 mb-1">
+                닉네임
+              </label>
+              <input
+                id="nickname"
+                type="text"
+                value={nickname}
+                onChange={(e) => setNickname(e.target.value)}
+                required
+                maxLength={12}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                placeholder="닉네임 (1-12자)"
+              />
+            </div>
+
+            {message && (
+              <div className="text-sm text-green-600 bg-green-50 px-3 py-2 rounded">
+                {message}
+              </div>
+            )}
             {error && (
               <div className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded">
                 {error}

@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { useAuth } from '../contexts/AuthContext';
+
+const API_BASE_URL = '/api/auth';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -15,12 +15,45 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
 
-    const success = await login(email, password);
-    
-    if (success) {
-      navigate('/');
-    } else {
-      setError('이메일 또는 비밀번호가 올바르지 않습니다.');
+    try {
+      const response = await fetch(`${API_BASE_URL}/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          password,
+        }),
+      });
+
+      // 응답 본문이 있는지 확인
+      const contentType = response.headers.get('content-type');
+      let data = { token: '', message: '' };
+      
+      if (contentType && contentType.includes('application/json')) {
+        const text = await response.text();
+        if (text) {
+          try {
+            data = JSON.parse(text);
+          } catch (e) {
+            console.error('JSON 파싱 오류:', e);
+          }
+        }
+      }
+
+      if (response.ok) {
+        // JWT 토큰을 localStorage에 저장
+        if (data.token) {
+          localStorage.setItem('snwa_token', data.token);
+          localStorage.setItem('snwa_user', JSON.stringify({ email }));
+        }
+        navigate('/');
+      } else {
+        setError(data.message || '이메일 또는 비밀번호가 올바르지 않습니다.');
+      }
+    } catch (err) {
+      setError(`서버 연결 실패: ${err instanceof Error ? err.message : '알 수 없는 오류'}`);
     }
     
     setLoading(false);
@@ -86,11 +119,17 @@ export default function LoginPage() {
           </form>
 
           {/* Signup Link */}
-          <div className="mt-6 text-center">
+          <div className="mt-6 text-center space-y-2">
             <p className="text-sm text-gray-600">
               계정이 없으신가요?{' '}
               <Link to="/signup" className="text-gray-900 font-medium hover:underline">
                 회원가입
+              </Link>
+            </p>
+            <p className="text-sm text-gray-600">
+              비밀번호를 잊으셨나요?{' '}
+              <Link to="/forgot-password" className="text-gray-900 font-medium hover:underline">
+                비밀번호 찾기
               </Link>
             </p>
           </div>
