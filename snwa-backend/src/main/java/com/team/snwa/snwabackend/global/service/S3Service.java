@@ -26,7 +26,7 @@ public class S3Service {
 
     /**
      * Presigned URL 생성
-     * 
+     *
      * @param userId      사용자 ID
      * @param contentType 파일 타입 (예: image/jpeg)
      * @param directory   저장할 디렉토리 (예: profiles)
@@ -62,7 +62,7 @@ public class S3Service {
 
     /**
      * S3 객체 삭제
-     * 
+     *
      * @param fileUrl 삭제할 파일 URL
      */
     public void deleteObject(String fileUrl) {
