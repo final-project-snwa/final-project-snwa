@@ -37,12 +37,12 @@ public class ArticleCrawlingTracking {
     @Column(name = "title_origin")
     private String titleOrigin; // 수집된 원문 제목
 
-    @Column(name = "content_origin", columnDefinition = "TEXT")
+    @Column(name = "content_origin", columnDefinition = "LONGTEXT")
     private String contentOrigin; // 수집된 원문 본문
 
     @Column(name = "title_ko")
     private String titleKo; // AI가 번역한 결과물 제목
 
-    @Column(name = "content_ko", columnDefinition = "TEXT")
+    @Column(name = "content_ko", columnDefinition = "LONGTEXT")
     private String contentKo; // AI가 번역한 결과물 본문
 }

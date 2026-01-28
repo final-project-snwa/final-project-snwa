@@ -99,4 +99,43 @@ public class AdminCrawlerController {
         crawlerService.executeJob(jobId);
         return ResponseEntity.ok("관리자 요청으로 Job ID " + jobId + " 가 즉시 실행되었습니다.");
     }
+
+    /**
+     * 전체 중지
+     *
+     * @author 허준형
+     * @DateOfCreated 2026-01-28
+     * @DateOfEdit 2026-01-28
+     */
+    @PostMapping("/global/stop")
+    public ResponseEntity<String> stopAllJobs() {
+        schedulingService.stopAll();
+        return ResponseEntity.ok("🚨 모든 크롤링 스케줄이 중단되었습니다. (Emergency Stop)");
+    }
+
+    /**
+     * 전체 시작
+     *
+     * @author 허준형
+     * @DateOfCreated 2026-01-28
+     * @DateOfEdit 2026-01-28
+     */
+    @PostMapping("/global/start")
+    public ResponseEntity<String> startAllJobs() {
+        schedulingService.startAll();
+        return ResponseEntity.ok("🔄 모든 활성 작업이 스케줄러에 재등록되었습니다.");
+    }
+
+    /**
+     * 현재 실제로 돌고 있는 스케줄 ID 목록 조회
+     *
+     * @author 허준형
+     * @DateOfCreated 2026-01-28
+     * @DateOfEdit 2026-01-28
+     */
+    @GetMapping("/global/status")
+    public ResponseEntity<List<Long>> getRunningStatus() {
+        List<Long> runningIds = schedulingService.getRunningJobIds();
+        return ResponseEntity.ok(runningIds);
+    }
 }
