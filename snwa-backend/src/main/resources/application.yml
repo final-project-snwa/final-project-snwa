@@ -37,7 +37,7 @@ spring:
       region:
         static: ${AWS_REGION_STATIC}
       s3:
-        bucket: ${AWS_S3_BUCKET}
+        b:ucket: ${AWS_S3_BUCKET}
         enabled: true
 
 #  # aws/s3
