@@ -1,33 +1,71 @@
 package com.team.snwa.snwabackend.domain.payment.entity;
 
-import com.team.snwa.snwabackend.domain.payment.entity.enums.PaymentMethod;
-import com.team.snwa.snwabackend.domain.payment.entity.enums.PaymentStatus;
-import com.team.snwa.snwabackend.domain.user.entity.User;
-import com.team.snwa.snwabackend.global.common.BaseTimeEntity;
+import com.team.snwa.snwabackend.domain.payment.common.BaseTimeEntity;
 import jakarta.persistence.*;
+import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
-@Entity
-@Table(name = "payments")
+import java.time.LocalDateTime;
+
 @Getter
+@Entity
+@Table(
+        name = "payments",
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_payments_payment_key", columnNames = "paymentKey")
+        }
+)
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Payment extends BaseTimeEntity {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id")
-    private User user; // 결제한 사용자
+    // 토스 paymentKey
+    @Column(nullable = false, length = 200)
+    private String paymentKey;
 
-    private String merchantUid; // 주문번호
-    private Long amount; // 결제 금액
-    private Long coinAmount; // 충전된 코인량
+    // 카드/간편결제 등 (토스가 주는 문자열)
+    @Column(length = 50)
+    private String method;
 
-    @Enumerated(EnumType.STRING)
-    private PaymentStatus status; // 결제 상태 (PAID, CANCELLED 등)
+    // DONE, CANCELED 등 (토스 status 문자열)
+    @Column(nullable = false, length = 30)
+    private String tossStatus;
 
-    @Enumerated(EnumType.STRING)
-    private PaymentMethod method;
+    @Column(nullable = false)
+    private Long totalAmount;
 
-    private String pgProvider; // TODO: 열거형으로 수정 필요
+    private LocalDateTime approvedAt;
+
+    @Lob
+    private String rawJson;
+
+    @OneToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "payment_order_id", nullable = false,
+            foreignKey = @ForeignKey(name = "fk_payments_payment_order"))
+    private PaymentOrder order;
+
+    private Payment(PaymentOrder order, String paymentKey, String method, String tossStatus,
+                    Long totalAmount, LocalDateTime approvedAt, String rawJson) {
+        this.order = order;
+        this.paymentKey = paymentKey;
+        this.method = method;
+        this.tossStatus = tossStatus;
+        this.totalAmount = totalAmount;
+        this.approvedAt = approvedAt;
+        this.rawJson = rawJson;
+    }
+
+    public static Payment create(PaymentOrder order,
+                                 String paymentKey,
+                                 String method,
+                                 String tossStatus,
+                                 Long totalAmount,
+                                 LocalDateTime approvedAt,
+                                 String rawJson) {
+        return new Payment(order, paymentKey, method, tossStatus, totalAmount, approvedAt, rawJson);
+    }
 }
