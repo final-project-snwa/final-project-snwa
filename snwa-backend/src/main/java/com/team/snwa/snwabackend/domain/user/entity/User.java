@@ -99,4 +99,21 @@ public class User extends BaseTimeEntity {
         this.status = UserStatus.ACTIVE;
     }
 
+    /**
+     * 상태 변경 메서드 (관리자 전용)
+     */
+    public void changeStatus(UserStatus status) {
+        this.status = status;
+    }
+
+    /**
+     * 이메일 인증 상태 변경 메서드 (관리자 전용)
+     */
+    public void setEmailVerified(Boolean emailVerified) {
+        this.emailVerified = emailVerified;
+        // 이메일 인증이 완료되면 상태를 ACTIVE로 변경
+        if (emailVerified && this.status == UserStatus.INACTIVE) {
+            this.status = UserStatus.ACTIVE;
+        }
+    }
 }

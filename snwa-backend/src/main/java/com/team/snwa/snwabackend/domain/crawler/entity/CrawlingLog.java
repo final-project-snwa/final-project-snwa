@@ -39,6 +39,9 @@ public class CrawlingLog extends BaseTimeEntity {
     private int collectedCount;
 
     @Column(columnDefinition = "TEXT")
+    private String message; // 에러메세지
+
+    @Column(columnDefinition = "TEXT")
     private String errorMessage;
 
     private LocalDateTime startTime;

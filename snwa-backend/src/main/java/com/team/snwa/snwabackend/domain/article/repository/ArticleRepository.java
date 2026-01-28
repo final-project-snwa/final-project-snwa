@@ -7,13 +7,15 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface ArticleRepository extends JpaRepository<Article, Long> {
 
     @Query("SELECT a FROM Article a " +
             "LEFT JOIN FETCH a.category " +
-            "WHERE (:categoryId IS NULL OR a.category.id = :categoryId) " +
+            "WHERE a.deletedAt IS NULL " +
+            "AND (:categoryId IS NULL OR a.category.id = :categoryId) " +
             "ORDER BY a.createdDate DESC")
     Page<Article> findAllWithCategory(
             @Param("categoryId") Long categoryId,
@@ -22,7 +24,7 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
 
     @Query("SELECT a FROM Article a " +
             "LEFT JOIN FETCH a.category " +
-            "WHERE a.id = :id")
+            "WHERE a.id = :id AND a.deletedAt IS NULL")
     Optional<Article> findByIdWithCategory(@Param("id") Long id);
 
     /**
@@ -33,7 +35,8 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
      */
     @Query("SELECT a FROM Article a " +
             "LEFT JOIN FETCH a.category " +
-            "WHERE (LOWER(a.translatedTitle) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+            "WHERE a.deletedAt IS NULL " +
+            "AND (LOWER(a.translatedTitle) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
             "OR LOWER(a.translatedContent) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
             "ORDER BY a.createdDate DESC")
     Page<Article> searchByKeyword(
@@ -49,7 +52,8 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
      */
     @Query("SELECT a FROM Article a " +
             "LEFT JOIN FETCH a.category " +
-            "WHERE LOWER(a.translatedTitle) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+            "WHERE a.deletedAt IS NULL " +
+            "AND LOWER(a.translatedTitle) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
             "ORDER BY a.createdDate DESC")
     Page<Article> searchByTitle(
             @Param("keyword") String keyword,
@@ -64,7 +68,8 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
      */
     @Query("SELECT a FROM Article a " +
             "LEFT JOIN FETCH a.category " +
-            "WHERE LOWER(a.translatedContent) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+            "WHERE a.deletedAt IS NULL " +
+            "AND LOWER(a.translatedContent) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
             "ORDER BY a.createdDate DESC")
     Page<Article> searchByContent(
             @Param("keyword") String keyword,
@@ -80,7 +85,8 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
      */
     @Query("SELECT a FROM Article a " +
             "LEFT JOIN FETCH a.category " +
-            "WHERE a.category.id = :categoryId " +
+            "WHERE a.deletedAt IS NULL " +
+            "AND a.category.id = :categoryId " +
             "AND a.id != :excludeArticleId " +
             "ORDER BY a.createdDate DESC")
     java.util.List<Article> findRelatedArticles(
@@ -91,4 +97,36 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
 
     // 크롤링한 기사 중복 검사용
     boolean existsByOriginalUrl(String originalUrl);
+
+    /**
+     * 번역이 안된 기사 조회 (translatedTitle 또는 translatedContent가 null인 기사)
+     * @param pageable 페이징 정보
+     * @return 번역이 필요한 기사 목록
+     */
+    @Query(value = "SELECT a FROM Article a " +
+            "LEFT JOIN FETCH a.category " +
+            "WHERE (a.translatedTitle IS NULL OR a.translatedContent IS NULL) " +
+            "AND a.title IS NOT NULL " +
+            "AND a.content IS NOT NULL " +
+            "ORDER BY a.createdDate ASC",
+            countQuery = "SELECT COUNT(a) FROM Article a " +
+                    "WHERE (a.translatedTitle IS NULL OR a.translatedContent IS NULL) " +
+                    "AND a.title IS NOT NULL AND a.content IS NOT NULL")
+    Page<Article> findArticlesNeedingTranslation(Pageable pageable);
+
+    /**
+     * 요약이 안된 기사 조회 (summary가 null이고 translatedContent가 있는 기사)
+     * @param pageable 페이징 정보
+     * @return 요약이 필요한 기사 목록
+     */
+    @Query(value = "SELECT a FROM Article a " +
+            "LEFT JOIN FETCH a.category " +
+            "WHERE a.summary IS NULL " +
+            "AND a.translatedContent IS NOT NULL " +
+            "AND a.translatedContent != '' " +
+            "ORDER BY a.createdDate ASC",
+            countQuery = "SELECT COUNT(a) FROM Article a " +
+                    "WHERE a.summary IS NULL " +
+                    "AND a.translatedContent IS NOT NULL AND a.translatedContent != ''")
+    Page<Article> findArticlesNeedingSummary(Pageable pageable);
 }

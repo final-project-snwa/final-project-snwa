@@ -1,5 +1,7 @@
 package com.team.snwa.snwabackend.global.filter;
 
+import com.team.snwa.snwabackend.domain.user.entity.User;
+import com.team.snwa.snwabackend.domain.user.repository.UserRepository;
 import com.team.snwa.snwabackend.global.util.JwtUtil;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -21,6 +23,7 @@ import java.util.Collections;
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtUtil jwtUtil;
+    private final UserRepository userRepository;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, 
@@ -31,16 +34,23 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (token != null && jwtUtil.validateToken(token)) {
             String email = jwtUtil.getEmailFromToken(token);
             
-            // 인증 객체 생성
-            UsernamePasswordAuthenticationToken authentication = 
-                new UsernamePasswordAuthenticationToken(
-                    email, 
-                    null, 
-                    Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER"))
-                );
+            // User 정보 조회하여 실제 role 가져오기
+            User user = userRepository.findByEmail(email).orElse(null);
             
-            authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+            if (user != null) {
+                String role = "ROLE_" + user.getRole().name();
+                
+                // 인증 객체 생성
+                UsernamePasswordAuthenticationToken authentication = 
+                    new UsernamePasswordAuthenticationToken(
+                        email, 
+                        null, 
+                        Collections.singletonList(new SimpleGrantedAuthority(role))
+                    );
+                
+                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+            }
         }
 
         filterChain.doFilter(request, response);

@@ -47,7 +47,7 @@ public class ArticleService {
     }
 
     /**
-     * 기사 삭제
+     * 기사 삭제 (소프트 삭제)
      * @param id 기사 ID
      * @throws CustomException 기사를 찾을 수 없을 경우
      */
@@ -55,7 +55,8 @@ public class ArticleService {
     public void deleteArticle(Long id) {
         Article article = articleRepository.findById(id)
                 .orElseThrow(() -> new CustomException(ErrorCode.ARTICLE_NOT_FOUND));
-        articleRepository.delete(article);
+        article.softDelete();
+        articleRepository.save(article);
     }
 
     /**
