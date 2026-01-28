@@ -1,7 +1,5 @@
 package com.team.snwa.snwabackend.domain.payment.entity;
 
-
-
 import com.team.snwa.snwabackend.domain.payment.common.BaseTimeEntity;
 import com.team.snwa.snwabackend.domain.payment.entity.enums.PaymentOrderStatus;
 import jakarta.persistence.*;
@@ -14,10 +12,10 @@ import lombok.NoArgsConstructor;
 @Table(
         name = "payment_orders",
         uniqueConstraints = {
-                @UniqueConstraint(name = "uk_payment_orders_order_id", columnNames = "orderId")
+                @UniqueConstraint(name = "uk_payment_orders_order_id", columnNames = "order_id")
         },
         indexes = {
-                @Index(name = "idx_payment_orders_user_id", columnList = "userId")
+                @Index(name = "idx_payment_orders_user_id", columnList = "user_id")
         }
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -27,15 +25,14 @@ public class PaymentOrder extends BaseTimeEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // 토스 orderId (서버가 생성해서 프론트에 전달)
-    @Column(nullable = false, length = 64)
+    // 토스 orderId
+    @Column(name = "order_id", nullable = false, length = 64)
     private String orderId;
 
-    // MVP: 인증은 너희 프로젝트에 맞게 교체 (User 엔티티 FK로 바꿔도 됨)
-    @Column(nullable = false)
+    @Column(name = "user_id", nullable = false)
     private Long userId;
 
-    @Column(nullable = false, length = 200)
+    @Column(name = "order_name", nullable = false, length = 200)
     private String orderName;
 
     @Column(nullable = false)
@@ -74,5 +71,10 @@ public class PaymentOrder extends BaseTimeEntity {
 
     public void markCanceled() {
         this.status = PaymentOrderStatus.CANCELED;
+    }
+
+    //양방향 동기화 편의 메서드
+    public void attachPayment(Payment payment) {
+        this.payment = payment;
     }
 }

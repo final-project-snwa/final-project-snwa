@@ -1,5 +1,7 @@
 package com.team.snwa.snwabackend.domain.payment.dto;
 
+import com.team.snwa.snwabackend.domain.payment.entity.Payment;
+
 import java.time.LocalDateTime;
 
 public record PaymentResultResponse(
@@ -11,7 +13,7 @@ public record PaymentResultResponse(
         LocalDateTime approvedAt,
         boolean alreadyPaid
 ) {
-    public static PaymentResultResponse success(String orderId, com.team.payment.domain.Payment payment) {
+    public static PaymentResultResponse success(String orderId, Payment payment) {
         return new PaymentResultResponse(
                 orderId,
                 payment.getPaymentKey(),
@@ -23,7 +25,7 @@ public record PaymentResultResponse(
         );
     }
 
-    public static PaymentResultResponse alreadyPaid(String orderId, com.team.payment.domain.Payment payment) {
+    public static PaymentResultResponse alreadyPaid(String orderId, Payment payment) {
         return new PaymentResultResponse(
                 orderId,
                 payment.getPaymentKey(),

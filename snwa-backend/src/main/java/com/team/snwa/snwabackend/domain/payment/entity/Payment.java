@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 @Table(
         name = "payments",
         uniqueConstraints = {
-                @UniqueConstraint(name = "uk_payments_payment_key", columnNames = "paymentKey")
+                @UniqueConstraint(name = "uk_payments_payment_key", columnNames = "payment_key")
         }
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -23,15 +23,12 @@ public class Payment extends BaseTimeEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // 토스 paymentKey
-    @Column(nullable = false, length = 200)
+    @Column(name = "payment_key", nullable = false, length = 200)
     private String paymentKey;
 
-    // 카드/간편결제 등 (토스가 주는 문자열)
     @Column(length = 50)
     private String method;
 
-    // DONE, CANCELED 등 (토스 status 문자열)
     @Column(nullable = false, length = 30)
     private String tossStatus;
 
@@ -44,8 +41,11 @@ public class Payment extends BaseTimeEntity {
     private String rawJson;
 
     @OneToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "payment_order_id", nullable = false,
-            foreignKey = @ForeignKey(name = "fk_payments_payment_order"))
+    @JoinColumn(
+            name = "payment_order_id",
+            nullable = false,
+            foreignKey = @ForeignKey(name = "fk_payments_payment_order")
+    )
     private PaymentOrder order;
 
     private Payment(PaymentOrder order, String paymentKey, String method, String tossStatus,
@@ -57,6 +57,9 @@ public class Payment extends BaseTimeEntity {
         this.totalAmount = totalAmount;
         this.approvedAt = approvedAt;
         this.rawJson = rawJson;
+        
+        //양방향 동기화
+        order.attachPayment(this);
     }
 
     public static Payment create(PaymentOrder order,

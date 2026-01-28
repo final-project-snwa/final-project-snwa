@@ -1,9 +1,7 @@
 package com.team.snwa.snwabackend.domain.payment.service;
 
-
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
 import com.team.snwa.snwabackend.domain.payment.dto.*;
 import com.team.snwa.snwabackend.domain.payment.entity.Payment;
 import com.team.snwa.snwabackend.domain.payment.entity.PaymentCancel;
@@ -15,8 +13,10 @@ import com.team.snwa.snwabackend.domain.payment.repository.PaymentRepository;
 import com.team.snwa.snwabackend.domain.payment.toss.TossCancelResponse;
 import com.team.snwa.snwabackend.domain.payment.toss.TossPaymentResponse;
 import com.team.snwa.snwabackend.domain.payment.toss.TossPaymentsClient;
+import com.team.snwa.snwabackend.global.exception.CustomException;
+import com.team.snwa.snwabackend.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -51,21 +51,18 @@ public class PaymentService {
 
     public PaymentResultResponse confirm(PaymentConfirmRequest req) {
         PaymentOrder order = orderRepo.findByOrderId(req.orderId())
-                .orElseThrow(() -> PaymentException.notFound("ORDER_NOT_FOUND", "order not found"));
+                .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_ORDER_NOT_FOUND));
 
         // 서버 DB 금액 검증(필수)
         if (!order.getAmount().equals(req.amount())) {
             order.markFailed();
-            throw PaymentException.badRequest("AMOUNT_MISMATCH", "amount mismatch");
+            throw new CustomException(ErrorCode.PAYMENT_AMOUNT_MISMATCH);
         }
 
-        // 이미 PAID면 멱등 처리
+        // ✅ 이미 PAID면 "DB에서 Payment를 안전 조회"해서 멱등 처리
         if (order.isPaid()) {
-            // paymentKey가 다를 수도 있어서, 더 안전하게는 order->payment로 반환
-            Payment existing = order.getPayment();
-            if (existing == null) {
-                throw PaymentException.conflict("PAID_BUT_PAYMENT_MISSING", "order is PAID but payment missing");
-            }
+            Payment existing = paymentRepo.findByOrder(order)
+                    .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_INCONSISTENT_STATE));
             return PaymentResultResponse.alreadyPaid(order.getOrderId(), existing);
         }
 
@@ -75,20 +72,18 @@ public class PaymentService {
         // 토스 응답 검증
         if (!req.orderId().equals(tossRes.orderId())) {
             order.markFailed();
-            throw PaymentException.badRequest("TOSS_ORDERID_MISMATCH", "toss orderId mismatch");
+            throw new CustomException(ErrorCode.TOSS_ORDER_ID_MISMATCH);
         }
         if (!req.amount().equals(tossRes.totalAmount())) {
             order.markFailed();
-            throw PaymentException.badRequest("TOSS_AMOUNT_MISMATCH", "toss amount mismatch");
+            throw new CustomException(ErrorCode.TOSS_AMOUNT_MISMATCH);
         }
 
-        // paymentKey 중복(멱등성/중복 승인 방지)
-        if (paymentRepo.existsByPaymentKey(tossRes.paymentKey())) {
-            // 이미 저장된 결제면 주문만 PAID로 보정하고 반환
-            order.markPaid();
-            Payment existed = paymentRepo.findByPaymentKey(tossRes.paymentKey())
-                    .orElseThrow(() -> PaymentException.conflict("PAYMENT_EXISTS_BUT_NOT_FOUND", "payment exists but not found"));
-            return PaymentResultResponse.alreadyPaid(order.getOrderId(), existed);
+        // ✅ paymentKey 기반 멱등 처리 (우선 빠른 조회)
+        Payment existedByKey = paymentRepo.findByPaymentKey(tossRes.paymentKey()).orElse(null);
+        if (existedByKey != null) {
+            order.markPaid(); // 주문 상태 보정
+            return PaymentResultResponse.alreadyPaid(order.getOrderId(), existedByKey);
         }
 
         // 저장
@@ -104,19 +99,27 @@ public class PaymentService {
                 tossRes.approvedAt(),
                 raw
         );
-        paymentRepo.save(payment);
+
+        // ✅ 동시성 레이스 대응: 유니크 위반이면 기존 결제로 멱등 처리
+        try {
+            paymentRepo.save(payment);
+        } catch (DataIntegrityViolationException e) {
+            Payment existed = paymentRepo.findByPaymentKey(tossRes.paymentKey())
+                    .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_INCONSISTENT_STATE));
+            return PaymentResultResponse.alreadyPaid(order.getOrderId(), existed);
+        }
 
         return PaymentResultResponse.success(order.getOrderId(), payment);
     }
 
     public PaymentCancelResponse cancel(String paymentKey, PaymentCancelRequest req) {
         Payment payment = paymentRepo.findByPaymentKey(paymentKey)
-                .orElseThrow(() -> PaymentException.notFound("PAYMENT_NOT_FOUND", "payment not found"));
+                .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_NOT_FOUND));
 
         PaymentOrder order = payment.getOrder();
 
         if (order.getStatus() == PaymentOrderStatus.CANCELED) {
-            throw PaymentException.conflict("ALREADY_FULLY_CANCELED", "already fully canceled");
+            throw new CustomException(ErrorCode.PAYMENT_ALREADY_CANCELED);
         }
 
         // 토스 취소 호출
@@ -133,8 +136,10 @@ public class PaymentService {
         );
         cancelRepo.save(cancel);
 
-        // 누적 취소금액 계산 → 전액 취소 판단
-        long totalCanceled = cancelRepo.sumCanceledAmountByPaymentKey(paymentKey);
+        // ✅ 누적 취소금액 null 방어
+        Long sum = cancelRepo.sumCanceledAmountByPaymentKey(paymentKey);
+        long totalCanceled = (sum == null) ? 0L : sum;
+
         boolean fullyCanceled = totalCanceled >= order.getAmount();
         if (fullyCanceled) order.markCanceled();
 
@@ -149,7 +154,6 @@ public class PaymentService {
 
     public void handleWebhook(String payload) {
         // MVP: 수신만 OK. 운영 단계에서 서명 검증/이벤트 처리 붙이기.
-        // 지금은 로그/저장만 해도 됨.
     }
 
     private String safeJson(Object obj) {
@@ -160,4 +164,3 @@ public class PaymentService {
         }
     }
 }
-
