@@ -88,6 +88,16 @@ export default function Header({ showCategories = false, selectedCategory, onCat
                       <Settings className="w-4 h-4" />
                       마이페이지
                     </Link>
+                    {user.email === 'admin@snwa.com' && (
+                      <Link
+                        to="/admin"
+                        onClick={() => setShowDropdown(false)}
+                        className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                      >
+                        <Settings className="w-4 h-4" />
+                        관리자 페이지
+                      </Link>
+                    )}
                     <button
                       onClick={handleLogout}
                       className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 w-full text-left"

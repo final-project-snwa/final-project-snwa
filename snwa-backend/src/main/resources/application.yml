@@ -25,7 +25,8 @@ spring:
 
   sql:
     init:
-      mode: never
+      mode: always
+      continue-on-error: true
 
   # aws/s3
   cloud:

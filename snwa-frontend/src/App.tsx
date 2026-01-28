@@ -8,6 +8,7 @@ import VerifyEmailPage from './pages/VerifyEmailPage';
 import MainPage from './pages/MainPage';
 import ArticleDetailPage from './pages/ArticleDetailPage';
 import MyPage from './pages/MyPage';
+import AdminPage from './pages/AdminPage';
 import AuthTestPage from './pages/AuthTestPage';
 
 const router = createBrowserRouter([
@@ -42,6 +43,10 @@ const router = createBrowserRouter([
   {
     path: '/mypage',
     element: <MyPage />,
+  },
+  {
+    path: '/admin',
+    element: <AdminPage />,
   },
   {
     path: '/auth-test',
