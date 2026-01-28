@@ -30,6 +30,7 @@ public class Article extends BaseTimeEntity {
     @Setter
     private String translatedContent;
 
+    @Column(columnDefinition = "LONGTEXT")
     @Setter
     private String summary;
 
