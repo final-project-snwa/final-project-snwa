@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-
-const API_BASE_URL = '/api/auth';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -9,6 +8,7 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -16,41 +16,11 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email,
-          password,
-        }),
-      });
-
-      // 응답 본문이 있는지 확인
-      const contentType = response.headers.get('content-type');
-      let data = { token: '', message: '' };
-      
-      if (contentType && contentType.includes('application/json')) {
-        const text = await response.text();
-        if (text) {
-          try {
-            data = JSON.parse(text);
-          } catch (e) {
-            console.error('JSON 파싱 오류:', e);
-          }
-        }
-      }
-
-      if (response.ok) {
-        // JWT 토큰을 localStorage에 저장
-        if (data.token) {
-          localStorage.setItem('snwa_token', data.token);
-          localStorage.setItem('snwa_user', JSON.stringify({ email }));
-        }
+      const ok = await login(email, password);
+      if (ok) {
         navigate('/');
       } else {
-        setError(data.message || '이메일 또는 비밀번호가 올바르지 않습니다.');
+        setError('이메일 또는 비밀번호가 올바르지 않습니다.');
       }
     } catch (err) {
       setError(`서버 연결 실패: ${err instanceof Error ? err.message : '알 수 없는 오류'}`);

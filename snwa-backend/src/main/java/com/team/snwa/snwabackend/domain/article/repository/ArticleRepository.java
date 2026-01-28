@@ -13,7 +13,8 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
 
     @Query("SELECT a FROM Article a " +
             "LEFT JOIN FETCH a.category " +
-            "WHERE (:categoryId IS NULL OR a.category.id = :categoryId) " +
+            "WHERE a.deletedAt IS NULL " +
+            "AND (:categoryId IS NULL OR a.category.id = :categoryId) " +
             "ORDER BY a.createdDate DESC")
     Page<Article> findAllWithCategory(
             @Param("categoryId") Long categoryId,
@@ -22,7 +23,7 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
 
     @Query("SELECT a FROM Article a " +
             "LEFT JOIN FETCH a.category " +
-            "WHERE a.id = :id")
+            "WHERE a.id = :id AND a.deletedAt IS NULL")
     Optional<Article> findByIdWithCategory(@Param("id") Long id);
 
     /**
@@ -33,7 +34,8 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
      */
     @Query("SELECT a FROM Article a " +
             "LEFT JOIN FETCH a.category " +
-            "WHERE (LOWER(a.translatedTitle) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+            "WHERE a.deletedAt IS NULL " +
+            "AND (LOWER(a.translatedTitle) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
             "OR LOWER(a.translatedContent) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
             "ORDER BY a.createdDate DESC")
     Page<Article> searchByKeyword(
@@ -49,7 +51,8 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
      */
     @Query("SELECT a FROM Article a " +
             "LEFT JOIN FETCH a.category " +
-            "WHERE LOWER(a.translatedTitle) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+            "WHERE a.deletedAt IS NULL " +
+            "AND LOWER(a.translatedTitle) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
             "ORDER BY a.createdDate DESC")
     Page<Article> searchByTitle(
             @Param("keyword") String keyword,
@@ -64,7 +67,8 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
      */
     @Query("SELECT a FROM Article a " +
             "LEFT JOIN FETCH a.category " +
-            "WHERE LOWER(a.translatedContent) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+            "WHERE a.deletedAt IS NULL " +
+            "AND LOWER(a.translatedContent) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
             "ORDER BY a.createdDate DESC")
     Page<Article> searchByContent(
             @Param("keyword") String keyword,
@@ -80,7 +84,8 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
      */
     @Query("SELECT a FROM Article a " +
             "LEFT JOIN FETCH a.category " +
-            "WHERE a.category.id = :categoryId " +
+            "WHERE a.deletedAt IS NULL " +
+            "AND a.category.id = :categoryId " +
             "AND a.id != :excludeArticleId " +
             "ORDER BY a.createdDate DESC")
     java.util.List<Article> findRelatedArticles(

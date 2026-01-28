@@ -54,7 +54,9 @@ public class AuthService {
                 .emailVerified(false)
                 .build();
 
-        userRepository.save(user);
+        // 사용자 저장 및 즉시 DB에 반영 (ID 생성 보장)
+        user = userRepository.save(user);
+        userRepository.flush(); // 즉시 DB에 반영하여 ID 확보
 
         // 이메일 인증 토큰 생성 및 발송
         String token = UUID.randomUUID().toString();
