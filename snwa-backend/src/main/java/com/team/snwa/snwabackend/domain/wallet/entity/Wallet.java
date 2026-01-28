@@ -2,6 +2,8 @@ package com.team.snwa.snwabackend.domain.wallet.entity;
 
 import com.team.snwa.snwabackend.domain.user.entity.User;
 import com.team.snwa.snwabackend.global.common.BaseTimeEntity;
+import com.team.snwa.snwabackend.global.exception.CustomException;
+import com.team.snwa.snwabackend.global.exception.ErrorCode;
 import jakarta.persistence.*;
 import lombok.Getter;
 
@@ -47,20 +49,19 @@ public class Wallet extends BaseTimeEntity {
         return wallet;
     }
 
-    //todo: 에러코드 추가하기
     public void increase(Long amount) {
         if (amount == null || amount <= 0) {
-            throw new IllegalArgumentException("amount must be positive");
+            throw new CustomException(ErrorCode.WALLET_AMOUNT_INVALID);
         }
         this.balance += amount;
     }
 
     public void decrease(Long amount) {
         if (amount == null || amount <= 0) {
-            throw new IllegalArgumentException("amount must be positive");
+            throw new CustomException(ErrorCode.WALLET_AMOUNT_INVALID);
         }
         if (this.balance < amount) {
-            throw new IllegalStateException("insufficient balance");
+            throw new CustomException(ErrorCode.WALLET_INSUFFICIENT_BALANCE);
         }
         this.balance -= amount;
     }

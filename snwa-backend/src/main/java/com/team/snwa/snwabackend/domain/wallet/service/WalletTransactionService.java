@@ -6,6 +6,8 @@ import com.team.snwa.snwabackend.domain.wallet.entity.Wallet;
 import com.team.snwa.snwabackend.domain.wallet.entity.enums.CoinTransactionStatus;
 import com.team.snwa.snwabackend.domain.wallet.entity.enums.CoinTransactionType;
 import com.team.snwa.snwabackend.domain.wallet.repository.CoinTransactionRepository;
+import com.team.snwa.snwabackend.global.exception.CustomException;
+import com.team.snwa.snwabackend.global.exception.ErrorCode;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -21,7 +23,6 @@ public class WalletTransactionService {
         return walletService.getBalance(user);
     }
 
-    //todo: 아래 에러코드들 나중에 변경
 
     //1. 코인 사용 + 거래로그 기록
     @Transactional
@@ -31,7 +32,7 @@ public class WalletTransactionService {
         //이미 동일한 요청이 온적이 있는경우 에러
         if (externalRef != null && !externalRef.isBlank()) {
             if (coinTransactionService.isDuplicate(externalRef)) {
-                throw new IllegalStateException("duplicate transaction");
+                throw new CustomException(ErrorCode.WALLET_TRANSACTION_DUPLICATED);
             }
         }
 
@@ -56,12 +57,12 @@ public class WalletTransactionService {
 
         // 중복 발생시 에러 처리
         if (externalRef == null || externalRef.isBlank()) {
-            throw new IllegalArgumentException("externalRef is required for idempotency");
+            throw new CustomException(ErrorCode.WALLET_EXTERNAL_REF_REQUIRED);
         }
 
         // 같은 결제 승인 콜백이 여러 번 들어와도 1번만 충전되게 막음
         if (coinTransactionService.isDuplicate(externalRef)) {
-            throw new IllegalStateException("duplicate transaction");
+            throw new CustomException(ErrorCode.WALLET_TRANSACTION_DUPLICATED);
         }
 
         Wallet wallet = walletService.getOrCreate(user);
