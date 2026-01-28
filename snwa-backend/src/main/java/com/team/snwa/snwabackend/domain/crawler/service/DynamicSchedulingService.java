@@ -10,7 +10,7 @@ import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.support.CronTrigger;
 import org.springframework.stereotype.Service;
 
-import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -110,5 +110,25 @@ public class DynamicSchedulingService {
             scheduledTasks.remove(jobId);
             log.info("⏹ 스케줄 중지 완료: JobId {}", jobId);
         }
+    }
+
+    public void stopAll() {
+        // Map을 돌면서 하나씩 끄면 충돌 날 수 있으니, 현재 켜진 ID 목록을 먼저 복사함
+        List<Long> runningJobIds = new ArrayList<>(scheduledTasks.keySet());
+
+        for (Long jobId : runningJobIds) {
+            stopJob(jobId);
+        }
+        log.warn("🚨 긴급 정지: 모든 크롤링 스케줄러가 중단되었습니다.");
+    }
+
+    public void startAll() {
+        log.info("🔄 전체 재시작: 활성화된 모든 작업을 스케줄러에 등록합니다.");
+        // 기존 initSchedules 메서드 로직 재사용
+        initSchedules();
+    }
+
+    public List<Long> getRunningJobIds() {
+        return new ArrayList<>(scheduledTasks.keySet());
     }
 }
