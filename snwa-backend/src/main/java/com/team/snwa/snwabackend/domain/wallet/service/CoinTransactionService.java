@@ -8,7 +8,7 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-public class CoinTransactionService {
+public class    CoinTransactionService {
 
     private final CoinTransactionRepository coinTransactionRepository;
 

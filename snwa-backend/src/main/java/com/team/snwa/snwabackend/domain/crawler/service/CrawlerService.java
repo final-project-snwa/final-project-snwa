@@ -7,6 +7,7 @@ import com.team.snwa.snwabackend.domain.article.repository.CategoryRepository;
 import com.team.snwa.snwabackend.domain.crawler.dto.CrawledArticleDto;
 import com.team.snwa.snwabackend.domain.crawler.dto.CrawlingJobRequestDto;
 import com.team.snwa.snwabackend.domain.crawler.dto.CrawlingJobUpdateDto;
+import com.team.snwa.snwabackend.domain.crawler.dto.CrawlingLogResponseDto;
 import com.team.snwa.snwabackend.domain.crawler.entity.ArticleCrawlingTracking;
 import com.team.snwa.snwabackend.domain.crawler.entity.CrawlingJob;
 import com.team.snwa.snwabackend.domain.crawler.entity.CrawlingLog;
@@ -23,6 +24,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronizationAdapter;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -285,4 +289,30 @@ public class CrawlerService {
         log.info("Job ID {} 및 관련 로그/추적 데이터 삭제 완료", jobId);
     }
 
+
+    @Transactional(readOnly = true)
+    public Page<CrawlingLogResponseDto> getCrawlingLogs(Long jobId, Pageable pageable) {
+        Page<CrawlingLog> logPage;
+
+        if (jobId != null) {
+            logPage = logRepository.findByCrawlingJobId(jobId, pageable);
+        } else {
+            logPage = logRepository.findAll(pageable);
+        }
+
+        return logPage.map(log -> CrawlingLogResponseDto.builder()
+                .logId(log.getId())
+                .jobId(log.getCrawlingJob().getId())
+                .jobName(log.getCrawlingJob().getJobName())
+                .status(log.getStatus())
+                .collectedCount(log.getCollectedCount())
+                .message(log.getMessage())
+                .startTime(log.getCreatedDate())
+                .endTime(log.getUpdatedDate())
+
+                // 소요 시간 계산
+                .durationSeconds(log.getUpdatedDate() != null ?
+                        java.time.Duration.between(log.getCreatedDate(), log.getUpdatedDate()).getSeconds() : 0)
+                .build());
+    }
 }

@@ -2,10 +2,17 @@ package com.team.snwa.snwabackend.domain.crawler.controller;
 
 import com.team.snwa.snwabackend.domain.crawler.dto.CrawlingJobRequestDto;
 import com.team.snwa.snwabackend.domain.crawler.dto.CrawlingJobUpdateDto;
+import com.team.snwa.snwabackend.domain.crawler.dto.CrawlingLogResponseDto;
+import com.team.snwa.snwabackend.domain.crawler.dto.SystemStatusDto;
 import com.team.snwa.snwabackend.domain.crawler.entity.CrawlingJob;
 import com.team.snwa.snwabackend.domain.crawler.service.CrawlerService;
 import com.team.snwa.snwabackend.domain.crawler.service.DynamicSchedulingService;
+import com.team.snwa.snwabackend.domain.crawler.service.SystemMonitorService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -26,6 +33,7 @@ public class AdminCrawlerController {
 
     private final CrawlerService crawlerService;
     private final DynamicSchedulingService schedulingService;
+    private final SystemMonitorService systemMonitorService;
 
     /**
      * 목록 조회 - 모든 크롤링 Job 리스트 반환
@@ -137,5 +145,35 @@ public class AdminCrawlerController {
     public ResponseEntity<List<Long>> getRunningStatus() {
         List<Long> runningIds = schedulingService.getRunningJobIds();
         return ResponseEntity.ok(runningIds);
+    }
+
+    /**
+     * 서버 상태 확인 - CPU 코어, 메모리 사용량, 활성 스레드, 크롤러 가동 현황 조회
+     *
+     * @author 허준형
+     * @DateOfCreated 2026-01-28
+     * @DateOfEdit 2026-01-28
+     */
+    @GetMapping("/status")
+    public ResponseEntity<SystemStatusDto> getSystemStatus() {
+        // 컨트롤러는 "가져와!" 명령만 하고, 결과만 바로 반환 (Toss)
+        return ResponseEntity.ok(systemMonitorService.getCurrentSystemStatus());
+    }
+
+    /**
+     * 롤링 수행 이력을 페이징하여 조회함
+     * jobId 파라미터를 넣으면 해당 작업의 이력만 필터링 가능
+     *
+     * @author 허준형
+     * @DateOfCreated 2026-01-28
+     * @DateOfEdit 2026-01-28
+     */
+    @GetMapping("/logs")
+    public ResponseEntity<Page<CrawlingLogResponseDto>> getCrawlingLogs(
+            @RequestParam(required = false) Long jobId,
+            @PageableDefault(size = 20, sort = "startTime", direction = Sort.Direction.DESC) Pageable pageable
+    ) {
+        // PageableDefault: 기본적으로 최신순(DESC) 20개씩 가져옴
+        return ResponseEntity.ok(crawlerService.getCrawlingLogs(jobId, pageable));
     }
 }
