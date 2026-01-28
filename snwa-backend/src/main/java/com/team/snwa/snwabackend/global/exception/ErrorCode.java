@@ -25,7 +25,13 @@ public enum ErrorCode {
     EMAIL_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 존재하는 이메일입니다."),
     NICKNAME_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 존재하는 닉네임입니다."),
     INVALID_PASSWORD(HttpStatus.UNAUTHORIZED, "비밀번호가 일치하지 않습니다."),
-    USER_INACTIVE(HttpStatus.FORBIDDEN, "비활성화된 사용자입니다.");
+    USER_INACTIVE(HttpStatus.FORBIDDEN, "비활성화된 사용자입니다."),
+
+    //코인관련 에러 코드
+    WALLET_AMOUNT_INVALID(HttpStatus.BAD_REQUEST, "코인 수량은 0보다 커야 합니다."),
+    WALLET_INSUFFICIENT_BALANCE(HttpStatus.BAD_REQUEST, "코인 잔액이 부족합니다."),
+    WALLET_TRANSACTION_DUPLICATED(HttpStatus.CONFLICT, "이미 처리된 거래입니다."),
+    WALLET_EXTERNAL_REF_REQUIRED(HttpStatus.BAD_REQUEST, "외부 참조값(externalRef)이 필요합니다.");
 
 
 

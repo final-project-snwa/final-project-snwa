@@ -13,7 +13,6 @@ spring:
       minimum-idle: 1
 
   jpa:
-    defer-datasource-initialization: true
     hibernate:
       ddl-auto: update
     show-sql: false
@@ -27,6 +26,7 @@ spring:
   sql:
     init:
       mode: always
+      continue-on-error: true
 
   # aws/s3
   cloud:
@@ -37,7 +37,7 @@ spring:
       region:
         static: ${AWS_REGION_STATIC}
       s3:
-        b:ucket: ${AWS_S3_BUCKET}
+        bucket: ${AWS_S3_BUCKET}
         enabled: true
 
 #  # aws/s3
