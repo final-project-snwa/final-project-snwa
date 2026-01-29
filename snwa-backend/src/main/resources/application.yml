@@ -15,7 +15,7 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
@@ -25,7 +25,8 @@ spring:
 
   sql:
     init:
-      mode: never
+      mode: always
+      continue-on-error: true
 
   # aws/s3
   cloud:
@@ -39,17 +40,17 @@ spring:
         bucket: ${AWS_S3_BUCKET}
         enabled: true
 
-#  # aws/s3
-#  cloud:
-#    aws:
-#      credentials:
-#        access-key: ${AWS_ACCESS_KEY_ID}
-#        secret-key: ${AWS_SECRET_ACCESS_KEY}
-#      region:
-#        static: ${AWS_REGION_STATIC}
-#      s3:
-#        bucket: ${AWS_S3_BUCKET}
-#        #enabled: false
+  #  # aws/s3
+  #  cloud:
+  #    aws:
+  #      credentials:
+  #        access-key: ${AWS_ACCESS_KEY_ID}
+  #        secret-key: ${AWS_SECRET_ACCESS_KEY}
+  #      region:
+  #        static: ${AWS_REGION_STATIC}
+  #      s3:
+  #        bucket: ${AWS_S3_BUCKET}
+  #        #enabled: false
 
   # mail
   mail:
@@ -79,7 +80,7 @@ spring:
         api-key: ${GEMINI_API_KEY}
         chat:
           options:
-            model: gemini-2.5-flash-lite
+            model: gemini-2.5-flash
             temperature: 0.2
 
 translation:

@@ -27,7 +27,7 @@ public class User extends BaseTimeEntity {
     private Long id;
 
     @Column(nullable = false, unique = true, length = 50)
-    private String email;  // 이메일이 곧 아이디
+    private String email; // 이메일이 곧 아이디
 
     @Column(nullable = false, length = 255)
     private String password;
@@ -39,7 +39,7 @@ public class User extends BaseTimeEntity {
 
     @Enumerated(EnumType.STRING)
     @Builder.Default
-    private UserStatus status = UserStatus.INACTIVE;  // 기본값: 비인증 상태
+    private UserStatus status = UserStatus.INACTIVE; // 기본값: 비인증 상태
 
     @Enumerated(EnumType.STRING)
     @Builder.Default
@@ -47,7 +47,7 @@ public class User extends BaseTimeEntity {
 
     @Column(nullable = false)
     @Builder.Default
-    private Boolean emailVerified = false;  // 이메일 인증 여부
+    private Boolean emailVerified = false; // 이메일 인증 여부
 
     @CreatedDate
     private LocalDateTime createdDate;
@@ -99,4 +99,21 @@ public class User extends BaseTimeEntity {
         this.status = UserStatus.ACTIVE;
     }
 
+    /**
+     * 상태 변경 메서드 (관리자 전용)
+     */
+    public void changeStatus(UserStatus status) {
+        this.status = status;
+    }
+
+    /**
+     * 이메일 인증 상태 변경 메서드 (관리자 전용)
+     */
+    public void setEmailVerified(Boolean emailVerified) {
+        this.emailVerified = emailVerified;
+        // 이메일 인증이 완료되면 상태를 ACTIVE로 변경
+        if (emailVerified && this.status == UserStatus.INACTIVE) {
+            this.status = UserStatus.ACTIVE;
+        }
+    }
 }

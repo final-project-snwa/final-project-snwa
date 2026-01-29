@@ -7,19 +7,27 @@ import com.team.snwa.snwabackend.domain.article.repository.CategoryRepository;
 import com.team.snwa.snwabackend.domain.crawler.dto.CrawledArticleDto;
 import com.team.snwa.snwabackend.domain.crawler.dto.CrawlingJobRequestDto;
 import com.team.snwa.snwabackend.domain.crawler.dto.CrawlingJobUpdateDto;
+import com.team.snwa.snwabackend.domain.crawler.dto.CrawlingLogResponseDto;
 import com.team.snwa.snwabackend.domain.crawler.entity.ArticleCrawlingTracking;
 import com.team.snwa.snwabackend.domain.crawler.entity.CrawlingJob;
 import com.team.snwa.snwabackend.domain.crawler.entity.CrawlingLog;
 import com.team.snwa.snwabackend.domain.crawler.entity.enums.CrawlingStatus;
+import com.team.snwa.snwabackend.domain.crawler.entity.enums.EspnLeague;
 import com.team.snwa.snwabackend.domain.crawler.entity.enums.SourceName;
 import com.team.snwa.snwabackend.domain.crawler.repository.ArticleCrawlingTrackingRepository;
 import com.team.snwa.snwabackend.domain.crawler.repository.CrawlingJobRepository;
 import com.team.snwa.snwabackend.domain.crawler.repository.CrawlingLogRepository;
 import com.team.snwa.snwabackend.domain.crawler.strategy.CrawlingStrategy;
+import com.team.snwa.snwabackend.domain.translation.service.TranslationSummaryScheduler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronizationAdapter;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -43,6 +51,7 @@ public class CrawlerService {
     private final ArticleRepository articleRepository;
     private final ArticleCrawlingTrackingRepository trackingRepository;
     private final CategoryRepository categoryRepository;
+    private final TranslationSummaryScheduler translationSummaryScheduler;
 
     private static final String ESPN_BASE_URL = "http://site.api.espn.com/apis/site/v2/sports/";
 
@@ -88,6 +97,26 @@ public class CrawlerService {
 
             // 성공 상태 업데이트
             crawlingLog.updateSuccess(savedCount);
+
+            // 크롤링 완료 후 번역/요약 스케줄러 실행 (트랜잭션 커밋 후 실행)
+            if (savedCount > 0) {
+                log.info("크롤링 완료: {}개 기사 저장됨. 번역/요약 스케줄러는 트랜잭션 커밋 후 실행됩니다.", savedCount);
+
+                // 트랜잭션 커밋 후 스케줄러 실행
+                TransactionSynchronizationManager.registerSynchronization(
+                        new TransactionSynchronizationAdapter() {
+                            @Override
+                            public void afterCommit() {
+                                try {
+                                    log.info("트랜잭션 커밋 완료. 번역/요약 스케줄러 실행");
+                                    translationSummaryScheduler.processTranslationAndSummary();
+                                } catch (Exception e) {
+                                    log.error("번역/요약 스케줄러 실행 중 오류 발생", e);
+                                }
+                            }
+                        }
+                );
+            }
 
         } catch (Exception e) {
             log.error("크롤링 작업 실패: JobId=" + jobId, e);
@@ -180,13 +209,16 @@ public class CrawlerService {
         Category category = categoryRepository.findById(request.getCategoryId())
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 카테고리 ID입니다: " + request.getCategoryId()));
 
-        String finalUrl;
-        if (request.getLeague() != null) {
-            finalUrl = ESPN_BASE_URL + request.getLeague().getApiPath() + "/news";
-        } else if (request.getCustomTargetUrl() != null && !request.getCustomTargetUrl().isEmpty()) {
-            finalUrl = request.getCustomTargetUrl();
-        } else {
-            throw new IllegalArgumentException("리그를 선택하거나 타겟 URL을 입력해야 합니다.");
+        // URL 결정 로직 (커스텀 URL 우선 -> 없으면 자동 생성)
+        String finalUrl = request.getCustomTargetUrl();
+
+        if (finalUrl == null || finalUrl.isEmpty()) {
+            // URL도 없고 리그도 없으면 에러
+            if (request.getLeague() == null) {
+                throw new IllegalArgumentException("리그를 선택하거나 타겟 URL을 입력해야 합니다.");
+            }
+            // 소스 + 리그 조합으로 URL 자동 생성
+            finalUrl = generateUrl(request.getSourceName(), request.getLeague());
         }
 
         String cron = request.getCronExpression();
@@ -208,7 +240,7 @@ public class CrawlerService {
         }
 
         CrawlingJob savedJob = jobRepository.save(newJob);
-        log.info("새로운 크롤링 Job 생성 완료: {} (ID: {})", savedJob.getJobName(), savedJob.getId());
+        log.info("새로운 크롤링 Job 생성 완료: {} (ID: {}, URL: {})", savedJob.getJobName(), savedJob.getId(), finalUrl);
 
         return savedJob.getId();
     }
@@ -261,4 +293,58 @@ public class CrawlerService {
         log.info("Job ID {} 및 관련 로그/추적 데이터 삭제 완료", jobId);
     }
 
+
+    @Transactional(readOnly = true)
+    public Page<CrawlingLogResponseDto> getCrawlingLogs(Long jobId, Pageable pageable) {
+        Page<CrawlingLog> logPage;
+
+        if (jobId != null) {
+            logPage = logRepository.findByCrawlingJobId(jobId, pageable);
+        } else {
+            logPage = logRepository.findAll(pageable);
+        }
+
+        return logPage.map(log -> CrawlingLogResponseDto.builder()
+                .logId(log.getId())
+                .jobId(log.getCrawlingJob().getId())
+                .jobName(log.getCrawlingJob().getJobName())
+                .status(log.getStatus())
+                .collectedCount(log.getCollectedCount())
+                .message(log.getMessage())
+                .startTime(log.getCreatedDate())
+                .endTime(log.getUpdatedDate())
+
+                // 소요 시간 계산
+                .durationSeconds(log.getUpdatedDate() != null ?
+                        java.time.Duration.between(log.getCreatedDate(), log.getUpdatedDate()).getSeconds() : 0)
+                .build());
+    }
+
+    private String generateUrl(SourceName sourceName, EspnLeague league) {
+        if (sourceName == SourceName.ESPN) {
+            // ESPN은 API 방식 (기존 로직)
+            return ESPN_BASE_URL + league.getApiPath() + "/news";
+        }
+
+        else if (sourceName == SourceName.SKY_SPORTS) {
+            // Sky Sports는 HTML 페이지 방식
+            // EspnLeague Enum을 재활용하되, Sky Sports에 맞는 URL로 매핑
+            switch (league) {
+                case EPL:
+                    return "https://www.skysports.com/premier-league-news";
+                case NBA:
+                    return "https://www.skysports.com/nba/news";
+                case BUNDESLIGA:
+                    return "https://www.skysports.com/bundesliga-news";
+                case LALIGA:
+                    return "https://www.skysports.com/la-liga-news";
+                case MLB:
+                    return "https://www.skysports.com/mlb/news";
+                default:
+                    throw new IllegalArgumentException("Sky Sports에서 아직 지원하지 않는 리그입니다: " + league);
+            }
+        }
+
+        throw new IllegalArgumentException("URL 생성 로직이 정의되지 않은 소스입니다: " + sourceName);
+    }
 }

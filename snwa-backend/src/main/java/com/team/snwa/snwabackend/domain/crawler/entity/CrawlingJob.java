@@ -32,6 +32,7 @@ public class CrawlingJob extends BaseTimeEntity {
     private Category category; // 종목 분류
 
     @Enumerated(EnumType.STRING)
+    @Column(length = 50)
     private SourceName sourceName; // ESPN, BBC 등
 
     private String jobName;

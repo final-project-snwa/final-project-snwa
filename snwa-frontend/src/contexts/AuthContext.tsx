@@ -19,71 +19,75 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
 
-  // Load user from localStorage on mount
+  // Load user from sessionStorage on mount (탭/창 닫으면 로그아웃됨)
   useEffect(() => {
-    const savedUser = localStorage.getItem('snwa_user');
-    if (savedUser) {
-      try {
-        setUser(JSON.parse(savedUser));
-      } catch (e) {
-        console.error('Failed to parse user data:', e);
-      }
+    const token = sessionStorage.getItem('snwa_token');
+    const savedUser = sessionStorage.getItem('snwa_user');
+
+    if (!token || !savedUser) {
+      sessionStorage.removeItem('snwa_user');
+      return;
+    }
+
+    try {
+      setUser(JSON.parse(savedUser));
+    } catch (e) {
+      console.error('Failed to parse user data:', e);
+      sessionStorage.removeItem('snwa_user');
     }
   }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
-    // Mock login - check if user exists in localStorage
-    const users = JSON.parse(localStorage.getItem('snwa_users') || '{}');
-    
-    if (users[email] && users[email].password === password) {
-      const userData = {
-        email,
-        preferredSports: users[email].preferredSports || [],
-      };
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const contentType = response.headers.get('content-type');
+      let data: { token?: string } = {};
+      if (contentType && contentType.includes('application/json')) {
+        const text = await response.text();
+        if (text) data = JSON.parse(text);
+      }
+
+      if (!response.ok || !data.token) return false;
+
+      sessionStorage.setItem('snwa_token', data.token);
+      const userData: User = { email, preferredSports: [] };
+      sessionStorage.setItem('snwa_user', JSON.stringify(userData));
       setUser(userData);
-      localStorage.setItem('snwa_user', JSON.stringify(userData));
       return true;
+    } catch {
+      return false;
     }
-    return false;
   };
 
   const signup = async (email: string, password: string): Promise<boolean> => {
-    // Mock signup
-    const users = JSON.parse(localStorage.getItem('snwa_users') || '{}');
-    
-    if (users[email]) {
-      return false; // User already exists
+    try {
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      return response.ok;
+    } catch {
+      return false;
     }
-    
-    users[email] = { password, preferredSports: [] };
-    localStorage.setItem('snwa_users', JSON.stringify(users));
-    
-    const userData = {
-      email,
-      preferredSports: [],
-    };
-    setUser(userData);
-    localStorage.setItem('snwa_user', JSON.stringify(userData));
-    return true;
   };
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('snwa_user');
+    sessionStorage.removeItem('snwa_user');
+    sessionStorage.removeItem('snwa_token');
   };
 
   const updatePreferences = (sports: string[]) => {
     if (user) {
       const updatedUser = { ...user, preferredSports: sports };
       setUser(updatedUser);
-      localStorage.setItem('snwa_user', JSON.stringify(updatedUser));
-      
-      // Update in users database
-      const users = JSON.parse(localStorage.getItem('snwa_users') || '{}');
-      if (users[user.email]) {
-        users[user.email].preferredSports = sports;
-        localStorage.setItem('snwa_users', JSON.stringify(users));
-      }
+      sessionStorage.setItem('snwa_user', JSON.stringify(updatedUser));
     }
   };
 

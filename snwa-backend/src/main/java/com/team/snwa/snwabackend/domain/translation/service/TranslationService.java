@@ -8,6 +8,7 @@ import com.team.snwa.snwabackend.domain.translation.dto.response.TranslatedArtic
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
@@ -19,7 +20,7 @@ public class TranslationService {
     private final TranslationClient translationClient;
     private final ArticleRepository articleRepository;
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public TranslatedArticleResponseDto translateArticle(Long articleId) {
         log.info("기사 번역 시작: articleId={}", articleId);
 
