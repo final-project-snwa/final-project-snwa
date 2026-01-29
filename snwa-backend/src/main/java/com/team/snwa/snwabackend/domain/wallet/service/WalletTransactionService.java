@@ -11,6 +11,7 @@ import com.team.snwa.snwabackend.global.exception.ErrorCode;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import java.time.LocalDate;
 
 @Service
 @RequiredArgsConstructor
@@ -81,5 +82,33 @@ public class WalletTransactionService {
         );
 
         return coinTransactionService.save(tx);
+    }
+
+    // 3. 로그인 시 출석 보상 지급 (하루 1번 , 1코인)
+    @Transactional
+    public void giveAttendanceReward(User user) {
+
+        // 1) 오늘 이미 지급했는지 확인
+        if (coinTransactionService.hasTodayAttendanceReward(user.getId())) {
+            return; // 이미 지급 → 아무 것도 안 함
+        }
+
+        // 2) 지갑 조회
+        Wallet wallet = walletService.getOrCreate(user);
+
+        // 3) 코인 1개 지급
+        wallet.increase(1L);
+
+        // 4) 거래 기록 생성
+        CoinTransaction tx = CoinTransaction.create(
+                user.getId(),
+                CoinTransactionType.ATTENDANCE_REWARD,
+                CoinTransactionStatus.SUCCESS,
+                1L,
+                wallet.getBalance(),
+                "ATTENDANCE_" + LocalDate.now()
+        );
+
+        coinTransactionService.save(tx);
     }
 }
