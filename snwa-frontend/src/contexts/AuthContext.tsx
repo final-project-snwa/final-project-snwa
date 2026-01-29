@@ -19,23 +19,41 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
 
-  // Load user from localStorage on mount (requires token)
+  // Load user from localStorage on mount (requires token validation)
   useEffect(() => {
     const token = localStorage.getItem('snwa_token');
     const savedUser = localStorage.getItem('snwa_user');
 
-    // 토큰이 없으면 로그인 상태로 복원하지 않음 (자동 로그인 방지)
+    // 토큰이 없으면 로그인 상태로 복원하지 않음
     if (!token || !savedUser) {
       localStorage.removeItem('snwa_user');
+      localStorage.removeItem('snwa_token');
       return;
     }
 
-    try {
-      setUser(JSON.parse(savedUser));
-    } catch (e) {
-      console.error('Failed to parse user data:', e);
-      localStorage.removeItem('snwa_user');
-    }
+    // 토큰 유효성 검증
+    (async () => {
+      try {
+        const response = await fetch('/api/auth/verify', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (!response.ok) {
+          // 토큰이 유효하지 않으면 삭제
+          localStorage.removeItem('snwa_user');
+          localStorage.removeItem('snwa_token');
+          return;
+        }
+
+        // 토큰이 유효하면 사용자 정보 복원
+        const userData = JSON.parse(savedUser);
+        setUser(userData);
+      } catch (e) {
+        console.error('Token validation failed:', e);
+        localStorage.removeItem('snwa_user');
+        localStorage.removeItem('snwa_token');
+      }
+    })();
   }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
