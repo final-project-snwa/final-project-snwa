@@ -12,6 +12,7 @@ import com.team.snwa.snwabackend.domain.crawler.entity.ArticleCrawlingTracking;
 import com.team.snwa.snwabackend.domain.crawler.entity.CrawlingJob;
 import com.team.snwa.snwabackend.domain.crawler.entity.CrawlingLog;
 import com.team.snwa.snwabackend.domain.crawler.entity.enums.CrawlingStatus;
+import com.team.snwa.snwabackend.domain.crawler.entity.enums.EspnLeague;
 import com.team.snwa.snwabackend.domain.crawler.entity.enums.SourceName;
 import com.team.snwa.snwabackend.domain.crawler.repository.ArticleCrawlingTrackingRepository;
 import com.team.snwa.snwabackend.domain.crawler.repository.CrawlingJobRepository;
@@ -208,13 +209,16 @@ public class CrawlerService {
         Category category = categoryRepository.findById(request.getCategoryId())
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 카테고리 ID입니다: " + request.getCategoryId()));
 
-        String finalUrl;
-        if (request.getLeague() != null) {
-            finalUrl = ESPN_BASE_URL + request.getLeague().getApiPath() + "/news";
-        } else if (request.getCustomTargetUrl() != null && !request.getCustomTargetUrl().isEmpty()) {
-            finalUrl = request.getCustomTargetUrl();
-        } else {
-            throw new IllegalArgumentException("리그를 선택하거나 타겟 URL을 입력해야 합니다.");
+        // URL 결정 로직 (커스텀 URL 우선 -> 없으면 자동 생성)
+        String finalUrl = request.getCustomTargetUrl();
+
+        if (finalUrl == null || finalUrl.isEmpty()) {
+            // URL도 없고 리그도 없으면 에러
+            if (request.getLeague() == null) {
+                throw new IllegalArgumentException("리그를 선택하거나 타겟 URL을 입력해야 합니다.");
+            }
+            // 소스 + 리그 조합으로 URL 자동 생성
+            finalUrl = generateUrl(request.getSourceName(), request.getLeague());
         }
 
         String cron = request.getCronExpression();
@@ -236,7 +240,7 @@ public class CrawlerService {
         }
 
         CrawlingJob savedJob = jobRepository.save(newJob);
-        log.info("새로운 크롤링 Job 생성 완료: {} (ID: {})", savedJob.getJobName(), savedJob.getId());
+        log.info("새로운 크롤링 Job 생성 완료: {} (ID: {}, URL: {})", savedJob.getJobName(), savedJob.getId(), finalUrl);
 
         return savedJob.getId();
     }
@@ -314,5 +318,33 @@ public class CrawlerService {
                 .durationSeconds(log.getUpdatedDate() != null ?
                         java.time.Duration.between(log.getCreatedDate(), log.getUpdatedDate()).getSeconds() : 0)
                 .build());
+    }
+
+    private String generateUrl(SourceName sourceName, EspnLeague league) {
+        if (sourceName == SourceName.ESPN) {
+            // ESPN은 API 방식 (기존 로직)
+            return ESPN_BASE_URL + league.getApiPath() + "/news";
+        }
+
+        else if (sourceName == SourceName.SKY_SPORTS) {
+            // Sky Sports는 HTML 페이지 방식
+            // EspnLeague Enum을 재활용하되, Sky Sports에 맞는 URL로 매핑
+            switch (league) {
+                case EPL:
+                    return "https://www.skysports.com/premier-league-news";
+                case NBA:
+                    return "https://www.skysports.com/nba/news";
+                case BUNDESLIGA:
+                    return "https://www.skysports.com/bundesliga-news";
+                case LALIGA:
+                    return "https://www.skysports.com/la-liga-news";
+                case MLB:
+                    return "https://www.skysports.com/mlb/news";
+                default:
+                    throw new IllegalArgumentException("Sky Sports에서 아직 지원하지 않는 리그입니다: " + league);
+            }
+        }
+
+        throw new IllegalArgumentException("URL 생성 로직이 정의되지 않은 소스입니다: " + sourceName);
     }
 }
