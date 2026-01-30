@@ -10,10 +10,11 @@ import java.time.LocalDateTime;
 
 @Getter
 @Entity
+
 @Table(
-        name = "payment_cancels",
+        name="payment_cancels",
         indexes = {
-                @Index(name = "idx_payment_cancels_payment_key", columnList = "paymentKey")
+                @Index(name="idx_payment_cancels_payment_key", columnList="payment_key")
         }
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -24,7 +25,7 @@ public class PaymentCancel extends BaseTimeEntity {
     private Long id;
 
     // 조회 편의용
-    @Column(nullable = false, length = 200)
+    @Column(name="payment_key", nullable=false, length=200)
     private String paymentKey;
 
     @Column(nullable = false)

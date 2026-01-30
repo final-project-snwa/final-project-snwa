@@ -12,6 +12,7 @@ spring:
       maximum-pool-size: 5
       minimum-idle: 1
 
+
   jpa:
     hibernate:
       ddl-auto: update

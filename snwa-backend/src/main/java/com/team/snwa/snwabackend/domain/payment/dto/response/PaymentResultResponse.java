@@ -1,6 +1,7 @@
-package com.team.snwa.snwabackend.domain.payment.dto;
+package com.team.snwa.snwabackend.domain.payment.dto.response;
 
 import com.team.snwa.snwabackend.domain.payment.entity.Payment;
+import com.team.snwa.snwabackend.domain.payment.entity.enums.PaymentMethod;
 
 import java.time.LocalDateTime;
 
@@ -8,9 +9,9 @@ public record PaymentResultResponse(
         String orderId,
         String paymentKey,
         String tossStatus,
-        String method,
+        PaymentMethod method,
         Long totalAmount,
-        LocalDateTime approvedAt,
+        String approvedAt,
         boolean alreadyPaid
 ) {
     public static PaymentResultResponse success(String orderId, Payment payment) {

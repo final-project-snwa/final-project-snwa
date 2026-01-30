@@ -1,4 +1,4 @@
-package com.team.snwa.snwabackend.domain.payment.dto;
+package com.team.snwa.snwabackend.domain.payment.dto.response;
 
 import java.time.LocalDateTime;
 

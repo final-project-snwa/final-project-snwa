@@ -2,7 +2,10 @@ package com.team.snwa.snwabackend.domain.payment.controller;
 
 
 
-import com.team.snwa.snwabackend.domain.payment.dto.*;
+import com.team.snwa.snwabackend.domain.payment.dto.request.PaymentCancelRequest;
+import com.team.snwa.snwabackend.domain.payment.dto.request.PaymentConfirmRequest;
+import com.team.snwa.snwabackend.domain.payment.dto.request.PaymentCreateOrderRequest;
+import com.team.snwa.snwabackend.domain.payment.dto.response.*;
 import com.team.snwa.snwabackend.domain.payment.service.PaymentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -42,6 +45,16 @@ public class PaymentController {
         paymentService.handleWebhook(payload);
         return WebhookAckResponse.ok();
     }
-    
-    //todo 결제내역 조회, 예외처리
+
+    // 5) 결제내역 조회(유저별)
+    @GetMapping("/users/{userId}")
+    public PaymentHistoryResponse history(@PathVariable Long userId) {
+        return paymentService.getHistoryByUser(userId);
+    }
+
+    // 6) 결제 단건 상세(결제키로)
+    @GetMapping("/{paymentKey}")
+    public PaymentResultResponse detail(@PathVariable String paymentKey) {
+        return paymentService.getPaymentDetail(paymentKey);
+    }
 }

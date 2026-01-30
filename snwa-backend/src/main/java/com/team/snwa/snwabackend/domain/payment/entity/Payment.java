@@ -1,12 +1,11 @@
 package com.team.snwa.snwabackend.domain.payment.entity;
 
 import com.team.snwa.snwabackend.domain.payment.common.BaseTimeEntity;
+import com.team.snwa.snwabackend.domain.payment.entity.enums.PaymentMethod;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-
-import java.time.LocalDateTime;
 
 @Getter
 @Entity
@@ -14,6 +13,7 @@ import java.time.LocalDateTime;
         name = "payments",
         uniqueConstraints = {
                 @UniqueConstraint(name = "uk_payments_payment_key", columnNames = "payment_key")
+                @UniqueConstraint(name = "uk_payments_order_id", columnNames = "order_id")
         }
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -26,8 +26,9 @@ public class Payment extends BaseTimeEntity {
     @Column(name = "payment_key", nullable = false, length = 200)
     private String paymentKey;
 
-    @Column(length = 50)
-    private String method;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "method", length = 50, nullable = false)
+    private PaymentMethod method;
 
     @Column(nullable = false, length = 30)
     private String tossStatus;
@@ -35,7 +36,7 @@ public class Payment extends BaseTimeEntity {
     @Column(nullable = false)
     private Long totalAmount;
 
-    private LocalDateTime approvedAt;
+    private String approvedAt;
 
     @Lob
     private String rawJson;
@@ -48,8 +49,8 @@ public class Payment extends BaseTimeEntity {
     )
     private PaymentOrder order;
 
-    private Payment(PaymentOrder order, String paymentKey, String method, String tossStatus,
-                    Long totalAmount, LocalDateTime approvedAt, String rawJson) {
+    private Payment(PaymentOrder order, String paymentKey, PaymentMethod  method, String tossStatus,
+                    Long totalAmount, String approvedAt, String rawJson) {
         this.order = order;
         this.paymentKey = paymentKey;
         this.method = method;
@@ -64,10 +65,10 @@ public class Payment extends BaseTimeEntity {
 
     public static Payment create(PaymentOrder order,
                                  String paymentKey,
-                                 String method,
+                                 PaymentMethod method,
                                  String tossStatus,
                                  Long totalAmount,
-                                 LocalDateTime approvedAt,
+                                 String approvedAt,
                                  String rawJson) {
         return new Payment(order, paymentKey, method, tossStatus, totalAmount, approvedAt, rawJson);
     }

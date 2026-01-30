@@ -1,4 +1,4 @@
-package com.team.snwa.snwabackend.domain.payment.dto;
+package com.team.snwa.snwabackend.domain.payment.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

@@ -45,7 +45,17 @@ public enum ErrorCode {
     TOSS_AMOUNT_MISMATCH(HttpStatus.BAD_REQUEST, "토스 결제 금액이 일치하지 않습니다."),
 
     PAYMENT_KEY_DUPLICATED(HttpStatus.CONFLICT, "이미 처리된 결제 키입니다."),
-    PAYMENT_INCONSISTENT_STATE(HttpStatus.CONFLICT, "결제 상태가 일관되지 않습니다.");
+    PAYMENT_INCONSISTENT_STATE(HttpStatus.CONFLICT, "결제 상태가 일관되지 않습니다."),
+
+    PAYMENT_ORDER_CANCELED(HttpStatus.BAD_REQUEST, "취소된 주문은 결제 승인할 수 없습니다."),
+    PAYMENT_ORDER_EXPIRED(HttpStatus.BAD_REQUEST, "만료된 주문은 결제 승인할 수 없습니다."),
+    TOSS_CONFIRM_FAILED(HttpStatus.BAD_GATEWAY, "토스 결제 승인 요청에 실패했습니다."),
+
+    INVALID_CANCEL_AMOUNT(HttpStatus.BAD_REQUEST, "취소 금액이 올바르지 않습니다."),
+    CANCEL_AMOUNT_EXCEEDS_REMAINING(HttpStatus.BAD_REQUEST, "취소 금액이 남은 결제 금액을 초과했습니다."),
+
+    TOSS_CANCEL_FAILED(HttpStatus.BAD_GATEWAY, "토스 결제 취소 요청에 실패했습니다.");
+
 
     private final HttpStatus status;
     private final String message;

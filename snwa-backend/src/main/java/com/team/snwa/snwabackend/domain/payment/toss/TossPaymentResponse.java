@@ -12,5 +12,5 @@ public record TossPaymentResponse(
         String status,
         String method,
         Long totalAmount,
-        LocalDateTime approvedAt
+        String approvedAt
 ) {}
