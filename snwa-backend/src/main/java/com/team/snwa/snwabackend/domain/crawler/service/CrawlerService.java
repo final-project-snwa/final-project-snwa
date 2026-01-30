@@ -353,27 +353,15 @@ public class CrawlerService {
 
     private String generateUrl(SourceName sourceName, EspnLeague league) {
         if (sourceName == SourceName.ESPN) {
-            // ESPN은 API 방식 (기존 로직)
             return ESPN_BASE_URL + league.getApiPath() + "/news";
         }
-
         else if (sourceName == SourceName.SKY_SPORTS) {
-            // Sky Sports는 HTML 페이지 방식
-            // EspnLeague Enum을 재활용하되, Sky Sports에 맞는 URL로 매핑
-            switch (league) {
-                case EPL:
-                    return "https://www.skysports.com/premier-league-news";
-                case NBA:
-                    return "https://www.skysports.com/nba/news";
-                case BUNDESLIGA:
-                    return "https://www.skysports.com/bundesliga-news";
-                case LALIGA:
-                    return "https://www.skysports.com/la-liga-news";
-                case MLB:
-                    return "https://www.skysports.com/mlb/news";
-                default:
-                    throw new IllegalArgumentException("Sky Sports에서 아직 지원하지 않는 리그입니다: " + league);
+            // Enum에서 바로 가져오기
+            String url = league.getSkySportsUrl();
+            if (url == null || url.isEmpty()) {
+                throw new IllegalArgumentException("Sky Sports에서 해당 리그를 지원하지 않습니다: " + league);
             }
+            return url;
         }
 
         throw new IllegalArgumentException("URL 생성 로직이 정의되지 않은 소스입니다: " + sourceName);
