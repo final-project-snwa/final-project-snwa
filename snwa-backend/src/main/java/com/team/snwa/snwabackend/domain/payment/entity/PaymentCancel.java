@@ -1,6 +1,7 @@
 package com.team.snwa.snwabackend.domain.payment.entity;
 
-import com.team.snwa.snwabackend.domain.payment.common.BaseTimeEntity;
+
+import com.team.snwa.snwabackend.global.common.BaseTimeEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;

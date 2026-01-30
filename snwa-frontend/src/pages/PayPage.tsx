@@ -14,11 +14,17 @@ type PrepareResponse = {
 
 export default function PayPage() {
     const [prepared, setPrepared] = useState<PrepareResponse | null>(null);
+
     const widgetRef = useRef<any>(null);
+
+    // ✅ 위젯 중복 초기화 방지 (StrictMode/useEffect 2번 실행 대비)
+    const initedRef = useRef(false);
 
     const clientKey = import.meta.env.VITE_TOSS_CLIENT_KEY as string; // Vite 기준
 
     useEffect(() => {
+        console.log("✅ PayPage mounted");
+
         // 1) 주문 생성(prepare)
         (async () => {
             const res = await fetch("http://localhost:8080/api/payments/prepare", {
@@ -37,6 +43,7 @@ export default function PayPage() {
             }
 
             const data: PrepareResponse = await res.json();
+            console.log("✅ prepared", data);
             setPrepared(data);
         })();
     }, []);
@@ -44,10 +51,17 @@ export default function PayPage() {
     // 2) 토스 위젯 초기화 + 렌더
     const initWidget = async () => {
         if (!prepared) return;
+
         if (!window.TossPayments) {
             alert("TossPayments 스크립트가 아직 로딩되지 않았어.");
             return;
         }
+
+        // ✅ 혹시 남아있는 렌더 결과가 있으면 비워주기(안전장치)
+        const pmEl = document.querySelector("#payment-method");
+        const agEl = document.querySelector("#agreement");
+        if (pmEl) pmEl.innerHTML = "";
+        if (agEl) agEl.innerHTML = "";
 
         const tossPayments = window.TossPayments(clientKey);
 
@@ -70,21 +84,34 @@ export default function PayPage() {
         widgetRef.current = widgets;
     };
 
-    // prepared가 생기면 자동 init
+    // prepared가 생기면 자동 init (✅ 1회만 실행)
     useEffect(() => {
-        if (prepared) initWidget();
+        if (!prepared) return;
+
+        if (initedRef.current) return; // ✅ 중복 방지
+        initedRef.current = true;
+
+        initWidget().catch((e) => {
+            console.error("initWidget failed", e);
+            initedRef.current = false; // 초기화 실패하면 다시 시도 가능하게
+        });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [prepared]);
 
     const requestPay = async () => {
         if (!prepared || !widgetRef.current) return;
 
-        await widgetRef.current.requestPayment({
-            orderId: prepared.orderId,
-            orderName: prepared.orderName,
-            successUrl: "http://localhost:3000/pay/success",
-            failUrl: "http://localhost:3000/pay/fail",
-        });
+        try {
+            await widgetRef.current.requestPayment({
+                orderId: prepared.orderId,
+                orderName: prepared.orderName,
+                successUrl: "http://localhost:3000/pay/success",
+                failUrl: "http://localhost:3000/pay/fail",
+            });
+        } catch (e) {
+            // ✅ 결제창 닫기/취소는 흔한 정상 흐름이라 에러로 죽이면 안 됨
+            console.warn("결제창 닫힘/취소/실패", e);
+        }
     };
 
     return (

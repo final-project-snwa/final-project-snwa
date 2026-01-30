@@ -4,7 +4,6 @@ package com.team.snwa.snwabackend.domain.payment.controller;
 
 import com.team.snwa.snwabackend.domain.payment.dto.request.PaymentCancelRequest;
 import com.team.snwa.snwabackend.domain.payment.dto.request.PaymentConfirmRequest;
-import com.team.snwa.snwabackend.domain.payment.dto.request.PaymentCreateOrderRequest;
 import com.team.snwa.snwabackend.domain.payment.dto.response.*;
 import com.team.snwa.snwabackend.domain.payment.service.PaymentService;
 import jakarta.validation.Valid;
@@ -19,12 +18,6 @@ public class PaymentController {
 
     private final PaymentService paymentService;
 
-    // 1) 주문 생성 (결제 전)
-    @PostMapping("/prepare")
-    @ResponseStatus(HttpStatus.CREATED)
-    public PaymentCreateOrderResponse createOrder(@Valid @RequestBody PaymentCreateOrderRequest req) {
-        return paymentService.createOrder(req);
-    }
 
     // 2) 결제 승인 (successUrl에서 받은 paymentKey/orderId/amount로 호출)
     @PostMapping("/confirm")

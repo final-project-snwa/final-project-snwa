@@ -1,4 +1,4 @@
-package com.team.snwa.snwabackend.domain.payment.entity.enums;
+package com.team.snwa.snwabackend.domain.payment.entity;
 
 import lombok.Getter;
 
@@ -9,7 +9,8 @@ public enum PaymentMethod {
     CARD("카드"),
     TRANSFER("계좌이체"),
     VIRTUAL_ACCOUNT("가상계좌"),
-    MOBILE_PHONE("휴대폰");
+    MOBILE_PHONE("휴대폰"),
+    EASY_PAY("간편결제");
 
     private final String description;
 

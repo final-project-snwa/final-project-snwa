@@ -1,9 +1,7 @@
 package com.team.snwa.snwabackend.domain.payment.dto.response;
 
 import com.team.snwa.snwabackend.domain.payment.entity.Payment;
-import com.team.snwa.snwabackend.domain.payment.entity.enums.PaymentMethod;
-
-import java.time.LocalDateTime;
+import com.team.snwa.snwabackend.domain.payment.entity.PaymentMethod;
 
 public record PaymentResultResponse(
         String orderId,

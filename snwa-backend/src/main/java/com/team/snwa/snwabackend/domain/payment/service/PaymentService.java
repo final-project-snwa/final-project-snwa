@@ -2,21 +2,19 @@ package com.team.snwa.snwabackend.domain.payment.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.team.snwa.snwabackend.domain.order.entity.Order;
+import com.team.snwa.snwabackend.domain.order.entity.OrderStatus;
+import com.team.snwa.snwabackend.domain.order.repository.OrderRepository;
 import com.team.snwa.snwabackend.domain.payment.dto.request.PaymentCancelRequest;
 import com.team.snwa.snwabackend.domain.payment.dto.request.PaymentConfirmRequest;
-import com.team.snwa.snwabackend.domain.payment.dto.request.PaymentCreateOrderRequest;
 import com.team.snwa.snwabackend.domain.payment.dto.response.PaymentCancelResponse;
-import com.team.snwa.snwabackend.domain.payment.dto.response.PaymentCreateOrderResponse;
 import com.team.snwa.snwabackend.domain.payment.dto.response.PaymentResultResponse;
 import com.team.snwa.snwabackend.domain.payment.dto.response.PaymentHistoryItemResponse;
 import com.team.snwa.snwabackend.domain.payment.dto.response.PaymentHistoryResponse;
 import com.team.snwa.snwabackend.domain.payment.entity.Payment;
 import com.team.snwa.snwabackend.domain.payment.entity.PaymentCancel;
-import com.team.snwa.snwabackend.domain.payment.entity.PaymentOrder;
-import com.team.snwa.snwabackend.domain.payment.entity.enums.PaymentMethod;
-import com.team.snwa.snwabackend.domain.payment.entity.enums.PaymentOrderStatus;
+import com.team.snwa.snwabackend.domain.payment.entity.PaymentMethod;
 import com.team.snwa.snwabackend.domain.payment.repository.PaymentCancelRepository;
-import com.team.snwa.snwabackend.domain.payment.repository.PaymentOrderRepository;
 import com.team.snwa.snwabackend.domain.payment.repository.PaymentRepository;
 import com.team.snwa.snwabackend.domain.payment.toss.TossCancelResponse;
 import com.team.snwa.snwabackend.domain.payment.toss.TossPaymentResponse;
@@ -36,43 +34,28 @@ import java.util.UUID;
 @Transactional
 public class PaymentService {
 
-    private final PaymentOrderRepository orderRepo;
+    private final OrderRepository orderRepo;
     private final PaymentRepository paymentRepo;
     private final PaymentCancelRepository cancelRepo;
 
     private final TossPaymentsClient tossClient;
     private final ObjectMapper objectMapper;
 
-    public PaymentCreateOrderResponse createOrder(PaymentCreateOrderRequest req) {
-        String orderId = "ORD-" + UUID.randomUUID();
-
-        PaymentOrder order = PaymentOrder.create(
-                req.userId(),
-                orderId,
-                req.orderName(),
-                req.amount()
-        );
-
-        orderRepo.save(order);
-
-        return new PaymentCreateOrderResponse(orderId, req.orderName(), req.amount());
-    }
 
     @Transactional
     public PaymentResultResponse confirm(PaymentConfirmRequest req) {
 
         // 1) 주문 row 락
-        PaymentOrder order = orderRepo.findByOrderIdForUpdate(req.orderId())
+        Order order = orderRepo.findByOrderIdForUpdate(req.orderId())
                 .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_ORDER_NOT_FOUND));
-
         // 2) 상태 가드
         // - PAID는 멱등 응답
         // - CANCELED/EXPIRED는 재승인 불가(정책)
         // - FAILED는 ✅ 재시도 허용(통과)
-        if (order.getStatus() == PaymentOrderStatus.CANCELED) {
+        if (order.getStatus() == OrderStatus.CANCELED) {
             throw new CustomException(ErrorCode.PAYMENT_ORDER_CANCELED);
         }
-        if (order.getStatus() == PaymentOrderStatus.EXPIRED) {
+        if (order.getStatus() == OrderStatus.EXPIRED) {
             throw new CustomException(ErrorCode.PAYMENT_ORDER_EXPIRED);
         }
 
@@ -84,13 +67,13 @@ public class PaymentService {
 
         // 4) 이미 결제 완료면 멱등 처리
         if (order.isPaid()) {
-            Payment existing = paymentRepo.findByOrder(order)
+            Payment existing = paymentRepo.findByOrderId(order.getOrderId())
                     .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_INCONSISTENT_STATE));
             return PaymentResultResponse.alreadyPaid(order.getOrderId(), existing);
         }
 
         // 5) 주문은 PAID가 아닌데 payment가 먼저 생긴 케이스(정합성 보정)
-        Payment existingByOrder = paymentRepo.findByOrder(order).orElse(null);
+        Payment existingByOrder = paymentRepo.findByOrderId(order.getOrderId()).orElse(null);
         if (existingByOrder != null) {
             order.markPaid();
             return PaymentResultResponse.alreadyPaid(order.getOrderId(), existingByOrder);
@@ -129,7 +112,9 @@ public class PaymentService {
         PaymentMethod method = PaymentMethod.fromToss(tossRes.method());
 
         Payment payment = Payment.create(
-                order,
+                order.getOrderId(),
+                order.getUserId(),
+                order.getOrderName(),
                 tossRes.paymentKey(),
                 method,                 // ✅ enum 저장
                 tossRes.status(),
@@ -142,7 +127,7 @@ public class PaymentService {
             paymentRepo.save(payment);
         } catch (DataIntegrityViolationException e) {
             Payment existed = paymentRepo.findByPaymentKey(tossRes.paymentKey())
-                    .orElseGet(() -> paymentRepo.findByOrder(order)
+                    .orElseGet(() -> paymentRepo.findByOrderId(order.getOrderId())
                             .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_INCONSISTENT_STATE)));
             order.markPaid();
             return PaymentResultResponse.alreadyPaid(order.getOrderId(), existed);
@@ -160,14 +145,14 @@ public class PaymentService {
         Payment payment = paymentRepo.findByPaymentKey(paymentKey)
                 .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_NOT_FOUND));
 
-        String orderId = payment.getOrder().getOrderId();
+        String orderId = payment.getOrderId();
 
         // ✅ 주문 row 락
-        PaymentOrder order = orderRepo.findByOrderIdForUpdate(orderId)
+        Order order = orderRepo.findByOrderIdForUpdate(orderId)
                 .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_ORDER_NOT_FOUND));
 
         // 이미 취소된 주문이면 더 진행하지 않는다.
-        if (order.getStatus() == PaymentOrderStatus.CANCELED) {
+        if (order.getStatus() == OrderStatus.CANCELED) {
             throw new CustomException(ErrorCode.PAYMENT_ALREADY_CANCELED);
         }
 
@@ -175,7 +160,7 @@ public class PaymentService {
         Long sum = cancelRepo.sumCanceledAmountByPaymentKey(paymentKey);
         long totalCanceled = (sum == null) ? 0L : sum;
 
-        if (req.cancelAmount() <= 0) {
+        if (req.cancelAmount() == null || req.cancelAmount() <= 0) {
             throw new CustomException(ErrorCode.INVALID_CANCEL_AMOUNT);
         }
         if (totalCanceled + req.cancelAmount() > order.getAmount()) {
@@ -238,13 +223,12 @@ public class PaymentService {
 
         List<PaymentHistoryItemResponse> items = payments.stream()
                 .map(p -> new PaymentHistoryItemResponse(
-                        p.getOrder().getOrderId(),
+                        p.getOrderId(),
                         p.getPaymentKey(),
-                        p.getOrder().getOrderName(),
+                        p.getOrderName(),
                         p.getTotalAmount(),
-                        // ✅ enum -> String (추천: name() 내려주기)
                         p.getMethod().name(),
-                        p.getOrder().getStatus().name(),
+                        p.getTossStatus(),
                         p.getApprovedAt()
                 ))
                 .toList();
@@ -257,6 +241,6 @@ public class PaymentService {
         Payment payment = paymentRepo.findByPaymentKey(paymentKey)
                 .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_NOT_FOUND));
 
-        return PaymentResultResponse.success(payment.getOrder().getOrderId(), payment);
+        return PaymentResultResponse.success(payment.getOrderId(), payment);
     }
 }
