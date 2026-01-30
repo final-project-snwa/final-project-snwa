@@ -47,6 +47,7 @@ public class Article extends BaseTimeEntity {
     private String authorName;
     private String publisherName;
 
+    @Column(length=2000)
     private String imageUrl;
 
     // 소프트 삭제를 위한 필드

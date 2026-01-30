@@ -98,6 +98,8 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
     // 크롤링한 기사 중복 검사용
     boolean existsByOriginalUrl(String originalUrl);
 
+    Optional<Article> findByOriginalUrl(String originalUrl);
+
     /**
      * 번역이 안된 기사 조회 (translatedTitle 또는 translatedContent가 null인 기사)
      * @param pageable 페이징 정보
@@ -129,4 +131,23 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
                     "WHERE a.summary IS NULL " +
                     "AND a.translatedContent IS NOT NULL AND a.translatedContent != ''")
     Page<Article> findArticlesNeedingSummary(Pageable pageable);
+
+    /**
+     * 키워드 추출이 필요한 기사 조회 (번역된 기사 중 태그가 없는 기사)
+     * @param pageable 페이징 정보
+     * @return 키워드 추출이 필요한 기사 목록
+     */
+    @Query(value = "SELECT a FROM Article a " +
+            "LEFT JOIN FETCH a.category " +
+            "WHERE a.translatedContent IS NOT NULL " +
+            "AND a.translatedContent != '' " +
+            "AND a.deletedAt IS NULL " +
+            "AND NOT EXISTS (SELECT 1 FROM ArticleTag at WHERE at.article.id = a.id) " +
+            "ORDER BY a.createdDate ASC",
+            countQuery = "SELECT COUNT(a) FROM Article a " +
+                    "WHERE a.translatedContent IS NOT NULL " +
+                    "AND a.translatedContent != '' " +
+                    "AND a.deletedAt IS NULL " +
+                    "AND NOT EXISTS (SELECT 1 FROM ArticleTag at WHERE at.article.id = a.id)")
+    Page<Article> findArticlesNeedingKeywordExtraction(Pageable pageable);
 }

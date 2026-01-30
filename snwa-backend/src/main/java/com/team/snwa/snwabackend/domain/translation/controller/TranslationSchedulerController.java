@@ -1,6 +1,8 @@
 package com.team.snwa.snwabackend.domain.translation.controller;
 
-import com.team.snwa.snwabackend.domain.translation.service.TranslationSummaryScheduler;
+import com.team.snwa.snwabackend.domain.translation.scheduler.KeywordsTagScheduler;
+import com.team.snwa.snwabackend.domain.translation.scheduler.SummaryScheduler;
+import com.team.snwa.snwabackend.domain.translation.scheduler.TranslationScheduler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -22,18 +24,22 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class TranslationSchedulerController {
 
-    private final TranslationSummaryScheduler translationSummaryScheduler;
+    private final TranslationScheduler translationScheduler;
+    private final SummaryScheduler summaryScheduler;
+    private final KeywordsTagScheduler keywordsTagScheduler;
 
-    @PostMapping("/process-translation-summary")
+    @PostMapping("/process-all")
     public ResponseEntity<Map<String, String>> processTranslationAndSummary() {
         log.info("📞 스케줄러 수동 실행 요청 받음");
 
         try {
-            translationSummaryScheduler.processTranslationAndSummary();
+            translationScheduler.process();
+            summaryScheduler.process();
+            keywordsTagScheduler.process();
 
             Map<String, String> response = new HashMap<>();
             response.put("status", "success");
-            response.put("message", "번역/요약 스케줄러 실행 완료");
+            response.put("message", "번역, 요약, 키워드 추출 스케줄러 실행 완료");
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
