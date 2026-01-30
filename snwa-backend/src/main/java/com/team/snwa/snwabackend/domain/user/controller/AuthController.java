@@ -39,19 +39,6 @@ public class AuthController {
         return ResponseEntity.ok(new AuthResponseDto(null, "이메일 인증이 완료되었습니다."));
     }
 
-    /**
-     * 토큰 유효성 검증 (자동 로그인 확인용)
-     * GET /api/auth/verify
-     */
-    @GetMapping("/verify")
-    public ResponseEntity<AuthResponseDto> verifyToken(Principal principal) {
-        if (principal != null) {
-            return ResponseEntity.ok(new AuthResponseDto(null, "토큰이 유효합니다."));
-        }
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(new AuthResponseDto(null, "토큰이 유효하지 않습니다."));
-    }
-
     @PostMapping("/logout")
     public ResponseEntity<AuthResponseDto> logout(@RequestHeader("Authorization") String authHeader) {
         // Authorization 헤더에서 토큰 추출 (Bearer 제거)
