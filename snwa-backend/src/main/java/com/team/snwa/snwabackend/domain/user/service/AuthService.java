@@ -11,12 +11,17 @@ import com.team.snwa.snwabackend.domain.user.entity.enums.UserStatus;
 import com.team.snwa.snwabackend.domain.user.repository.EmailVerificationTokenRepository;
 import com.team.snwa.snwabackend.domain.user.repository.PasswordResetTokenRepository;
 import com.team.snwa.snwabackend.domain.user.repository.UserRepository;
+import com.team.snwa.snwabackend.domain.wallet.service.WalletTransactionService;
 import com.team.snwa.snwabackend.global.exception.CustomException;
 import com.team.snwa.snwabackend.global.exception.ErrorCode;
 import com.team.snwa.snwabackend.global.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -24,6 +29,7 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AuthService {
     private final UserRepository userRepository;
     private final EmailVerificationTokenRepository tokenRepository;
@@ -31,6 +37,11 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final EmailService emailService;
+    private final WalletTransactionService walletTransactionService;
+
+    @Lazy
+    @Autowired
+    private AuthService self;
 
     @Transactional
     public void signup(SignupRequestDto request) {
@@ -91,8 +102,27 @@ public class AuthService {
             throw new CustomException(ErrorCode.USER_INACTIVE);
         }
 
-        // JWT 토큰 생성 (이메일을 subject로 사용)
-        return jwtUtil.generateToken(user.getEmail());
+        // JWT 토큰 생성 (이메일을 subject로 사용) - 로그인 성공
+        String token = jwtUtil.generateToken(user.getEmail());
+
+        // 출석 보상은 별도 트랜잭션에서 실행 (실패해도 로그인에는 영향 없음)
+        try {
+            self.giveAttendanceRewardInNewTransaction(user);
+        } catch (Exception e) {
+            log.warn("출석 보상 지급 실패 (userId={}, 무시): {}", user.getId(), e.getMessage());
+        }
+
+        return token;
+    }
+
+    /** 출석 보상을 새 트랜잭션에서 실행. 예외가 나도 로그인 트랜잭션은 롤백되지 않음 */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void giveAttendanceRewardInNewTransaction(User user) {
+        try {
+            walletTransactionService.giveAttendanceReward(user);
+        } catch (Exception e) {
+            log.warn("출석 보상 지급 실패 (userId={}): {}", user.getId(), e.getMessage());
+        }
     }
 
     @Transactional

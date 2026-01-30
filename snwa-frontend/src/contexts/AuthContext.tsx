@@ -19,14 +19,13 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
 
-  // Load user from localStorage on mount (requires token)
+  // Load user from sessionStorage on mount (탭/창 닫으면 로그아웃됨)
   useEffect(() => {
-    const token = localStorage.getItem('snwa_token');
-    const savedUser = localStorage.getItem('snwa_user');
+    const token = sessionStorage.getItem('snwa_token');
+    const savedUser = sessionStorage.getItem('snwa_user');
 
-    // 토큰이 없으면 로그인 상태로 복원하지 않음 (자동 로그인 방지)
     if (!token || !savedUser) {
-      localStorage.removeItem('snwa_user');
+      sessionStorage.removeItem('snwa_user');
       return;
     }
 
@@ -34,7 +33,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(JSON.parse(savedUser));
     } catch (e) {
       console.error('Failed to parse user data:', e);
-      localStorage.removeItem('snwa_user');
+      sessionStorage.removeItem('snwa_user');
     }
   }, []);
 
@@ -55,9 +54,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (!response.ok || !data.token) return false;
 
-      localStorage.setItem('snwa_token', data.token);
+      sessionStorage.setItem('snwa_token', data.token);
       const userData: User = { email, preferredSports: [] };
-      localStorage.setItem('snwa_user', JSON.stringify(userData));
+      sessionStorage.setItem('snwa_user', JSON.stringify(userData));
       setUser(userData);
       return true;
     } catch {
@@ -80,15 +79,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('snwa_user');
-    localStorage.removeItem('snwa_token');
+    sessionStorage.removeItem('snwa_user');
+    sessionStorage.removeItem('snwa_token');
   };
 
   const updatePreferences = (sports: string[]) => {
     if (user) {
       const updatedUser = { ...user, preferredSports: sports };
       setUser(updatedUser);
-      localStorage.setItem('snwa_user', JSON.stringify(updatedUser));
+      sessionStorage.setItem('snwa_user', JSON.stringify(updatedUser));
     }
   };
 
