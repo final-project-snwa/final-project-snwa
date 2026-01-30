@@ -3,10 +3,7 @@ package com.team.snwa.snwabackend.domain.crawler.entity;
 import com.team.snwa.snwabackend.domain.crawler.entity.enums.CrawlingStatus; // Enum 임포트
 import com.team.snwa.snwabackend.global.common.BaseTimeEntity;
 import jakarta.persistence.*;
-import lombok.AccessLevel;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.time.LocalDateTime;
 
@@ -21,7 +18,7 @@ import java.time.LocalDateTime;
 @Entity
 @Getter
 @Table(name = "crawling_log")
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@NoArgsConstructor
 public class CrawlingLog extends BaseTimeEntity {
 
     @Id
