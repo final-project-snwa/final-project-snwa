@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface BookmarkRepository extends JpaRepository<Bookmark, Long> {
@@ -30,7 +31,7 @@ public interface BookmarkRepository extends JpaRepository<Bookmark, Long> {
     @Query("SELECT b FROM Bookmark b " +
             "LEFT JOIN FETCH b.article a " +
             "LEFT JOIN FETCH a.category " +
-            "WHERE b.user = :user " +
+            "WHERE b.user = :user AND a.deletedAt IS NULL " +
             "ORDER BY b.createdDate DESC")
     Page<Bookmark> findByUserWithArticle(@Param("user") User user, Pageable pageable);
 
@@ -55,4 +56,16 @@ public interface BookmarkRepository extends JpaRepository<Bookmark, Long> {
      * @return 즐겨찾기 개수
      */
     long countByUser(User user);
+
+    /**
+     * 특정 사용자가 즐겨찾기한 기사 ID 목록 조회 (배치용)
+     * @param user 사용자
+     * @param articleIds 기사 ID 목록
+     * @return 즐겨찾기한 기사 ID 목록
+     */
+    @Query("SELECT b.article.id FROM Bookmark b WHERE b.user = :user AND b.article.id IN :articleIds")
+    List<Long> findArticleIdsByUserAndArticleIdIn(
+            @Param("user") User user,
+            @Param("articleIds") List<Long> articleIds
+    );
 }

@@ -105,12 +105,14 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
      */
     @Query(value = "SELECT a FROM Article a " +
             "LEFT JOIN FETCH a.category " +
-            "WHERE (a.translatedTitle IS NULL OR a.translatedContent IS NULL) " +
+            "WHERE a.deletedAt IS NULL " +
+            "AND (a.translatedTitle IS NULL OR a.translatedContent IS NULL) " +
             "AND a.title IS NOT NULL " +
             "AND a.content IS NOT NULL " +
             "ORDER BY a.createdDate ASC",
             countQuery = "SELECT COUNT(a) FROM Article a " +
-                    "WHERE (a.translatedTitle IS NULL OR a.translatedContent IS NULL) " +
+                    "WHERE a.deletedAt IS NULL " +
+                    "AND (a.translatedTitle IS NULL OR a.translatedContent IS NULL) " +
                     "AND a.title IS NOT NULL AND a.content IS NOT NULL")
     Page<Article> findArticlesNeedingTranslation(Pageable pageable);
 
@@ -121,12 +123,14 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
      */
     @Query(value = "SELECT a FROM Article a " +
             "LEFT JOIN FETCH a.category " +
-            "WHERE a.summary IS NULL " +
+            "WHERE a.deletedAt IS NULL " +
+            "AND a.summary IS NULL " +
             "AND a.translatedContent IS NOT NULL " +
             "AND a.translatedContent != '' " +
             "ORDER BY a.createdDate ASC",
             countQuery = "SELECT COUNT(a) FROM Article a " +
-                    "WHERE a.summary IS NULL " +
+                    "WHERE a.deletedAt IS NULL " +
+                    "AND a.summary IS NULL " +
                     "AND a.translatedContent IS NOT NULL AND a.translatedContent != ''")
     Page<Article> findArticlesNeedingSummary(Pageable pageable);
 }

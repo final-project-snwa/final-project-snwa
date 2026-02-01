@@ -14,6 +14,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -71,7 +75,7 @@ public class BookmarkService {
      */
     public Page<ArticleListResponseDto> getBookmarks(User user, Pageable pageable) {
         Page<Bookmark> bookmarks = bookmarkRepository.findByUserWithArticle(user, pageable);
-        return bookmarks.map(bookmark -> ArticleListResponseDto.from(bookmark.getArticle()));
+        return bookmarks.map(bookmark -> ArticleListResponseDto.from(bookmark.getArticle(), true));
     }
 
     /**
@@ -94,5 +98,18 @@ public class BookmarkService {
      */
     public long getBookmarkCount(User user) {
         return bookmarkRepository.countByUser(user);
+    }
+
+    /**
+     * 특정 기사 ID 목록 중 사용자가 즐겨찾기한 기사 ID 집합 조회 (배치용)
+     * @param user 사용자 (null이면 빈 집합 반환)
+     * @param articleIds 기사 ID 목록
+     * @return 즐겨찾기한 기사 ID 집합
+     */
+    public Set<Long> getBookmarkedArticleIds(User user, List<Long> articleIds) {
+        if (user == null || articleIds == null || articleIds.isEmpty()) {
+            return Set.of();
+        }
+        return new HashSet<>(bookmarkRepository.findArticleIdsByUserAndArticleIdIn(user, articleIds));
     }
 }

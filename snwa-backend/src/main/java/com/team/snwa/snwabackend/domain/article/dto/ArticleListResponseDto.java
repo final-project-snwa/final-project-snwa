@@ -19,8 +19,13 @@ public class ArticleListResponseDto {
     private String imageUrl;
     private LocalDateTime createdDate;
     private LocalDateTime updatedDate;
+    private boolean isBookmarked;
 
     public static ArticleListResponseDto from(Article article) {
+        return from(article, false);
+    }
+
+    public static ArticleListResponseDto from(Article article, boolean isBookmarked) {
         return ArticleListResponseDto.builder()
                 .id(article.getId())
                 .title(article.getTitle())
@@ -34,6 +39,7 @@ public class ArticleListResponseDto {
                 .imageUrl(article.getImageUrl())
                 .createdDate(article.getCreatedDate())
                 .updatedDate(article.getUpdatedDate())
+                .isBookmarked(isBookmarked)
                 .build();
     }
 }
