@@ -38,7 +38,7 @@ public class SummaryService {
             throw new RuntimeException("번역된 내용이 없습니다. 먼저 번역을 진행해주세요.");
         }
 
-        // 62번째 줄 메소드 호출
+        // 63번째 줄 메소드 호출
         String promptTemplate = loadPromptTemplate();
         String prompt = promptTemplate.replace("{translatedContent}", article.getTranslatedContent());
 

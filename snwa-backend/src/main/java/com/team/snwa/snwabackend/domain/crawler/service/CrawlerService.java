@@ -18,7 +18,9 @@ import com.team.snwa.snwabackend.domain.crawler.repository.ArticleCrawlingTracki
 import com.team.snwa.snwabackend.domain.crawler.repository.CrawlingJobRepository;
 import com.team.snwa.snwabackend.domain.crawler.repository.CrawlingLogRepository;
 import com.team.snwa.snwabackend.domain.crawler.strategy.CrawlingStrategy;
-import com.team.snwa.snwabackend.domain.translation.service.TranslationSummaryScheduler;
+import com.team.snwa.snwabackend.domain.translation.scheduler.KeywordsTagScheduler;
+import com.team.snwa.snwabackend.domain.translation.scheduler.SummaryScheduler;
+import com.team.snwa.snwabackend.domain.translation.scheduler.TranslationScheduler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -31,6 +33,7 @@ import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * 크롤링 작업의 전반적인 라이프사이클을 관리하는 비즈니스 로직 클래스
@@ -51,7 +54,9 @@ public class CrawlerService {
     private final ArticleRepository articleRepository;
     private final ArticleCrawlingTrackingRepository trackingRepository;
     private final CategoryRepository categoryRepository;
-    private final TranslationSummaryScheduler translationSummaryScheduler;
+    private final TranslationScheduler translationScheduler;
+    private final SummaryScheduler summaryScheduler;
+    private final KeywordsTagScheduler keywordsTagScheduler;
 
     private static final String ESPN_BASE_URL = "http://site.api.espn.com/apis/site/v2/sports/";
 
@@ -100,22 +105,35 @@ public class CrawlerService {
 
             // 크롤링 완료 후 번역/요약 스케줄러 실행 (트랜잭션 커밋 후 실행)
             if (savedCount > 0) {
-                log.info("크롤링 완료: {}개 기사 저장됨. 번역/요약 스케줄러는 트랜잭션 커밋 후 실행됩니다.", savedCount);
+                log.info("크롤링 완료: {}개 기사 저장됨", savedCount);
 
-                // 트랜잭션 커밋 후 스케줄러 실행
                 TransactionSynchronizationManager.registerSynchronization(
                         new TransactionSynchronizationAdapter() {
                             @Override
                             public void afterCommit() {
                                 try {
-                                    log.info("트랜잭션 커밋 완료. 번역/요약 스케줄러 실행");
-                                    translationSummaryScheduler.processTranslationAndSummary();
+                                    // 1. 번역 처리
+                                    log.info("번역 스케줄러 실행");
+                                    translationScheduler.process();
+
+                                    Thread.sleep(1000); // 1초 대기
+
+                                    // 2. 요약 처리
+                                    log.info("요약 스케줄러 실행");
+                                    summaryScheduler.process();
+
+                                    Thread.sleep(1000); // 1초 대기
+
+                                    // 3. 키워드 태그 추출 처리
+                                    log.info("키워드 태그 추출 스케줄러 실행");
+                                    keywordsTagScheduler.process();
+
+                                    log.info("✅ 모든 후속 작업 완료");
                                 } catch (Exception e) {
-                                    log.error("번역/요약 스케줄러 실행 중 오류 발생", e);
+                                    log.error("후속 작업 중 오류 발생", e);
                                 }
                             }
-                        }
-                );
+                        });
             }
 
         } catch (Exception e) {
@@ -142,7 +160,6 @@ public class CrawlerService {
                 .orElseThrow(() -> new IllegalArgumentException("지원하지 않는 소스입니다: " + sourceName));
     }
 
-
     /**
      * 수집된 기사 DTO를 검증하고 중복이 없을 경우 DB에 저장함
      * Article 엔티티와 추적용 Tracking 엔티티를 함께 생성하여 저장함
@@ -155,10 +172,25 @@ public class CrawlerService {
      * @DateOfEdit 2026-01-26
      */
     private boolean saveArticleIfNotExists(CrawledArticleDto dto, CrawlingJob job) {
-        // 중복 검사
-        if (articleRepository.existsByOriginalUrl(dto.getOriginalUrl())) {
-            log.info("중복된 기사 스킵: {}", dto.getTitle());
-            return false;
+        // 중복 검사 (비어있는 값 확인)
+        Optional<Article> optionalArticle = articleRepository.findByOriginalUrl(dto.getOriginalUrl());
+
+        if (optionalArticle.isPresent()) {
+            Article existingArticle = optionalArticle.get();
+
+            boolean hasTranslatedContent = existingArticle.getTranslatedContent() != null;
+            boolean hasTranslatedTitle = existingArticle.getTranslatedTitle() != null;
+            boolean hasSummary = existingArticle.getSummary() != null;
+
+            if (hasTranslatedContent && hasTranslatedTitle && hasSummary) {
+                // 모두 완료된 기사, 스킵
+                log.info("완료된 중복 기사 스킵: {}", dto.getTitle());
+                return false;
+            }
+
+            // 부족한 부분이 있음 -> 후속 작업 필요
+            log.info("기존 기사에 번역/요약 미완료, 후속 작업 진행: {}", dto.getTitle());
+            return true;
         }
 
         // 안전장치
@@ -245,7 +277,6 @@ public class CrawlerService {
         return savedJob.getId();
     }
 
-
     /**
      * 모든 크롤링 작업 목록을 조회함
      */
@@ -293,7 +324,6 @@ public class CrawlerService {
         log.info("Job ID {} 및 관련 로그/추적 데이터 삭제 완료", jobId);
     }
 
-
     @Transactional(readOnly = true)
     public Page<CrawlingLogResponseDto> getCrawlingLogs(Long jobId, Pageable pageable) {
         Page<CrawlingLog> logPage;
@@ -315,34 +345,23 @@ public class CrawlerService {
                 .endTime(log.getUpdatedDate())
 
                 // 소요 시간 계산
-                .durationSeconds(log.getUpdatedDate() != null ?
-                        java.time.Duration.between(log.getCreatedDate(), log.getUpdatedDate()).getSeconds() : 0)
+                .durationSeconds(log.getUpdatedDate() != null
+                        ? java.time.Duration.between(log.getCreatedDate(), log.getUpdatedDate()).getSeconds()
+                        : 0)
                 .build());
     }
 
     private String generateUrl(SourceName sourceName, EspnLeague league) {
         if (sourceName == SourceName.ESPN) {
-            // ESPN은 API 방식 (기존 로직)
             return ESPN_BASE_URL + league.getApiPath() + "/news";
         }
-
         else if (sourceName == SourceName.SKY_SPORTS) {
-            // Sky Sports는 HTML 페이지 방식
-            // EspnLeague Enum을 재활용하되, Sky Sports에 맞는 URL로 매핑
-            switch (league) {
-                case EPL:
-                    return "https://www.skysports.com/premier-league-news";
-                case NBA:
-                    return "https://www.skysports.com/nba/news";
-                case BUNDESLIGA:
-                    return "https://www.skysports.com/bundesliga-news";
-                case LALIGA:
-                    return "https://www.skysports.com/la-liga-news";
-                case MLB:
-                    return "https://www.skysports.com/mlb/news";
-                default:
-                    throw new IllegalArgumentException("Sky Sports에서 아직 지원하지 않는 리그입니다: " + league);
+            // Enum에서 바로 가져오기
+            String url = league.getSkySportsUrl();
+            if (url == null || url.isEmpty()) {
+                throw new IllegalArgumentException("Sky Sports에서 해당 리그를 지원하지 않습니다: " + league);
             }
+            return url;
         }
 
         throw new IllegalArgumentException("URL 생성 로직이 정의되지 않은 소스입니다: " + sourceName);

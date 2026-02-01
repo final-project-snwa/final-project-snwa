@@ -74,7 +74,7 @@ spring:
           writetimeout: 5000
 
   ai:
-    enabled: false
+    enabled: true
     google:
       genai:
         api-key: ${GEMINI_API_KEY}
