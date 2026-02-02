@@ -2,12 +2,16 @@ package com.team.snwa.snwabackend.domain.article.controller;
 
 import com.team.snwa.snwabackend.domain.article.dto.ArticleDetailResponseDto;
 import com.team.snwa.snwabackend.domain.article.dto.ArticleListResponseDto;
+import com.team.snwa.snwabackend.domain.article.dto.request.ArticleCreateRequestDto;
 import com.team.snwa.snwabackend.domain.article.service.ArticleService;
+import com.team.snwa.snwabackend.domain.user.entity.User;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -20,6 +24,21 @@ public class ArticleController {
     private final ArticleService articleService;
 
     /**
+     * 기사 생성
+     * @param request 생성 요청 (categoryId, title, content 필수)
+     * @param user 인증된 사용자 (글 작성자)
+     * @return 생성된 기사 상세 정보
+     */
+    @PostMapping
+    public ResponseEntity<ArticleDetailResponseDto> createArticle(
+            @Valid @RequestBody ArticleCreateRequestDto request,
+            @AuthenticationPrincipal User user
+    ) {
+        ArticleDetailResponseDto created = articleService.createArticle(user, request);
+        return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED).body(created);
+    }
+
+    /**
      * 기사 목록 조회
      * @param categoryId 카테고리 ID (선택적)
      * @param pageable 페이지 정보 (기본값: size=10, sort=createdDate,desc)
@@ -28,9 +47,10 @@ public class ArticleController {
     @GetMapping
     public ResponseEntity<Page<ArticleListResponseDto>> getArticleList(
             @RequestParam(required = false) Long categoryId,
-            @PageableDefault(size = 10, sort = "createdDate", direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable
+            @PageableDefault(size = 10, sort = "createdDate", direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable,
+            @AuthenticationPrincipal User user
     ) {
-        Page<ArticleListResponseDto> articles = articleService.getArticleList(categoryId, pageable);
+        Page<ArticleListResponseDto> articles = articleService.getArticleList(categoryId, pageable, user);
         return ResponseEntity.ok(articles);
     }
 
@@ -40,8 +60,11 @@ public class ArticleController {
      * @return 기사 상세 정보
      */
     @GetMapping("/{id}")
-    public ResponseEntity<ArticleDetailResponseDto> getArticleDetail(@PathVariable Long id) {
-        ArticleDetailResponseDto article = articleService.getArticleDetail(id);
+    public ResponseEntity<ArticleDetailResponseDto> getArticleDetail(
+            @PathVariable Long id,
+            @AuthenticationPrincipal User user
+    ) {
+        ArticleDetailResponseDto article = articleService.getArticleDetail(id, user);
         return ResponseEntity.ok(article);
     }
 
@@ -51,8 +74,11 @@ public class ArticleController {
      * @return 관련 기사 목록 (최대 3개)
      */
     @GetMapping("/{id}/related")
-    public ResponseEntity<List<ArticleListResponseDto>> getRelatedArticles(@PathVariable Long id) {
-        List<ArticleListResponseDto> relatedArticles = articleService.getRelatedArticles(id);
+    public ResponseEntity<List<ArticleListResponseDto>> getRelatedArticles(
+            @PathVariable Long id,
+            @AuthenticationPrincipal User user
+    ) {
+        List<ArticleListResponseDto> relatedArticles = articleService.getRelatedArticles(id, user);
         return ResponseEntity.ok(relatedArticles);
     }
 
@@ -65,9 +91,10 @@ public class ArticleController {
     @GetMapping("/search")
     public ResponseEntity<Page<ArticleListResponseDto>> searchArticles(
             @RequestParam String keyword,
-            @PageableDefault(size = 10, sort = "createdDate", direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable
+            @PageableDefault(size = 10, sort = "createdDate", direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable,
+            @AuthenticationPrincipal User user
     ) {
-        Page<ArticleListResponseDto> articles = articleService.searchArticles(keyword, pageable);
+        Page<ArticleListResponseDto> articles = articleService.searchArticles(keyword, pageable, user);
         return ResponseEntity.ok(articles);
     }
 
@@ -80,9 +107,10 @@ public class ArticleController {
     @GetMapping("/search/title")
     public ResponseEntity<Page<ArticleListResponseDto>> searchByTitle(
             @RequestParam String keyword,
-            @PageableDefault(size = 10, sort = "createdDate", direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable
+            @PageableDefault(size = 10, sort = "createdDate", direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable,
+            @AuthenticationPrincipal User user
     ) {
-        Page<ArticleListResponseDto> articles = articleService.searchByTitle(keyword, pageable);
+        Page<ArticleListResponseDto> articles = articleService.searchByTitle(keyword, pageable, user);
         return ResponseEntity.ok(articles);
     }
 
@@ -95,9 +123,10 @@ public class ArticleController {
     @GetMapping("/search/content")
     public ResponseEntity<Page<ArticleListResponseDto>> searchByContent(
             @RequestParam String keyword,
-            @PageableDefault(size = 10, sort = "createdDate", direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable
+            @PageableDefault(size = 10, sort = "createdDate", direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable,
+            @AuthenticationPrincipal User user
     ) {
-        Page<ArticleListResponseDto> articles = articleService.searchByContent(keyword, pageable);
+        Page<ArticleListResponseDto> articles = articleService.searchByContent(keyword, pageable, user);
         return ResponseEntity.ok(articles);
     }
 

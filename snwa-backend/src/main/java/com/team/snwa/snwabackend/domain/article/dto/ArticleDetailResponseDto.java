@@ -22,8 +22,13 @@ public class ArticleDetailResponseDto {
     private String imageUrl;
     private LocalDateTime createdDate;
     private LocalDateTime updatedDate;
+    private boolean isBookmarked;
 
     public static ArticleDetailResponseDto from(Article article) {
+        return from(article, false);
+    }
+
+    public static ArticleDetailResponseDto from(Article article, boolean isBookmarked) {
         return ArticleDetailResponseDto.builder()
                 .id(article.getId())
                 .title(article.getTitle())
@@ -40,6 +45,7 @@ public class ArticleDetailResponseDto {
                 .imageUrl(article.getImageUrl())
                 .createdDate(article.getCreatedDate())
                 .updatedDate(article.getUpdatedDate())
+                .isBookmarked(isBookmarked)
                 .build();
     }
 }
