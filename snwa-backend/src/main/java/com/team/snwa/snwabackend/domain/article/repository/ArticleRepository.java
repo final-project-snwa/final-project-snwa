@@ -4,6 +4,7 @@ import com.team.snwa.snwabackend.domain.article.entity.Article;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -26,6 +27,15 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
             "LEFT JOIN FETCH a.category " +
             "WHERE a.id = :id AND a.deletedAt IS NULL")
     Optional<Article> findByIdWithCategory(@Param("id") Long id);
+
+    /**
+     * clickCount가 null일 경우 0으로 간주해서 1을 더하는 안전한 조회수 증가 쿼리
+     * (DB에서 직접 증가하여 동시 요청 시 Lost Update 방지)
+     * @param id 조회수를 증가시킬 Article 엔티티의 ID
+     */
+    @Modifying
+    @Query("UPDATE Article a SET a.clickCount = COALESCE(a.clickCount, 0) + 1 WHERE a.id = :id")
+    void incrementClickCountById(@Param("id") Long id);
 
     /**
      * 번역된 제목과 내용에서 검색어를 포함하는 기사 검색
