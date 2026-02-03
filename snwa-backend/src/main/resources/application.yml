@@ -12,6 +12,7 @@ spring:
       maximum-pool-size: 5
       minimum-idle: 1
 
+
   jpa:
     hibernate:
       ddl-auto: update
@@ -97,3 +98,7 @@ jwt:
 # 앱 설정
 app:
   base-url: ${APP_BASE_URL:http://localhost:70}  # 이메일 인증 링크에 사용할 기본 URL (nginx 포트)
+
+# 토스 (Docker 등에서 키가 없어도 앱 기동 가능, 결제 API는 키 설정 후 사용)
+toss:
+  secret-key: ${TOSS_SECRET_KEY:}

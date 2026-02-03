@@ -5,8 +5,10 @@ import com.team.snwa.snwabackend.domain.article.dto.ArticleListResponseDto;
 import com.team.snwa.snwabackend.domain.article.dto.request.ArticleCreateRequestDto;
 import com.team.snwa.snwabackend.domain.article.entity.Article;
 import com.team.snwa.snwabackend.domain.article.entity.Category;
+import com.team.snwa.snwabackend.domain.article.entity.ClickLog;
 import com.team.snwa.snwabackend.domain.article.repository.ArticleRepository;
 import com.team.snwa.snwabackend.domain.article.repository.CategoryRepository;
+import com.team.snwa.snwabackend.domain.article.repository.ClickLogRepository;
 import com.team.snwa.snwabackend.domain.user.entity.User;
 import com.team.snwa.snwabackend.global.exception.CustomException;
 import com.team.snwa.snwabackend.global.exception.ErrorCode;
@@ -29,6 +31,7 @@ public class ArticleService {
     private final ArticleRepository articleRepository;
     private final CategoryRepository categoryRepository;
     private final BookmarkService bookmarkService;
+    private final ClickLogRepository clickLogRepository;
 
     /**
      * 기사 생성
@@ -87,11 +90,27 @@ public class ArticleService {
      * @return 기사 상세 정보
      * @throws CustomException 기사를 찾을 수 없을 경우
      */
+    @Transactional
     public ArticleDetailResponseDto getArticleDetail(Long id, User user) {
         Article article = articleRepository.findByIdWithCategory(id)
                 .orElseThrow(() -> new CustomException(ErrorCode.ARTICLE_NOT_FOUND));
+
+        // 조회수 증가
+        articleRepository.incrementClickCountById(id);
+
+        // 클릭 로그 저장 (비로그인 유저는 조회수만 +1 로그에는 저장 X)
+        if (user != null) {
+            ClickLog clickLog = ClickLog.builder()
+                    .user(user)
+                    .article(article)
+                    .build();
+            clickLogRepository.save(clickLog);
+        }
+
         boolean isBookmarked = user != null && bookmarkService.isBookmarked(user, id);
-        return ArticleDetailResponseDto.from(article, isBookmarked);
+        // 방금 DB에서 1 증가시켰으므로 표시할 조회수 = 현재 엔티티 값 + 1
+        Long displayClickCount = (article.getClickCount() == null ? 0L : article.getClickCount()) + 1;
+        return ArticleDetailResponseDto.from(article, isBookmarked, displayClickCount);
     }
 
     /**

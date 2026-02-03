@@ -20,6 +20,7 @@ public class ArticleListResponseDto {
     private LocalDateTime createdDate;
     private LocalDateTime updatedDate;
     private boolean isBookmarked;
+    private Long clickCount;
 
     public static ArticleListResponseDto from(Article article) {
         return from(article, false);
@@ -40,6 +41,7 @@ public class ArticleListResponseDto {
                 .createdDate(article.getCreatedDate())
                 .updatedDate(article.getUpdatedDate())
                 .isBookmarked(isBookmarked)
+                .clickCount(article.getClickCount() != null ? article.getClickCount() : 0L)
                 .build();
     }
 }
