@@ -59,7 +59,7 @@ public class SecurityConfig {
                         .requestMatchers("/error").permitAll()  // 에러 페이지 허용
 //                        .requestMatchers("/api/admin/**").hasRole("ADMIN")  // 관리자 전용 실제 서비스용
                         .requestMatchers("/api/admin/**").permitAll() // 테스트용
-
+                        .requestMatchers("/api/payments/**").permitAll() //결제테스트용
                         .anyRequest().authenticated()  // 나머지는 인증 필요
                 );
         
