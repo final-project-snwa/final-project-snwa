@@ -2,8 +2,12 @@ package com.team.snwa.snwabackend.domain.article.service;
 
 import com.team.snwa.snwabackend.domain.article.dto.ArticleDetailResponseDto;
 import com.team.snwa.snwabackend.domain.article.dto.ArticleListResponseDto;
+import com.team.snwa.snwabackend.domain.article.dto.request.ArticleCreateRequestDto;
 import com.team.snwa.snwabackend.domain.article.entity.Article;
+import com.team.snwa.snwabackend.domain.article.entity.Category;
 import com.team.snwa.snwabackend.domain.article.repository.ArticleRepository;
+import com.team.snwa.snwabackend.domain.article.repository.CategoryRepository;
+import com.team.snwa.snwabackend.domain.user.entity.User;
 import com.team.snwa.snwabackend.global.exception.CustomException;
 import com.team.snwa.snwabackend.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -22,28 +27,71 @@ import java.util.stream.Collectors;
 public class ArticleService {
 
     private final ArticleRepository articleRepository;
+    private final CategoryRepository categoryRepository;
+    private final BookmarkService bookmarkService;
+
+    /**
+     * 기사 생성
+     * @param user 글을 등록한 사용자 (필수)
+     * @param request 생성 요청 (categoryId, title, content 필수)
+     * @return 생성된 기사 상세 정보
+     * @throws CustomException 카테고리를 찾을 수 없거나 originalUrl 중복인 경우
+     */
+    @Transactional
+    public ArticleDetailResponseDto createArticle(User user, ArticleCreateRequestDto request) {
+        Category category = categoryRepository.findById(request.getCategoryId())
+                .orElseThrow(() -> new CustomException(ErrorCode.INVALID_REQUEST));
+
+        String originalUrl = (request.getOriginalUrl() != null && !request.getOriginalUrl().isBlank())
+                ? request.getOriginalUrl().trim()
+                : null;
+        if (originalUrl != null && articleRepository.existsByOriginalUrl(originalUrl)) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST);
+        }
+
+        Article article = Article.builder()
+                .category(category)
+                .user(user)
+                .title(request.getTitle())
+                .content(request.getContent())
+                .translatedContent(null)
+                .summary(null)
+                .originalUrl(originalUrl)
+                .authorName(request.getAuthorName())
+                .publisherName(request.getPublisherName())
+                .imageUrl(request.getImageUrl())
+                .build();
+
+        Article saved = articleRepository.save(article);
+        return ArticleDetailResponseDto.from(saved, false);
+    }
 
     /**
      * 기사 목록 조회
      * @param categoryId 카테고리 ID (선택적, null이면 전체 조회)
      * @param pageable 페이지 정보
+     * @param user 인증된 사용자 (null이면 비로그인, isBookmarked는 false)
      * @return 기사 목록
      */
-    public Page<ArticleListResponseDto> getArticleList(Long categoryId, Pageable pageable) {
+    public Page<ArticleListResponseDto> getArticleList(Long categoryId, Pageable pageable, User user) {
         Page<Article> articles = articleRepository.findAllWithCategory(categoryId, pageable);
-        return articles.map(ArticleListResponseDto::from);
+        Set<Long> bookmarkedIds = bookmarkService.getBookmarkedArticleIds(user,
+                articles.getContent().stream().map(Article::getId).toList());
+        return articles.map(a -> ArticleListResponseDto.from(a, bookmarkedIds.contains(a.getId())));
     }
 
     /**
      * 기사 상세 조회
      * @param id 기사 ID
+     * @param user 인증된 사용자 (null이면 비로그인, isBookmarked는 false)
      * @return 기사 상세 정보
      * @throws CustomException 기사를 찾을 수 없을 경우
      */
-    public ArticleDetailResponseDto getArticleDetail(Long id) {
+    public ArticleDetailResponseDto getArticleDetail(Long id, User user) {
         Article article = articleRepository.findByIdWithCategory(id)
                 .orElseThrow(() -> new CustomException(ErrorCode.ARTICLE_NOT_FOUND));
-        return ArticleDetailResponseDto.from(article);
+        boolean isBookmarked = user != null && bookmarkService.isBookmarked(user, id);
+        return ArticleDetailResponseDto.from(article, isBookmarked);
     }
 
     /**
@@ -53,7 +101,7 @@ public class ArticleService {
      */
     @Transactional
     public void deleteArticle(Long id) {
-        Article article = articleRepository.findById(id)
+        Article article = articleRepository.findByIdWithCategory(id)
                 .orElseThrow(() -> new CustomException(ErrorCode.ARTICLE_NOT_FOUND));
         article.softDelete();
         articleRepository.save(article);
@@ -63,41 +111,51 @@ public class ArticleService {
      * 기사 검색 (제목 + 내용)
      * @param keyword 검색어
      * @param pageable 페이지 정보
+     * @param user 인증된 사용자 (null이면 비로그인)
      * @return 검색된 기사 목록
      */
-    public Page<ArticleListResponseDto> searchArticles(String keyword, Pageable pageable) {
+    public Page<ArticleListResponseDto> searchArticles(String keyword, Pageable pageable, User user) {
         Page<Article> articles = articleRepository.searchByKeyword(keyword, pageable);
-        return articles.map(ArticleListResponseDto::from);
+        Set<Long> bookmarkedIds = bookmarkService.getBookmarkedArticleIds(user,
+                articles.getContent().stream().map(Article::getId).toList());
+        return articles.map(a -> ArticleListResponseDto.from(a, bookmarkedIds.contains(a.getId())));
     }
 
     /**
      * 제목만 검색
      * @param keyword 검색어
      * @param pageable 페이지 정보
+     * @param user 인증된 사용자 (null이면 비로그인)
      * @return 검색된 기사 목록
      */
-    public Page<ArticleListResponseDto> searchByTitle(String keyword, Pageable pageable) {
+    public Page<ArticleListResponseDto> searchByTitle(String keyword, Pageable pageable, User user) {
         Page<Article> articles = articleRepository.searchByTitle(keyword, pageable);
-        return articles.map(ArticleListResponseDto::from);
+        Set<Long> bookmarkedIds = bookmarkService.getBookmarkedArticleIds(user,
+                articles.getContent().stream().map(Article::getId).toList());
+        return articles.map(a -> ArticleListResponseDto.from(a, bookmarkedIds.contains(a.getId())));
     }
 
     /**
      * 내용만 검색
      * @param keyword 검색어
      * @param pageable 페이지 정보
+     * @param user 인증된 사용자 (null이면 비로그인)
      * @return 검색된 기사 목록
      */
-    public Page<ArticleListResponseDto> searchByContent(String keyword, Pageable pageable) {
+    public Page<ArticleListResponseDto> searchByContent(String keyword, Pageable pageable, User user) {
         Page<Article> articles = articleRepository.searchByContent(keyword, pageable);
-        return articles.map(ArticleListResponseDto::from);
+        Set<Long> bookmarkedIds = bookmarkService.getBookmarkedArticleIds(user,
+                articles.getContent().stream().map(Article::getId).toList());
+        return articles.map(a -> ArticleListResponseDto.from(a, bookmarkedIds.contains(a.getId())));
     }
 
     /**
      * 관련 기사 조회 (같은 카테고리의 최신 기사 3개, 현재 기사 제외)
      * @param articleId 현재 기사 ID
+     * @param user 인증된 사용자 (null이면 비로그인)
      * @return 관련 기사 목록 (최대 3개)
      */
-    public List<ArticleListResponseDto> getRelatedArticles(Long articleId) {
+    public List<ArticleListResponseDto> getRelatedArticles(Long articleId, User user) {
         Article article = articleRepository.findByIdWithCategory(articleId)
                 .orElseThrow(() -> new CustomException(ErrorCode.ARTICLE_NOT_FOUND));
 
@@ -114,8 +172,11 @@ public class ArticleService {
                 pageable
         );
 
+        Set<Long> bookmarkedIds = bookmarkService.getBookmarkedArticleIds(user,
+                relatedArticles.stream().map(Article::getId).toList());
+
         return relatedArticles.stream()
-                .map(ArticleListResponseDto::from)
+                .map(a -> ArticleListResponseDto.from(a, bookmarkedIds.contains(a.getId())))
                 .collect(Collectors.toList());
     }
 }
