@@ -54,6 +54,10 @@ public class Article extends BaseTimeEntity {
     @Column(nullable = true)
     private LocalDateTime deletedAt;
 
+    // 조회수 필드
+    @Column(nullable = false)
+    private Long clickCount = 0L;
+
     @Builder
     public Article(Category category, User user, String title, String content, String translatedContent,
                     String summary, String originalUrl, String authorName, String publisherName,
