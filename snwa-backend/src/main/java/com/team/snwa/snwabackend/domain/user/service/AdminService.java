@@ -42,10 +42,10 @@ public class AdminService {
     public List<AdminUserResponse> getAllUsers(User adminUser) {
         // 관리자 권한 확인
         checkAdminRole(adminUser);
-        
+
         // 모든 회원 조회
         List<User> users = userRepository.findAll();
-        
+
         // DTO로 변환
         return users.stream()
                 .map(AdminUserResponse::from)
@@ -59,26 +59,26 @@ public class AdminService {
     public AdminUserResponse updateUser(User adminUser, Long userId, AdminUserUpdateRequest request) {
         // 관리자 권한 확인
         checkAdminRole(adminUser);
-        
+
         // 대상 사용자 조회
         User targetUser = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-        
+
         // 프로필 정보 업데이트
         String newNickname = request.nickname() != null ? request.nickname().trim() : targetUser.getNickname();
         String newIntro = request.introduction() != null ? request.introduction() : targetUser.getIntroduction();
         String newPhone = request.phoneNumber() != null ? request.phoneNumber() : targetUser.getPhoneNumber();
-        
+
         // 닉네임 중복 체크 (자기 자신 제외)
         if (request.nickname() != null && !newNickname.equals(targetUser.getNickname())) {
             if (userRepository.existsByNicknameAndIdNot(newNickname, targetUser.getId())) {
                 throw new CustomException(ErrorCode.NICKNAME_ALREADY_EXISTS);
             }
         }
-        
+
         // 프로필 정보 업데이트
         targetUser.updateProfile(newNickname, newIntro, newPhone);
-        
+
         // 프로필 이미지 업데이트
         if (request.profileImageUrl() != null) {
             String oldImageUrl = targetUser.getProfileImageUrl();
@@ -87,17 +87,17 @@ public class AdminService {
             }
             targetUser.updateImageUrl(request.profileImageUrl());
         }
-        
+
         // 상태 변경 (관리자 전용)
         if (request.status() != null) {
             targetUser.changeStatus(request.status());
         }
-        
+
         // 이메일 인증 상태 변경 (관리자 전용)
         if (request.emailVerified() != null) {
             targetUser.setEmailVerified(request.emailVerified());
         }
-        
+
         userRepository.save(targetUser);
         return AdminUserResponse.from(targetUser);
     }
@@ -109,14 +109,14 @@ public class AdminService {
     public void deleteUser(User adminUser, Long userId) {
         // 관리자 권한 확인
         checkAdminRole(adminUser);
-        
+
         // 대상 사용자 조회
         User targetUser = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-        
+
         // 소프트 삭제 처리 (deletedAt 설정, status를 DELETE로 변경)
         targetUser.softDelete();
-        
+
         userRepository.save(targetUser);
     }
 
@@ -126,18 +126,18 @@ public class AdminService {
     public List<AdminArticleListResponse> getAllArticles(User adminUser) {
         // 관리자 권한 확인
         checkAdminRole(adminUser);
-        
+
         // 모든 글 조회 (등록 날짜 내림차순, 삭제된 글도 포함)
         List<Article> articles = articleRepository.findAll(
             Sort.by("createdDate").descending()
         );
-        
+
         // DTO로 변환
         return articles.stream()
                 .map(article -> new AdminArticleListResponse(
                     article.getId(),
                     article.getTitle(),
-                    article.getUser() != null ? article.getUser().getNickname() : 
+                    article.getUser() != null ? article.getUser().getNickname() :
                         (article.getAuthorName() != null ? article.getAuthorName() : "알 수 없음"),
                     article.getCreatedDate()
                 ))
@@ -151,14 +151,14 @@ public class AdminService {
     public void deleteArticle(User adminUser, Long articleId) {
         // 관리자 권한 확인
         checkAdminRole(adminUser);
-        
+
         // 대상 글 조회
         Article article = articleRepository.findById(articleId)
                 .orElseThrow(() -> new CustomException(ErrorCode.ARTICLE_NOT_FOUND));
-        
+
         // 소프트 삭제 처리
         article.softDelete();
-        
+
         articleRepository.save(article);
     }
 }

@@ -17,7 +17,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserProfileService {
     private final UserRepository userRepository;
     private final com.team.snwa.snwabackend.global.service.S3Service s3Service;
-    private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
 
     public UserProfileResponse getProfile(Long userId) {
         User user = userRepository.findById(userId)
@@ -59,11 +58,9 @@ public class UserProfileService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
-            throw new IllegalArgumentException("현재 비밀번호가 일치하지 않습니다.");
-        }
+        // 로그인 파트 작성 후 PasswordEncoder를 사용한 기존 비밀번호 확인 로직 추가 필요
 
-        user.changePassword(passwordEncoder.encode(request.getNewPassword()));
+        user.changePassword(request.getNewPassword());
     }
 
     @Transactional
