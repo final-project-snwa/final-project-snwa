@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router';
 import Header from '../components/Header';
-import { Users, FileText } from 'lucide-react';
+import { Users, FileText, ChevronRight, ChevronDown } from 'lucide-react';
 
 type AdminUser = {
   id: number;
@@ -21,6 +21,23 @@ type AdminArticle = {
   createdDate: string;
 };
 
+/** 관리자용: 특정 사용자 결제 내역 한 건 */
+type PaymentHistoryItem = {
+  orderId: string;
+  paymentKey: string;
+  orderName: string;
+  amount: number;
+  method: string;
+  status: string;
+  approvedAt: string;
+};
+
+/** 관리자용: 사용자 결제 내역 응답 */
+type PaymentHistoryResponse = {
+  userId: number;
+  items: PaymentHistoryItem[];
+};
+
 function getAuthHeader() {
   const token = sessionStorage.getItem('snwa_token');
   if (!token) return null;
@@ -32,6 +49,7 @@ type Section = 'users' | 'articles';
 export default function AdminPage() {
   const navigate = useNavigate();
   const [section, setSection] = useState<Section>('users');
+  const [managementOpen, setManagementOpen] = useState(true);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [articles, setArticles] = useState<AdminArticle[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,6 +57,10 @@ export default function AdminPage() {
   const [actionMessage, setActionMessage] = useState('');
   const [memberSearch, setMemberSearch] = useState('');
   const [articleSearch, setArticleSearch] = useState('');
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [paymentModalUser, setPaymentModalUser] = useState<{ id: number; nickname: string | null } | null>(null);
+  const [paymentHistory, setPaymentHistory] = useState<PaymentHistoryResponse | null>(null);
+  const [paymentHistoryLoading, setPaymentHistoryLoading] = useState(false);
 
   useEffect(() => {
     const auth = getAuthHeader();
@@ -142,6 +164,31 @@ export default function AdminPage() {
     }
   };
 
+  const openPaymentHistory = async (user: AdminUser) => {
+    const auth = getAuthHeader();
+    if (!auth) {
+      navigate('/login');
+      return;
+    }
+    setPaymentModalUser({ id: user.id, nickname: user.nickname ?? null });
+    setPaymentModalOpen(true);
+    setPaymentHistory(null);
+    setPaymentHistoryLoading(true);
+    try {
+      const res = await fetch(`/api/admin/users/${user.id}/payments`, { headers: { ...auth } });
+      if (res.ok) {
+        const data = (await res.json()) as PaymentHistoryResponse;
+        setPaymentHistory(data);
+      } else {
+        setPaymentHistory({ userId: user.id, items: [] });
+      }
+    } catch {
+      setPaymentHistory({ userId: user.id, items: [] });
+    } finally {
+      setPaymentHistoryLoading(false);
+    }
+  };
+
   const deleteArticle = async (articleId: number) => {
     const auth = getAuthHeader();
     if (!auth) {
@@ -179,67 +226,68 @@ export default function AdminPage() {
     <div className="min-h-screen bg-gray-100">
       <Header />
 
-      <div className="flex min-h-[calc(100vh-4rem)]">
-        {/* Left Sidebar - 너비 고정·전체 높이 같은 진한 회색 */}
+      <div className="flex" style={{ minHeight: 'calc(100vh - 4rem)', alignItems: 'stretch' }}>
+        {/* Left Sidebar - 다우그룹 스타일 (어두운 배경, 검색창 없음) */}
         <aside
-          className="flex-shrink-0 w-full"
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            backgroundColor: '#282828',
-            color: '#f9fafb',
-            width: '22rem',
-            minWidth: '22rem',
-            minHeight: 'calc(100vh - 4rem)',
-          }}
+          className="flex-shrink-0 flex flex-col w-56"
+          style={{ backgroundColor: '#1a1d24', height: '100%', minHeight: 'calc(100vh - 4rem)', position: 'sticky', top: '4rem' }}
         >
-          {/* 상단: Site Admin → SNWA Admin Page (세로 배치) */}
-          <div
-            className="p-4 flex-shrink-0 w-full flex flex-col"
-            style={{ backgroundColor: '#282828' }}
-          >
-            <div className="text-xs tracking-widest uppercase" style={{ color: '#d1d5db' }}>
+          {/* 상단: Site Admin + SNWA */}
+          <div className="px-4 pt-5 pb-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+            <div className="text-xs font-semibold tracking-wide" style={{ color: '#ffffff' }}>
               Site Admin
             </div>
-            <h2 className="text-lg font-bold mt-1" style={{ color: '#ffffff' }}>
-              SNWA Admin Page
+            <h2 className="text-lg font-bold mt-1.5" style={{ color: '#ffffff' }}>
+              SNWA
             </h2>
           </div>
-          {/* 그 아래: Management + 메뉴 (세로 배치) */}
-          <nav
-            className="py-3 flex-1 w-full flex flex-col"
-            style={{ backgroundColor: '#282828' }}
-          >
-            <div
-              className="px-3 text-xs font-medium uppercase tracking-wider mb-2"
-              style={{ color: '#d1d5db' }}
-            >
-              Management
+
+          {/* 네비게이션 - Management 섹션 */}
+          <nav className="flex-1 overflow-y-auto pt-2">
+            <div className="px-3">
+              <button
+                type="button"
+                onClick={() => setManagementOpen(!managementOpen)}
+                className="flex items-center justify-between w-full px-3 py-2 text-[11px] font-semibold uppercase tracking-widest rounded"
+                style={{ color: '#9ca3af' }}
+              >
+                <span>Management</span>
+                {managementOpen ? (
+                  <ChevronDown className="w-4 h-4" style={{ color: '#9ca3af' }} />
+                ) : (
+                  <ChevronRight className="w-4 h-4" style={{ color: '#9ca3af' }} />
+                )}
+              </button>
+
+              {managementOpen && (
+                <div className="mt-1 pl-1" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setSection('users')}
+                    className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded"
+                    style={{
+                      backgroundColor: section === 'users' ? '#0ea5e9' : 'transparent',
+                      fontWeight: section === 'users' ? 500 : 400,
+                    }}
+                  >
+                    <Users className="w-5 h-5 flex-shrink-0" style={{ color: '#ffffff' }} />
+                    <span style={{ color: '#ffffff', fontSize: '15px' }}>전체 회원 조회</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSection('articles')}
+                    className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded"
+                    style={{
+                      backgroundColor: section === 'articles' ? '#0ea5e9' : 'transparent',
+                      fontWeight: section === 'articles' ? 500 : 400,
+                    }}
+                  >
+                    <FileText className="w-5 h-5 flex-shrink-0" style={{ color: '#ffffff' }} />
+                    <span style={{ color: '#ffffff', fontSize: '15px' }}>전체 게시물 조회</span>
+                  </button>
+                </div>
+              )}
             </div>
-            <button
-              onClick={() => setSection('users')}
-              className="flex items-center gap-3 w-full px-4 py-3 text-left border-l-4"
-              style={
-                section === 'users'
-                  ? { backgroundColor: '#00a6ed', color: '#fff', borderColor: '#00a6ed' }
-                  : { backgroundColor: '#282828', color: '#f3f4f6', borderColor: 'transparent' }
-              }
-            >
-              <Users className="w-5 h-5 flex-shrink-0" />
-              전체 회원 조회
-            </button>
-            <button
-              onClick={() => setSection('articles')}
-              className="flex items-center gap-3 w-full px-4 py-3 text-left border-l-4"
-              style={
-                section === 'articles'
-                  ? { backgroundColor: '#00a6ed', color: '#fff', borderColor: '#00a6ed' }
-                  : { backgroundColor: '#282828', color: '#f3f4f6', borderColor: 'transparent' }
-              }
-            >
-              <FileText className="w-5 h-5 flex-shrink-0" />
-              전체 게시물 조회
-            </button>
           </nav>
         </aside>
 
@@ -303,12 +351,13 @@ export default function AdminPage() {
                               <th className="text-left px-6 py-3 font-medium">계정상태</th>
                               <th className="text-left px-6 py-3 font-medium">이메일인증</th>
                               <th className="text-left px-6 py-3 font-medium whitespace-nowrap">가입일</th>
+                              <th className="text-left px-6 py-3 font-medium">결제내역</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-gray-200">
                             {filteredUsers.length === 0 ? (
                               <tr>
-                                <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
+                                <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
                                   {memberSearch ? '검색 결과가 없습니다.' : '등록된 회원이 없습니다.'}
                                 </td>
                               </tr>
@@ -340,6 +389,15 @@ export default function AdminPage() {
                                   <td className="px-6 py-3 whitespace-nowrap">
                                     {new Date(u.createdDate).toLocaleString('ko-KR')}
                                   </td>
+                                  <td className="px-6 py-3">
+                                    <button
+                                      type="button"
+                                      onClick={() => openPaymentHistory(u)}
+                                      className="px-3 py-1.5 text-sm font-medium rounded-md border border-gray-300 text-gray-700 bg-white hover:bg-gray-50"
+                                    >
+                                      결제내역
+                                    </button>
+                                  </td>
                                 </tr>
                               ))
                             )}
@@ -347,6 +405,70 @@ export default function AdminPage() {
                         </table>
                       </div>
                     </div>
+
+                    {/* 결제 내역 모달 */}
+                    {paymentModalOpen && (
+                      <div
+                        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+                        onClick={() => setPaymentModalOpen(false)}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="payment-modal-title"
+                      >
+                        <div
+                          className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] flex flex-col"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+                            <h3 id="payment-modal-title" className="text-lg font-semibold text-gray-900">
+                              결제 내역 {paymentModalUser?.nickname ? `- ${paymentModalUser.nickname}` : ''}
+                            </h3>
+                            <button
+                              type="button"
+                              onClick={() => setPaymentModalOpen(false)}
+                              className="p-1 rounded text-gray-500 hover:bg-gray-100"
+                              aria-label="닫기"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                          <div className="p-4 overflow-auto flex-1">
+                            {paymentHistoryLoading ? (
+                              <div className="py-8 text-center text-gray-500">불러오는 중...</div>
+                            ) : paymentHistory && paymentHistory.items.length === 0 ? (
+                              <div className="py-8 text-center text-gray-500">결제 내역이 없습니다.</div>
+                            ) : paymentHistory ? (
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-sm">
+                                  <thead className="bg-gray-50 text-gray-600 border-b border-gray-200">
+                                    <tr>
+                                      <th className="text-left px-4 py-2 font-medium">결제일시</th>
+                                      <th className="text-left px-4 py-2 font-medium">주문명(코인)</th>
+                                      <th className="text-right px-4 py-2 font-medium">결제금액</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-gray-200">
+                                    {paymentHistory.items.map((item) => (
+                                      <tr key={item.paymentKey} className="text-gray-900">
+                                        <td className="px-4 py-2 whitespace-nowrap">
+                                          {item.approvedAt
+                                            ? new Date(item.approvedAt).toLocaleString('ko-KR')
+                                            : '-'}
+                                        </td>
+                                        <td className="px-4 py-2">{item.orderName || '-'}</td>
+                                        <td className="px-4 py-2 text-right">
+                                          {item.amount != null ? `${item.amount.toLocaleString()}원` : '-'}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            ) : null}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </>
                 )}
 

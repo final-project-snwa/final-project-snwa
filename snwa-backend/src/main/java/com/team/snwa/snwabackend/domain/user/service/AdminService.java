@@ -3,6 +3,8 @@ package com.team.snwa.snwabackend.domain.user.service;
 import com.team.snwa.snwabackend.domain.article.dto.response.AdminArticleListResponse;
 import com.team.snwa.snwabackend.domain.article.entity.Article;
 import com.team.snwa.snwabackend.domain.article.repository.ArticleRepository;
+import com.team.snwa.snwabackend.domain.payment.dto.response.PaymentHistoryResponse;
+import com.team.snwa.snwabackend.domain.payment.service.PaymentService;
 import com.team.snwa.snwabackend.domain.user.dto.request.AdminUserUpdateRequest;
 import com.team.snwa.snwabackend.domain.user.dto.response.AdminUserResponse;
 import com.team.snwa.snwabackend.domain.user.entity.User;
@@ -25,6 +27,7 @@ import java.util.stream.Collectors;
 public class AdminService {
     private final UserRepository userRepository;
     private final ArticleRepository articleRepository;
+    private final PaymentService paymentService;
     private final S3Service s3Service;
 
     /**
@@ -160,5 +163,13 @@ public class AdminService {
         article.softDelete();
 
         articleRepository.save(article);
+    }
+
+    /**
+     * 관리자가 특정 사용자의 결제 내역 조회 (관리자 전용)
+     */
+    public PaymentHistoryResponse getPaymentHistoryByUserId(User adminUser, Long userId) {
+        checkAdminRole(adminUser);
+        return paymentService.getHistoryByUser(userId);
     }
 }

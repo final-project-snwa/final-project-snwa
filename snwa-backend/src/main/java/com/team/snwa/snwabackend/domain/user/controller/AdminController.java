@@ -1,6 +1,7 @@
 package com.team.snwa.snwabackend.domain.user.controller;
 
 import com.team.snwa.snwabackend.domain.article.dto.response.AdminArticleListResponse;
+import com.team.snwa.snwabackend.domain.payment.dto.response.PaymentHistoryResponse;
 import com.team.snwa.snwabackend.domain.user.dto.request.AdminUserUpdateRequest;
 import com.team.snwa.snwabackend.domain.user.dto.response.AdminUserResponse;
 import com.team.snwa.snwabackend.domain.user.entity.User;
@@ -68,6 +69,19 @@ public class AdminController {
         User currentUser = getCurrentUser(principal);
         adminService.deleteUser(currentUser, userId);
         return ResponseEntity.ok().build();
+    }
+
+    /**
+     * 관리자가 특정 사용자의 결제 내역 조회
+     * GET /api/admin/users/{userId}/payments
+     */
+    @GetMapping("/users/{userId}/payments")
+    public ResponseEntity<PaymentHistoryResponse> getUserPayments(
+            Principal principal,
+            @PathVariable Long userId) {
+        User currentUser = getCurrentUser(principal);
+        PaymentHistoryResponse history = adminService.getPaymentHistoryByUserId(currentUser, userId);
+        return ResponseEntity.ok(history);
     }
 
     /**

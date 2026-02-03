@@ -8,6 +8,7 @@ import VerifyEmailPage from './pages/VerifyEmailPage';
 import MainPage from './pages/MainPage';
 import ArticleDetailPage from './pages/ArticleDetailPage';
 import MyPage from './pages/MyPage';
+import CoinPurchasePage from './pages/CoinPurchasePage';
 import AdminPage from './pages/AdminPage';
 import AuthTestPage from './pages/AuthTestPage';
 
@@ -48,6 +49,10 @@ const router = createBrowserRouter([
     {
         path: '/mypage',
         element: <MyPage />,
+    },
+    {
+        path: '/coins',
+        element: <CoinPurchasePage />,
     },
     {
         path: '/admin',
