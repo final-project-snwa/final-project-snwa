@@ -1,6 +1,6 @@
 export interface Article {
   id: string;
-  category: 'Football' | 'Basketball' | 'Baseball' | 'Esports';
+  category: 'Football' | 'Soccer' | 'Basketball' | 'Baseball' | 'Esports';
   translatedTitle: string;
   originalTitle: string;
   source: string;
@@ -8,6 +8,7 @@ export interface Article {
   thumbnail: string;
   translatedContent: string;
   originalContent: string;
+  clickCount?: number;
 }
 
 export const mockArticles: Article[] = [

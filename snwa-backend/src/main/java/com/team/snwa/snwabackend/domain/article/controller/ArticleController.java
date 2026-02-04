@@ -5,6 +5,7 @@ import com.team.snwa.snwabackend.domain.article.dto.ArticleListResponseDto;
 import com.team.snwa.snwabackend.domain.article.dto.request.ArticleCreateRequestDto;
 import com.team.snwa.snwabackend.domain.article.service.ArticleService;
 import com.team.snwa.snwabackend.domain.user.entity.User;
+import com.team.snwa.snwabackend.domain.user.repository.UserRepository;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -14,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.security.Principal;
 import java.util.List;
 
 @RestController
@@ -22,6 +24,13 @@ import java.util.List;
 public class ArticleController {
 
     private final ArticleService articleService;
+    private final UserRepository userRepository;
+
+    /** Principal(이메일)이 있으면 User 조회, 없으면 null — 카테고리별 클릭(ClickLog)용 */
+    private User resolveUser(Principal principal) {
+        if (principal == null || principal.getName() == null) return null;
+        return userRepository.findByEmail(principal.getName()).orElse(null);
+    }
 
     /**
      * 기사 생성
@@ -62,9 +71,11 @@ public class ArticleController {
     @GetMapping("/{id}")
     public ResponseEntity<ArticleDetailResponseDto> getArticleDetail(
             @PathVariable Long id,
-            @AuthenticationPrincipal User user
+            Principal principal,
+            @RequestParam(required = false, defaultValue = "true") boolean recordView
     ) {
-        ArticleDetailResponseDto article = articleService.getArticleDetail(id, user);
+        User user = resolveUser(principal);
+        ArticleDetailResponseDto article = articleService.getArticleDetail(id, user, recordView);
         return ResponseEntity.ok(article);
     }
 
