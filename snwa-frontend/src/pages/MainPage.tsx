@@ -6,7 +6,7 @@ import { getArticlesByCategory, Article } from '../data/mockArticles';
 export default function MainPage() {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [articles, setArticles] = useState<Article[]>([]);
-  const [viewedArticles, setViewedArticles] = useState<string[]>([]);
+  const [, setViewedArticles] = useState<string[]>([]);
 
   useEffect(() => {
     const filtered = getArticlesByCategory(selectedCategory === 'All' ? undefined : selectedCategory);
