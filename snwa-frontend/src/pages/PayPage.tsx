@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useLocation } from "react-router";
 
 declare global {
     interface Window {
@@ -13,6 +14,7 @@ type PrepareResponse = {
 };
 
 export default function PayPage() {
+    const location = useLocation();
     const [prepared, setPrepared] = useState<PrepareResponse | null>(null);
 
     const widgetRef = useRef<any>(null);
@@ -22,12 +24,20 @@ export default function PayPage() {
 
     const clientKey = import.meta.env.VITE_TOSS_CLIENT_KEY as string; // Vite 기준
 
+    // 코인 구매 등에서 넘긴 주문 정보가 있으면 사용, 없으면 기존 prepare 호출
     useEffect(() => {
-        console.log("✅ PayPage mounted");
+        const state = location.state as { orderId?: string; orderName?: string; amount?: number } | null;
+        if (state?.orderId && state?.orderName != null && state?.amount != null) {
+            setPrepared({
+                orderId: state.orderId,
+                orderName: state.orderName,
+                amount: state.amount,
+            });
+            return;
+        }
 
-        // 1) 주문 생성(prepare)
         (async () => {
-            const res = await fetch("http://localhost:8080/api/payments/prepare", {
+            const res = await fetch("/api/orders", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -43,10 +53,9 @@ export default function PayPage() {
             }
 
             const data: PrepareResponse = await res.json();
-            console.log("✅ prepared", data);
             setPrepared(data);
         })();
-    }, []);
+    }, [location.state]);
 
     // 2) 토스 위젯 초기화 + 렌더
     const initWidget = async () => {

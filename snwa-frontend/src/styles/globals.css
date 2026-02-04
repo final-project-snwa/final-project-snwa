@@ -183,3 +183,8 @@
 html {
   font-size: var(--font-size);
 }
+
+/* 관리자 페이지 사이드바 배경 (다크) - 다른 스타일에 덮이지 않도록 */
+.snwa-admin-sidebar {
+  background-color: #1a1d24 !important;
+}

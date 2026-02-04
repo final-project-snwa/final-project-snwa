@@ -5,8 +5,10 @@ import com.team.snwa.snwabackend.domain.article.dto.ArticleListResponseDto;
 import com.team.snwa.snwabackend.domain.article.dto.request.ArticleCreateRequestDto;
 import com.team.snwa.snwabackend.domain.article.entity.Article;
 import com.team.snwa.snwabackend.domain.article.entity.Category;
+import com.team.snwa.snwabackend.domain.article.entity.ClickLog;
 import com.team.snwa.snwabackend.domain.article.repository.ArticleRepository;
 import com.team.snwa.snwabackend.domain.article.repository.CategoryRepository;
+import com.team.snwa.snwabackend.domain.article.repository.ClickLogRepository;
 import com.team.snwa.snwabackend.domain.user.entity.User;
 import com.team.snwa.snwabackend.global.exception.CustomException;
 import com.team.snwa.snwabackend.global.exception.ErrorCode;
@@ -29,6 +31,8 @@ public class ArticleService {
     private final ArticleRepository articleRepository;
     private final CategoryRepository categoryRepository;
     private final BookmarkService bookmarkService;
+    private final LikeService likeService;
+    private final ClickLogRepository clickLogRepository;
 
     /**
      * 기사 생성
@@ -63,7 +67,7 @@ public class ArticleService {
                 .build();
 
         Article saved = articleRepository.save(article);
-        return ArticleDetailResponseDto.from(saved, false);
+        return ArticleDetailResponseDto.from(saved, false, false);
     }
 
     /**
@@ -87,11 +91,32 @@ public class ArticleService {
      * @return 기사 상세 정보
      * @throws CustomException 기사를 찾을 수 없을 경우
      */
-    public ArticleDetailResponseDto getArticleDetail(Long id, User user) {
+    @Transactional
+    public ArticleDetailResponseDto getArticleDetail(Long id, User user, boolean recordView) {
         Article article = articleRepository.findByIdWithCategory(id)
                 .orElseThrow(() -> new CustomException(ErrorCode.ARTICLE_NOT_FOUND));
+
+        Long displayClickCount;
+        if (recordView) {
+            // 조회수 증가
+            articleRepository.incrementClickCountById(id);
+            // 클릭 로그 저장 (비로그인 유저는 조회수만 +1 로그에는 저장 X)
+            if (user != null) {
+                ClickLog clickLog = ClickLog.builder()
+                        .user(user)
+                        .article(article)
+                        .build();
+                clickLogRepository.save(clickLog);
+            }
+            displayClickCount = (article.getClickCount() == null ? 0L : article.getClickCount()) + 1;
+        } else {
+            displayClickCount = article.getClickCount() == null ? 0L : article.getClickCount();
+        }
+
         boolean isBookmarked = user != null && bookmarkService.isBookmarked(user, id);
-        return ArticleDetailResponseDto.from(article, isBookmarked);
+        boolean isLiked = user != null && likeService.isArticleLikedByUser(user.getId(), id);
+        long likeCount = likeService.getLikeCount(id);
+        return ArticleDetailResponseDto.from(article, isBookmarked, isLiked, likeCount, displayClickCount);
     }
 
     /**

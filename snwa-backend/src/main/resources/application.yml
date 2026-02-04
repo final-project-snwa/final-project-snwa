@@ -28,6 +28,7 @@ spring:
     init:
       mode: always
       continue-on-error: true
+      defer-datasource-initialization: true  # 추후 삭제 가능
 
   # aws/s3
   cloud:
@@ -90,6 +91,18 @@ translation:
       key: ${DEEPL_API_KEY}
       base-url: ${DEEPL_API_BASE_URL}
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, prometheus # 프로메테우스가 가져갈 수 있게 노출
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    tags:
+      application: ${spring.application.name} # snwa-backend라는 이름표를 붙여줌
+
 # JWT 설정
 jwt:
   secret: ${JWT_SECRET:your-secret-key-minimum-512-bits-for-hs512-algorithm-please-use-a-strong-secret-key-in-production-environment}
@@ -99,6 +112,6 @@ jwt:
 app:
   base-url: ${APP_BASE_URL:http://localhost:70}  # 이메일 인증 링크에 사용할 기본 URL (nginx 포트)
 
-# 토스
+# 토스 (Docker 등에서 키가 없어도 앱 기동 가능, 결제 API는 키 설정 후 사용)
 toss:
-  secret-key: ${TOSS_SECRET_KEY}
+  secret-key: ${TOSS_SECRET_KEY:}

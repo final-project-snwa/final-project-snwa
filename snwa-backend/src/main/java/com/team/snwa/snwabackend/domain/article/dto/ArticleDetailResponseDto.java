@@ -23,12 +23,23 @@ public class ArticleDetailResponseDto {
     private LocalDateTime createdDate;
     private LocalDateTime updatedDate;
     private boolean isBookmarked;
+    private boolean isLiked;
+    private Long likeCount;
+    private Long clickCount;
 
     public static ArticleDetailResponseDto from(Article article) {
-        return from(article, false);
+        return from(article, false, false);
     }
 
     public static ArticleDetailResponseDto from(Article article, boolean isBookmarked) {
+        return from(article, isBookmarked, false);
+    }
+
+    public static ArticleDetailResponseDto from(Article article, boolean isBookmarked, boolean isLiked) {
+        return from(article, isBookmarked, isLiked, 0L, article.getClickCount());
+    }
+
+    public static ArticleDetailResponseDto from(Article article, boolean isBookmarked, boolean isLiked, Long likeCount, Long displayedClickCount) {
         return ArticleDetailResponseDto.builder()
                 .id(article.getId())
                 .title(article.getTitle())
@@ -46,6 +57,9 @@ public class ArticleDetailResponseDto {
                 .createdDate(article.getCreatedDate())
                 .updatedDate(article.getUpdatedDate())
                 .isBookmarked(isBookmarked)
+                .isLiked(isLiked)
+                .likeCount(likeCount != null ? likeCount : 0L)
+                .clickCount(displayedClickCount != null ? displayedClickCount : 0L)
                 .build();
     }
 }

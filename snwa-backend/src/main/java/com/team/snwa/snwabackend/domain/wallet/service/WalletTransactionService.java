@@ -12,6 +12,7 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import java.time.LocalDate;
+import java.time.ZoneId;
 
 @Service
 @RequiredArgsConstructor
@@ -30,11 +31,14 @@ public class WalletTransactionService {
     public CoinTransaction spend(User user,Long amount, String externalRef) {
         Wallet wallet = walletService.getOrCreate(user);
 
-        //이미 동일한 요청이 온적이 있는경우 에러
-        if (externalRef != null && !externalRef.isBlank()) {
-            if (coinTransactionService.isDuplicate(externalRef)) {
-                throw new CustomException(ErrorCode.WALLET_TRANSACTION_DUPLICATED);
-            }
+        // 중복 발생시 에러 처리
+        if (externalRef == null || externalRef.isBlank()) {
+            throw new CustomException(ErrorCode.WALLET_EXTERNAL_REF_REQUIRED);
+        }
+
+        // 같은 요청이 여러 번 들어와도 1번만 차감되게 막음
+        if (coinTransactionService.isDuplicate(user.getId(), externalRef)) {
+            throw new CustomException(ErrorCode.WALLET_TRANSACTION_DUPLICATED);
         }
 
         // 1) 잔액 차감
@@ -49,7 +53,7 @@ public class WalletTransactionService {
                 wallet.getBalance(),
                 externalRef
         );
-        return coinTransactionRepository.save(tx);
+        return coinTransactionService.save(tx);
     }
 
     // 2. 코인 충전 + 거래로그 기록
@@ -62,7 +66,7 @@ public class WalletTransactionService {
         }
 
         // 같은 결제 승인 콜백이 여러 번 들어와도 1번만 충전되게 막음
-        if (coinTransactionService.isDuplicate(externalRef)) {
+        if (coinTransactionService.isDuplicate(user.getId(), externalRef)) {
             throw new CustomException(ErrorCode.WALLET_TRANSACTION_DUPLICATED);
         }
 
@@ -100,13 +104,14 @@ public class WalletTransactionService {
         wallet.increase(1L);
 
         // 4) 거래 기록 생성
+        ZoneId kst = ZoneId.of("Asia/Seoul");
         CoinTransaction tx = CoinTransaction.create(
                 user.getId(),
                 CoinTransactionType.ATTENDANCE_REWARD,
                 CoinTransactionStatus.SUCCESS,
                 1L,
                 wallet.getBalance(),
-                "ATTENDANCE_" + LocalDate.now()
+                "ATTENDANCE_" + LocalDate.now(kst)
         );
 
         coinTransactionService.save(tx);

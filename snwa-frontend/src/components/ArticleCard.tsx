@@ -23,11 +23,17 @@ export default function ArticleCard({ article, compact = false }: ArticleCardPro
             <h3 className="text-sm font-medium text-gray-900 line-clamp-2 group-hover:text-gray-600 transition-colors">
               {article.translatedTitle}
             </h3>
-            <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
-              <span>{article.source}</span>
-              <span>·</span>
-              <span>{formatDate(article.publishedAt)}</span>
-            </div>
+              <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
+                  <span>{article.source}</span>
+                  <span>·</span>
+                  <span>{formatDate(article.publishedAt)}</span>
+                  {article.clickCount != null && (
+                      <>
+                          <span>·</span>
+                          <span>조회 {article.clickCount}</span>
+                      </>
+                  )}
+              </div>
           </div>
         </div>
       </Link>
@@ -56,11 +62,17 @@ export default function ArticleCard({ article, compact = false }: ArticleCardPro
         <p className="text-sm text-gray-500 mb-3 line-clamp-1">
           {article.originalTitle}
         </p>
-        <div className="flex items-center gap-2 text-sm text-gray-500">
-          <span>{article.source}</span>
-          <span>·</span>
-          <span>{formatDate(article.publishedAt)}</span>
-        </div>
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+              <span>{article.source}</span>
+              <span>·</span>
+              <span>{formatDate(article.publishedAt)}</span>
+              {article.clickCount != null && (
+                  <>
+                      <span>·</span>
+                      <span>조회 {article.clickCount}</span>
+                  </>
+              )}
+          </div>
       </div>
     </Link>
   );
