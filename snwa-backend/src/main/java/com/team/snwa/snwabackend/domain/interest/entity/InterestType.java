@@ -1,8 +1,9 @@
 package com.team.snwa.snwabackend.domain.interest.entity;
 
 public enum InterestType {
+    PLAYER,
     SPORT,
     TEAM,
-    PLAYER,
-    ETC // 기타 (자동 생성된 태그 등)
+    LEAGUE,
+    OTHER
 }

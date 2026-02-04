@@ -158,7 +158,7 @@ class InterestServiceTest {
             List<InterestTarget> list = (List<InterestTarget>) iterable;
             return list.size() == 1 &&
                     list.get(0).getTagKey().equals("새로운_태그_메시") &&
-                    list.get(0).getType() == InterestType.ETC;
+                    list.get(0).getType() == InterestType.OTHER;
         }));
     }
 }
