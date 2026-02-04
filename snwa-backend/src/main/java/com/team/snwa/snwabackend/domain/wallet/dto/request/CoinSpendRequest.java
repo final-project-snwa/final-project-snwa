@@ -1,4 +1,11 @@
 package com.team.snwa.snwabackend.domain.wallet.dto.request;
 
-public record CoinSpendRequest(Long amount, String externalRef) {
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+
+public record CoinSpendRequest(
+        @NotNull @Positive Long amount,
+        @NotBlank String externalRef
+) {
 }

@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 
 @Service
@@ -17,13 +18,14 @@ public class    CoinTransactionService {
     private final CoinTransactionRepository coinTransactionRepository;
 
     //중복 트렌잭션 여부 판별
-    public boolean isDuplicate(String externalRef) {
-        return coinTransactionRepository.existsByExternalRef(externalRef);
+    public boolean isDuplicate(Long userId, String externalRef) {
+        return coinTransactionRepository.existsByUserIdAndExternalRef(userId, externalRef);
     }
 
     //출석 보상 지급 여부 판별
     public boolean hasTodayAttendanceReward(Long userId) {
-        LocalDate today = LocalDate.now();
+        ZoneId kst = ZoneId.of("Asia/Seoul");
+        LocalDate today = LocalDate.now(kst);
         LocalDateTime start = today.atStartOfDay();
         LocalDateTime end = today.plusDays(1).atStartOfDay();
 
@@ -43,5 +45,16 @@ public class    CoinTransactionService {
     //내역 조회
     public List<CoinTransaction> getHistory(Long userId) {
         return coinTransactionRepository.findByUserIdOrderByCreatedDateDesc(userId);
+    }
+
+    //해당 기사에 코인 사용 내역이 존재하는지 확인
+    public boolean hasUsedCoinForArticle(Long userId, Long articleId) {
+        String externalRef = "ARTICLE_" + articleId;
+
+        return coinTransactionRepository.existsByUserIdAndTypeAndExternalRef(
+                userId,
+                CoinTransactionType.SPEND,
+                externalRef
+        );
     }
 }

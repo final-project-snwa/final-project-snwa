@@ -9,7 +9,7 @@ import lombok.Getter;
 @Entity
 @Table(
         name = "coin_transactions",
-        uniqueConstraints = @UniqueConstraint(columnNames = "external_ref"),
+        uniqueConstraints = @UniqueConstraint(columnNames = {"user_id", "external_ref"}),
         indexes = {
                 @Index(name = "idx_coin_tx_user", columnList = "user_id, created_date"),
                 @Index(name = "idx_coin_tx_external", columnList = "external_ref")

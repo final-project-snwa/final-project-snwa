@@ -9,7 +9,7 @@ import java.util.List;
 
 public interface CoinTransactionRepository extends JpaRepository<CoinTransaction,Long> {
     //외부 식별자 기준 중복 트렌잭션 여부 확인
-    boolean existsByExternalRef(String externalRef);
+    boolean existsByUserIdAndExternalRef(Long userId, String externalRef);
     //사용자별 코인 내역 조회
     List<CoinTransaction> findByUserIdOrderByCreatedDateDesc(Long userId);
     //출석 보상 지급 여부 확인
@@ -18,5 +18,11 @@ public interface CoinTransactionRepository extends JpaRepository<CoinTransaction
             CoinTransactionType type,
             LocalDateTime start,
             LocalDateTime end
+    );
+    //유저가 이 기사에 대해 코인을 지불한 적이 있는지 판별
+    boolean existsByUserIdAndTypeAndExternalRef(
+            Long userId,
+            CoinTransactionType type,
+            String externalRef
     );
 }
