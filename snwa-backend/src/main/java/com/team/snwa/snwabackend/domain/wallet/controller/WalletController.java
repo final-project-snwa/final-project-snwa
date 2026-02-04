@@ -10,6 +10,7 @@ import com.team.snwa.snwabackend.domain.wallet.service.WalletTransactionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
 
 import java.util.List;
 
@@ -40,7 +41,7 @@ public class WalletController {
     @PostMapping("/charge")
     public CoinTransactionResponse charge(
             @AuthenticationPrincipal User user,
-            @RequestBody CoinChargeRequest request
+            @Valid @RequestBody CoinChargeRequest request
     ){
         return CoinTransactionResponse.from(
                 walletTransactionService.charge(
@@ -60,7 +61,7 @@ public class WalletController {
     @PostMapping("/use")
     public CoinTransactionResponse useCoin(
             @AuthenticationPrincipal User user,
-            @RequestBody CoinSpendRequest request
+            @Valid @RequestBody CoinSpendRequest request
     ) {
         return CoinTransactionResponse.from(
                 walletTransactionService.spend(
