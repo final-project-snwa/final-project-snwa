@@ -1,5 +1,6 @@
 package com.team.snwa.snwabackend.domain.notification.service;
 
+import com.team.snwa.snwabackend.domain.article.entity.Article;
 import com.team.snwa.snwabackend.domain.notification.dto.request.NotificationSettingRequest;
 import com.team.snwa.snwabackend.domain.notification.dto.response.NotificationSettingResponse;
 import com.team.snwa.snwabackend.domain.notification.entity.Notification;
@@ -18,11 +19,31 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class NotificationService {
 
-    //todo: 에러코드 추가해서 처리하기
+    // todo: 에러코드 추가해서 처리하기
     private final NotificationRepository notificationRepository;
     private final NotificationSettingRepository notificationSettingRepository;
 
-    //알림 목록 조회
+    /**
+     * 알림 생성 (AI 키워드 추출 시 호출)
+     * 유저의 알림 설정이 활성화되어 있을 때만 알림 생성
+     */
+    @Transactional
+    public void createNotification(User user, Article article, String message) {
+        notificationSettingRepository.findByUser(user).ifPresentOrElse(
+                setting -> {
+                    if (setting.isEnableNotification()) {
+                        Notification notification = Notification.create(user, article, message);
+                        notificationRepository.save(notification);
+                    }
+                },
+                () -> {
+                    // 알림 설정이 없는 경우에도 알림 생성 (기본값: 알림 허용)
+                    Notification notification = Notification.create(user, article, message);
+                    notificationRepository.save(notification);
+                });
+    }
+
+    // 알림 목록 조회
     @Transactional(readOnly = true)
     public Page<Notification> getMyNotifications(User user, Pageable pageable) {
         validateNotificationEnabled(user);
@@ -30,14 +51,14 @@ public class NotificationService {
                 .findByUserOrderByCreatedDateDesc(user, pageable);
     }
 
-    //읽지 않은 알림 목록
+    // 읽지 않은 알림 목록
     public Page<Notification> getUnreadNotifications(User user, Pageable pageable) {
         validateNotificationEnabled(user);
         return notificationRepository
                 .findByUserAndIsReadFalseOrderByCreatedDateDesc(user, pageable);
     }
 
-    //알림 읽음 처리
+    // 알림 읽음 처리
     @Transactional
     public void readNotification(Long notificationId, User user) {
         validateNotificationEnabled(user);
@@ -50,7 +71,7 @@ public class NotificationService {
         notification.markAsRead();
     }
 
-    //모든 알림 읽음 처리
+    // 모든 알림 읽음 처리
     @Transactional
     public void readAll(User user) {
         validateNotificationEnabled(user);
@@ -59,7 +80,6 @@ public class NotificationService {
                 .findByUserAndIsReadFalseOrderByCreatedDateDesc(user, Pageable.unpaged())
                 .forEach(Notification::markAsRead);
     }
-
 
     private void validateNotificationEnabled(User user) {
         NotificationSetting setting = notificationSettingRepository.findByUser(user)
@@ -107,8 +127,7 @@ public class NotificationService {
     @Transactional
     public NotificationSettingResponse updateSetting(
             User user,
-            NotificationSettingRequest request
-    ) {
+            NotificationSettingRequest request) {
         NotificationSetting setting = notificationSettingRepository.findByUser(user)
                 .orElseThrow(() -> new IllegalStateException("알림 설정이 존재하지 않습니다."));
 
