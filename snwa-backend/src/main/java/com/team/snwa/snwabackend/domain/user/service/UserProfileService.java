@@ -1,7 +1,10 @@
 package com.team.snwa.snwabackend.domain.user.service;
 
+import com.team.snwa.snwabackend.domain.article.entity.enums.CategoryName;
+import com.team.snwa.snwabackend.domain.article.repository.ClickLogRepository;
 import com.team.snwa.snwabackend.domain.user.dto.request.UserProfileUpdateRequest;
 import com.team.snwa.snwabackend.domain.user.dto.request.UserUpdatePasswordRequestDto;
+import com.team.snwa.snwabackend.domain.user.dto.response.CategoryClickCountDto;
 import com.team.snwa.snwabackend.domain.user.dto.response.UserProfileResponse;
 import com.team.snwa.snwabackend.domain.user.entity.User;
 import com.team.snwa.snwabackend.domain.user.repository.UserRepository;
@@ -11,17 +14,30 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class UserProfileService {
     private final UserRepository userRepository;
+    private final ClickLogRepository clickLogRepository;
     private final com.team.snwa.snwabackend.global.service.S3Service s3Service;
 
     public UserProfileResponse getProfile(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-        return UserProfileResponse.from(user);
+        List<CategoryClickCountDto> categoryClickCounts = getCategoryClickCounts(userId);
+        return UserProfileResponse.from(user, categoryClickCounts);
+    }
+    /** 유저별 카테고리별 클릭 횟수 */
+    private List<CategoryClickCountDto> getCategoryClickCounts(Long userId) {
+        return clickLogRepository.countByUserIdGroupByCategory(userId).stream()
+                .map(row -> new CategoryClickCountDto(
+                        (CategoryName) row[0],
+                        ((Number) row[1]).longValue()))
+                .collect(Collectors.toList());
     }
 
     @Transactional
@@ -50,7 +66,7 @@ public class UserProfileService {
             user.updateImageUrl(request.profileImageUrl());
         }
 
-        return UserProfileResponse.from(user);
+        return UserProfileResponse.from(user, List.of());
     }
 
     @Transactional

@@ -4,6 +4,7 @@ import com.team.snwa.snwabackend.global.filter.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -40,7 +41,7 @@ public class SecurityConfig {
         configuration.setAllowCredentials(true);
         configuration.setExposedHeaders(List.of("Authorization"));
         configuration.setMaxAge(3600L); // Preflight 요청 캐시 시간
-        
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
@@ -61,6 +62,7 @@ public class SecurityConfig {
 //                        .requestMatchers("/api/admin/**").hasRole("ADMIN")  // 관리자 전용 실제 서비스용
                         .requestMatchers("/api/admin/**").permitAll() // 테스트용
                         .requestMatchers("/api/payments/**").permitAll() //결제테스트용
+                                .requestMatchers(HttpMethod.GET, "/api/articles", "/api/articles/**").permitAll()
                         .anyRequest().authenticated()  // 나머지는 인증 필요
                 );
         
