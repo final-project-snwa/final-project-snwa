@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 public interface CoinTransactionRepository extends JpaRepository<CoinTransaction,Long> {
     //외부 식별자 기준 중복 트렌잭션 여부 확인
@@ -25,4 +26,6 @@ public interface CoinTransactionRepository extends JpaRepository<CoinTransaction
             CoinTransactionType type,
             String externalRef
     );
+
+    Optional<CoinTransaction> findByUserIdAndExternalRef(Long userId, String externalRef);
 }

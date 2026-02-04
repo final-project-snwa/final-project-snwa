@@ -25,6 +25,13 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.team.snwa.snwabackend.domain.user.entity.User;
+import com.team.snwa.snwabackend.domain.wallet.entity.CoinChargePolicy;
+import com.team.snwa.snwabackend.domain.wallet.repository.CoinChargePolicyRepository;
+import com.team.snwa.snwabackend.domain.wallet.service.WalletTransactionService;
+import jakarta.persistence.EntityManager;
+
+
 
 import java.util.List;
 import java.util.UUID;
@@ -40,6 +47,10 @@ public class PaymentService {
 
     private final TossPaymentsClient tossClient;
     private final ObjectMapper objectMapper;
+
+    private final WalletTransactionService walletTransactionService;
+    private final CoinChargePolicyRepository coinChargePolicyRepository;
+    private final EntityManager entityManager;
 
 
     @Transactional
@@ -136,7 +147,18 @@ public class PaymentService {
         // 10) 최종 상태 변경(저장 성공 후)
         order.markPaid();
 
+        // ✅ 결제 성공 → 코인 충전(멱등)
+        // - 원(주문금액) 기준으로 활성 정책(price) 매칭해서 coinAmount 결정
+        // - externalRef = paymentKey (토스 결제 1건 전역 유니크)
+        int price = Math.toIntExact(order.getAmount()); // 주문금액(원)
+        CoinChargePolicy policy = coinChargePolicyRepository.findByPriceAndActiveTrue(price)
+                .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_INCONSISTENT_STATE));
+
+        User userRef = entityManager.getReference(User.class, order.getUserId());
+        walletTransactionService.chargeIdempotent(userRef, policy.getCoinAmount().longValue(), payment.getPaymentKey());
+
         return PaymentResultResponse.success(order.getOrderId(), payment);
+
     }
 
     // 승인 취소

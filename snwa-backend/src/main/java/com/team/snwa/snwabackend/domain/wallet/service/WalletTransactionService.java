@@ -116,4 +116,16 @@ public class WalletTransactionService {
 
         coinTransactionService.save(tx);
     }
+
+    // 결제 도메인에서 호출할 멱등 충전
+    @Transactional
+    public CoinTransaction chargeIdempotent(User user, Long amount, String externalRef) {
+        if (externalRef == null || externalRef.isBlank()) {
+            throw new CustomException(ErrorCode.WALLET_EXTERNAL_REF_REQUIRED);
+        }
+
+        // 이미 처리된 결제(paymentKey)면 기존 tx 그대로 반환 (멱등)
+        return coinTransactionRepository.findByUserIdAndExternalRef(user.getId(), externalRef)
+                .orElseGet(() -> charge(user, amount, externalRef));
+    }
 }
