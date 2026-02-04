@@ -31,6 +31,7 @@ public class ArticleService {
     private final ArticleRepository articleRepository;
     private final CategoryRepository categoryRepository;
     private final BookmarkService bookmarkService;
+    private final LikeService likeService;
     private final ClickLogRepository clickLogRepository;
 
     /**
@@ -66,7 +67,7 @@ public class ArticleService {
                 .build();
 
         Article saved = articleRepository.save(article);
-        return ArticleDetailResponseDto.from(saved, false);
+        return ArticleDetailResponseDto.from(saved, false, false);
     }
 
     /**
@@ -108,9 +109,11 @@ public class ArticleService {
         }
 
         boolean isBookmarked = user != null && bookmarkService.isBookmarked(user, id);
+        boolean isLiked = user != null && likeService.isArticleLikedByUser(user.getId(), id);
+        long likeCount = likeService.getLikeCount(id);
         // 방금 DB에서 1 증가시켰으므로 표시할 조회수 = 현재 엔티티 값 + 1
         Long displayClickCount = (article.getClickCount() == null ? 0L : article.getClickCount()) + 1;
-        return ArticleDetailResponseDto.from(article, isBookmarked, displayClickCount);
+        return ArticleDetailResponseDto.from(article, isBookmarked, isLiked, likeCount, displayClickCount);
     }
 
     /**
