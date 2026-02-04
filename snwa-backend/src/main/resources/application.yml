@@ -28,6 +28,7 @@ spring:
     init:
       mode: always
       continue-on-error: true
+      defer-datasource-initialization: true
 
   # aws/s3
   cloud:

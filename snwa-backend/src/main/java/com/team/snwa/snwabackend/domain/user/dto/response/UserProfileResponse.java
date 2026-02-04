@@ -5,6 +5,7 @@ import com.team.snwa.snwabackend.domain.user.entity.enums.UserRole;
 import com.team.snwa.snwabackend.domain.user.entity.enums.UserStatus;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 public record UserProfileResponse(
         Long id,
@@ -16,8 +17,10 @@ public record UserProfileResponse(
         UserStatus status,
         UserRole role,
         LocalDateTime createdDate,
-        LocalDateTime updatedDate) {
-    public static UserProfileResponse from(User user) {
+        LocalDateTime updatedDate,
+        List<CategoryClickCountDto> categoryClickCount
+        ) {
+    public static UserProfileResponse from(User user, List<CategoryClickCountDto> categoryClickCount) {
         return new UserProfileResponse(
                 user.getId(),
                 user.getEmail(),
@@ -28,6 +31,7 @@ public record UserProfileResponse(
                 user.getStatus(),
                 user.getRole(),
                 user.getCreatedDate(),
-                user.getUpdatedDate());
+                user.getUpdatedDate(),
+                categoryClickCount != null ? categoryClickCount : List.of());
     }
 }

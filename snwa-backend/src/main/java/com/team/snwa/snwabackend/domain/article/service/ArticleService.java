@@ -92,27 +92,30 @@ public class ArticleService {
      * @throws CustomException 기사를 찾을 수 없을 경우
      */
     @Transactional
-    public ArticleDetailResponseDto getArticleDetail(Long id, User user) {
+    public ArticleDetailResponseDto getArticleDetail(Long id, User user, boolean recordView) {
         Article article = articleRepository.findByIdWithCategory(id)
                 .orElseThrow(() -> new CustomException(ErrorCode.ARTICLE_NOT_FOUND));
 
-        // 조회수 증가
-        articleRepository.incrementClickCountById(id);
-
-        // 클릭 로그 저장 (비로그인 유저는 조회수만 +1 로그에는 저장 X)
-        if (user != null) {
-            ClickLog clickLog = ClickLog.builder()
-                    .user(user)
-                    .article(article)
-                    .build();
-            clickLogRepository.save(clickLog);
+        Long displayClickCount;
+        if (recordView) {
+            // 조회수 증가
+            articleRepository.incrementClickCountById(id);
+            // 클릭 로그 저장 (비로그인 유저는 조회수만 +1 로그에는 저장 X)
+            if (user != null) {
+                ClickLog clickLog = ClickLog.builder()
+                        .user(user)
+                        .article(article)
+                        .build();
+                clickLogRepository.save(clickLog);
+            }
+            displayClickCount = (article.getClickCount() == null ? 0L : article.getClickCount()) + 1;
+        } else {
+            displayClickCount = article.getClickCount() == null ? 0L : article.getClickCount();
         }
 
         boolean isBookmarked = user != null && bookmarkService.isBookmarked(user, id);
         boolean isLiked = user != null && likeService.isArticleLikedByUser(user.getId(), id);
         long likeCount = likeService.getLikeCount(id);
-        // 방금 DB에서 1 증가시켰으므로 표시할 조회수 = 현재 엔티티 값 + 1
-        Long displayClickCount = (article.getClickCount() == null ? 0L : article.getClickCount()) + 1;
         return ArticleDetailResponseDto.from(article, isBookmarked, isLiked, likeCount, displayClickCount);
     }
 
