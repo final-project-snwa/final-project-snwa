@@ -26,6 +26,8 @@ public class ArticleDetailResponseDto {
     private boolean isLiked;
     private Long likeCount;
     private Long clickCount;
+    /** 해당 기사에 유저가 코인을 사용했는지 여부 (admin이면 true) */
+    private boolean hasUsedCoin;
 
     public static ArticleDetailResponseDto from(Article article) {
         return from(article, false, false);
@@ -36,10 +38,14 @@ public class ArticleDetailResponseDto {
     }
 
     public static ArticleDetailResponseDto from(Article article, boolean isBookmarked, boolean isLiked) {
-        return from(article, isBookmarked, isLiked, 0L, article.getClickCount());
+        return from(article, isBookmarked, isLiked, 0L, article.getClickCount(), false);
     }
 
     public static ArticleDetailResponseDto from(Article article, boolean isBookmarked, boolean isLiked, Long likeCount, Long displayedClickCount) {
+        return from(article, isBookmarked, isLiked, likeCount, displayedClickCount, false);
+    }
+
+    public static ArticleDetailResponseDto from(Article article, boolean isBookmarked, boolean isLiked, Long likeCount, Long displayedClickCount, boolean hasUsedCoin) {
         return ArticleDetailResponseDto.builder()
                 .id(article.getId())
                 .title(article.getTitle())
@@ -60,6 +66,7 @@ public class ArticleDetailResponseDto {
                 .isLiked(isLiked)
                 .likeCount(likeCount != null ? likeCount : 0L)
                 .clickCount(displayedClickCount != null ? displayedClickCount : 0L)
+                .hasUsedCoin(hasUsedCoin)
                 .build();
     }
 }

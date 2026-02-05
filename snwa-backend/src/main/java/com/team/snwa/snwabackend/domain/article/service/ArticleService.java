@@ -10,6 +10,8 @@ import com.team.snwa.snwabackend.domain.article.repository.ArticleRepository;
 import com.team.snwa.snwabackend.domain.article.repository.CategoryRepository;
 import com.team.snwa.snwabackend.domain.article.repository.ClickLogRepository;
 import com.team.snwa.snwabackend.domain.user.entity.User;
+import com.team.snwa.snwabackend.domain.user.entity.enums.UserRole;
+import com.team.snwa.snwabackend.domain.wallet.service.CoinTransactionService;
 import com.team.snwa.snwabackend.global.exception.CustomException;
 import com.team.snwa.snwabackend.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +35,7 @@ public class ArticleService {
     private final BookmarkService bookmarkService;
     private final LikeService likeService;
     private final ClickLogRepository clickLogRepository;
+    private final CoinTransactionService coinTransactionService;
 
     /**
      * 기사 생성
@@ -113,7 +116,10 @@ public class ArticleService {
         long likeCount = likeService.getLikeCount(id);
         // 방금 DB에서 1 증가시켰으므로 표시할 조회수 = 현재 엔티티 값 + 1
         Long displayClickCount = (article.getClickCount() == null ? 0L : article.getClickCount()) + 1;
-        return ArticleDetailResponseDto.from(article, isBookmarked, isLiked, likeCount, displayClickCount);
+        // admin이면 true, 아니면 해당 기사에 코인 사용 이력이 있으면 true
+        boolean hasUsedCoin = user != null && (
+                user.getRole() == UserRole.ADMIN || coinTransactionService.hasUsedCoinForArticle(user.getId(), id));
+        return ArticleDetailResponseDto.from(article, isBookmarked, isLiked, likeCount, displayClickCount, hasUsedCoin);
     }
 
     /**
