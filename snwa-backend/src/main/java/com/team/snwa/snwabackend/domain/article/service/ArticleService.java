@@ -3,6 +3,7 @@ package com.team.snwa.snwabackend.domain.article.service;
 import com.team.snwa.snwabackend.domain.article.dto.ArticleDetailResponseDto;
 import com.team.snwa.snwabackend.domain.article.dto.ArticleListResponseDto;
 import com.team.snwa.snwabackend.domain.article.dto.request.ArticleCreateRequestDto;
+import com.team.snwa.snwabackend.domain.article.dto.response.ReactionCountResponseDto;
 import com.team.snwa.snwabackend.domain.article.entity.Article;
 import com.team.snwa.snwabackend.domain.article.entity.Category;
 import com.team.snwa.snwabackend.domain.article.entity.ClickLog;
@@ -10,6 +11,8 @@ import com.team.snwa.snwabackend.domain.article.repository.ArticleRepository;
 import com.team.snwa.snwabackend.domain.article.repository.CategoryRepository;
 import com.team.snwa.snwabackend.domain.article.repository.ClickLogRepository;
 import com.team.snwa.snwabackend.domain.user.entity.User;
+import com.team.snwa.snwabackend.domain.user.entity.enums.UserRole;
+import com.team.snwa.snwabackend.domain.wallet.service.CoinTransactionService;
 import com.team.snwa.snwabackend.global.exception.CustomException;
 import com.team.snwa.snwabackend.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -31,8 +34,9 @@ public class ArticleService {
     private final ArticleRepository articleRepository;
     private final CategoryRepository categoryRepository;
     private final BookmarkService bookmarkService;
-    private final LikeService likeService;
+    private final ReactionService reactionService;
     private final ClickLogRepository clickLogRepository;
+    private final CoinTransactionService coinTransactionService;
 
     /**
      * 기사 생성
@@ -67,7 +71,7 @@ public class ArticleService {
                 .build();
 
         Article saved = articleRepository.save(article);
-        return ArticleDetailResponseDto.from(saved, false, false);
+        return ArticleDetailResponseDto.from(saved, false, saved.getClickCount(), null);
     }
 
     /**
@@ -114,9 +118,16 @@ public class ArticleService {
         }
 
         boolean isBookmarked = user != null && bookmarkService.isBookmarked(user, id);
-        boolean isLiked = user != null && likeService.isArticleLikedByUser(user.getId(), id);
-        long likeCount = likeService.getLikeCount(id);
-        return ArticleDetailResponseDto.from(article, isBookmarked, isLiked, likeCount, displayClickCount);
+
+        // admin이면 true, 아니면 해당 기사에 코인 사용 이력이 있으면 true
+        boolean hasUsedCoin = user != null && (
+                user.getRole() == UserRole.ADMIN || coinTransactionService.hasUsedCoinForArticle(user.getId(), id));
+
+        // 감정 반응 정보 조회
+        Long userId = user != null ? user.getId() : null;
+        ReactionCountResponseDto reactionCounts = reactionService.getReactionCounts(id, userId);
+
+        return ArticleDetailResponseDto.from(article, isBookmarked, displayClickCount, reactionCounts, hasUsedCoin);
     }
 
     /**

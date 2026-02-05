@@ -5,6 +5,7 @@ import com.team.snwa.snwabackend.domain.article.entity.ArticleTag;
 import com.team.snwa.snwabackend.domain.article.repository.ArticleRepository;
 import com.team.snwa.snwabackend.domain.article.repository.ArticleTagRepository;
 import com.team.snwa.snwabackend.domain.interest.entity.InterestType;
+import com.team.snwa.snwabackend.domain.notification.event.ArticleReadyForNotificationEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -14,7 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StreamUtils;
-
+import org.springframework.context.ApplicationEventPublisher;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.regex.Matcher;
@@ -26,12 +27,12 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class KeywordExtractionService {
 
+    private final ApplicationEventPublisher eventPublisher;
     private final ChatClient.Builder chatClientBuilder;
     private final ArticleRepository articleRepository;
     private final ArticleTagRepository articleTagRepository;
     private final ResourceLoader resourceLoader;
     private final com.team.snwa.snwabackend.domain.interest.service.InterestService interestService;
-    private final com.team.snwa.snwabackend.domain.notification.service.NotificationService notificationService;
 
     // AI 응답에서 키워드(타입) 형식을 파싱하기 위한 정규식
     private static final Pattern KEYWORD_PATTERN = Pattern.compile("([^,()]+)\\(([^)]+)\\)");
@@ -82,29 +83,14 @@ public class KeywordExtractionService {
 
         log.info("기사 키워드 추출 완료 및 저장: articleId={}, keywords={}", articleId, typedKeywords);
 
-        // 관심사 구독 유저에게 알림 발송
-        try {
-            // 타입 정보와 함께 구독자 조회 및 태그 자동 등록
-            List<com.team.snwa.snwabackend.domain.user.entity.User> interestedUsers = interestService
-                    .findSubscribersForTypedTags(typedKeywords);
+        // 키워드 추출 완료 이벤트 발생
+        eventPublisher.publishEvent(
+                new ArticleReadyForNotificationEvent(
+                        article.getId(),
+                        typedKeywords
+                )
+        );
 
-            if (!interestedUsers.isEmpty()) {
-                log.info("알림 발송 대상 유저: {}명", interestedUsers.size());
-
-                String articleTitle = article.getTranslatedTitle() != null && !article.getTranslatedTitle().isEmpty()
-                        ? article.getTranslatedTitle()
-                        : article.getTitle();
-
-                String notificationMessage = "새로운 관심 기사가 등록되었습니다: " + articleTitle;
-
-                for (com.team.snwa.snwabackend.domain.user.entity.User user : interestedUsers) {
-                    notificationService.createNotification(user, article, notificationMessage);
-                }
-            }
-        } catch (Exception e) {
-            log.error("알림 발송 중 오류 발생: articleId={}", articleId, e);
-            // 알림 실패가 키워드 추출 실패로 이어지지 않게 예외 처리
-        }
     }
 
     /**

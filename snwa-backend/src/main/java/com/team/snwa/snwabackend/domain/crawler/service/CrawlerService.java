@@ -21,6 +21,7 @@ import com.team.snwa.snwabackend.domain.crawler.strategy.CrawlingStrategy;
 import com.team.snwa.snwabackend.domain.translation.scheduler.KeywordsTagScheduler;
 import com.team.snwa.snwabackend.domain.translation.scheduler.SummaryScheduler;
 import com.team.snwa.snwabackend.domain.translation.scheduler.TranslationScheduler;
+import com.team.snwa.snwabackend.global.annotation.LogExecutionTime;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -69,6 +70,7 @@ public class CrawlerService {
      * @DateOfCreated 2026-01-26
      * @DateOfEdit 2026-01-26
      */
+    @LogExecutionTime
     @Transactional
     public void executeJob(Long jobId) {
         // Job 조회

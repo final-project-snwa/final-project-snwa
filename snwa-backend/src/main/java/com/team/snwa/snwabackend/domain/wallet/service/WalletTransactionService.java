@@ -91,14 +91,20 @@ public class WalletTransactionService {
     // 3. 로그인 시 출석 보상 지급 (하루 1번 , 1코인)
     @Transactional
     public void giveAttendanceReward(User user) {
+        giveAttendanceRewardByUserId(user.getId());
+    }
+
+    // 3-1. 로그인 시 출석 보상 지급 (userId 기반 - 새 트랜잭션용)
+    @Transactional
+    public boolean giveAttendanceRewardByUserId(Long userId) {
 
         // 1) 오늘 이미 지급했는지 확인
-        if (coinTransactionService.hasTodayAttendanceReward(user.getId())) {
-            return; // 이미 지급 → 아무 것도 안 함
+        if (coinTransactionService.hasTodayAttendanceReward(userId)) {
+            return false; // 이미 지급됨
         }
 
-        // 2) 지갑 조회
-        Wallet wallet = walletService.getOrCreate(user);
+        // 2) 지갑 조회 (userId 기반)
+        Wallet wallet = walletService.getOrCreateByUserId(userId);
 
         // 3) 코인 1개 지급
         wallet.increase(1L);
@@ -106,15 +112,16 @@ public class WalletTransactionService {
         // 4) 거래 기록 생성
         ZoneId kst = ZoneId.of("Asia/Seoul");
         CoinTransaction tx = CoinTransaction.create(
-                user.getId(),
+                userId,
                 CoinTransactionType.ATTENDANCE_REWARD,
                 CoinTransactionStatus.SUCCESS,
                 1L,
                 wallet.getBalance(),
-                "ATTENDANCE_" + LocalDate.now(kst)
+                "ATTENDANCE_" + userId + "_" + LocalDate.now(kst)
         );
 
         coinTransactionService.save(tx);
+        return true; // 지급 완료
     }
 
     // 결제 도메인에서 호출할 멱등 충전
