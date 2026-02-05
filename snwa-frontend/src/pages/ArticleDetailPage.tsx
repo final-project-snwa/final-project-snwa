@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router';
+import { useParams, Link, useNavigate } from 'react-router';
 import { ArrowLeft } from 'lucide-react';
 import Header from '../components/Header';
 import ArticleCard from '../components/ArticleCard';
 import { formatDate, Article } from '../data/mockArticles';
+
+type ReactionType = 'LIKE' | 'DISLIKE' | 'SAD' | 'ANGRY';
 
 type ApiArticleDetail = {
     id: number;
@@ -20,9 +22,21 @@ type ApiArticleDetail = {
     createdDate: string;
     updatedDate: string;
     isBookmarked: boolean;
-    isLiked: boolean;
-    likeCount: number;
     clickCount: number;
+    // 감정 반응 관련 (좋아요 포함)
+    likeCount: number;
+    dislikeCount: number;
+    sadCount: number;
+    angryCount: number;
+    userReaction: ReactionType | null;
+};
+
+type ReactionCounts = {
+    likeCount: number;
+    dislikeCount: number;
+    sadCount: number;
+    angryCount: number;
+    userReaction: ReactionType | null;
 };
 
 type ApiArticleListItem = {
@@ -83,13 +97,93 @@ function mapListItemToArticle(item: ApiArticleListItem): Article {
     };
 }
 
+// 반응 버튼 설정
+const REACTION_CONFIG: { type: ReactionType; emoji: string; label: string }[] = [
+    { type: 'LIKE', emoji: '👍', label: '좋아요' },
+    { type: 'DISLIKE', emoji: '👎', label: '싫어요' },
+    { type: 'SAD', emoji: '😢', label: '슬퍼요' },
+    { type: 'ANGRY', emoji: '😠', label: '화나요' },
+];
+
 export default function ArticleDetailPage() {
     const { id } = useParams<{ id: string }>();
+    const navigate = useNavigate();
     const [article, setArticle] = useState<Article | null>(null);
     const [relatedArticles, setRelatedArticles] = useState<Article[]>([]);
     const [showOriginal, setShowOriginal] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    
+    // 감정 반응 상태
+    const [reactions, setReactions] = useState<ReactionCounts>({
+        likeCount: 0,
+        dislikeCount: 0,
+        sadCount: 0,
+        angryCount: 0,
+        userReaction: null,
+    });
+    const [reactionLoading, setReactionLoading] = useState(false);
+
+    // 반응 타입별 카운트 가져오기
+    const getReactionCount = (type: ReactionType): number => {
+        switch (type) {
+            case 'LIKE': return reactions.likeCount;
+            case 'DISLIKE': return reactions.dislikeCount;
+            case 'SAD': return reactions.sadCount;
+            case 'ANGRY': return reactions.angryCount;
+        }
+    };
+
+    // 애니메이션 상태 (클릭된 버튼)
+    const [animatingType, setAnimatingType] = useState<ReactionType | null>(null);
+
+    // 반응 클릭 핸들러
+    const handleReaction = async (reactionType: ReactionType) => {
+        const auth = getAuthHeader();
+        if (!auth) {
+            alert('로그인이 필요합니다.');
+            navigate('/login');
+            return;
+        }
+        if (!id || reactionLoading) return;
+
+        // 애니메이션 시작
+        setAnimatingType(reactionType);
+        setTimeout(() => setAnimatingType(null), 300);
+
+        setReactionLoading(true);
+        try {
+            const res = await fetch(`/api/articles/${id}/reactions`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...auth,
+                },
+                body: JSON.stringify({ reactionType }),
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                // userReaction이 빈 문자열이면 null로 처리
+                const userReactionValue = data.userReaction && data.userReaction !== '' 
+                    ? (data.userReaction as ReactionType) 
+                    : null;
+                setReactions({
+                    likeCount: data.likeCount ?? 0,
+                    dislikeCount: data.dislikeCount ?? 0,
+                    sadCount: data.sadCount ?? 0,
+                    angryCount: data.angryCount ?? 0,
+                    userReaction: userReactionValue,
+                });
+            } else {
+                console.error('반응 등록 실패: HTTP', res.status);
+            }
+        } catch (err) {
+            console.error('반응 등록 실패:', err);
+        } finally {
+            setReactionLoading(false);
+        }
+    };
 
     useEffect(() => {
         if (!id) {
@@ -110,6 +204,14 @@ export default function ArticleDetailPage() {
             })
             .then((data: ApiArticleDetail) => {
                 setArticle(mapDetailToArticle(data));
+                // 반응 정보 설정
+                setReactions({
+                    likeCount: data.likeCount ?? 0,
+                    dislikeCount: data.dislikeCount ?? 0,
+                    sadCount: data.sadCount ?? 0,
+                    angryCount: data.angryCount ?? 0,
+                    userReaction: data.userReaction ?? null,
+                });
                 const viewed = JSON.parse(localStorage.getItem('snwa_viewed_articles') || '[]');
                 const updated = [id, ...viewed.filter((x: string) => x !== id)].slice(0, 10);
                 localStorage.setItem('snwa_viewed_articles', JSON.stringify(updated));
@@ -188,6 +290,50 @@ export default function ArticleDetailPage() {
                             ) : (
                                 <div className="text-gray-900 leading-relaxed whitespace-pre-line">{article.translatedContent}</div>
                             )}
+                        </div>
+
+                        {/* 감정 반응 버튼 */}
+                        <div className="mt-8 pt-6 border-t border-gray-200">
+                            <p className="text-sm text-gray-500 mb-3">이 기사에 대한 반응을 남겨주세요</p>
+                            <div className="flex flex-wrap gap-2">
+                                {REACTION_CONFIG.map(({ type, emoji, label }) => {
+                                    const isSelected = reactions.userReaction === type;
+                                    const isAnimating = animatingType === type;
+                                    const count = getReactionCount(type);
+                                    return (
+                                        <button
+                                            key={type}
+                                            onClick={() => handleReaction(type)}
+                                            disabled={reactionLoading}
+                                            className={`
+                                                inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-full
+                                                border transform transition-all duration-200
+                                                ${isAnimating ? 'scale-110' : 'scale-100'}
+                                                ${isSelected
+                                                    ? 'bg-blue-50 border-blue-300 text-blue-700 shadow-md ring-2 ring-blue-200'
+                                                    : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100 hover:border-gray-300 hover:scale-105'
+                                                }
+                                                ${reactionLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer active:scale-95'}
+                                            `}
+                                        >
+                                            <span className={`text-base transition-transform duration-200 ${isAnimating ? 'scale-125' : ''}`}>
+                                                {emoji}
+                                            </span>
+                                            <span>{label}</span>
+                                            <span 
+                                                className={`
+                                                    ml-0.5 min-w-[1.25rem] text-center font-semibold
+                                                    transition-all duration-300
+                                                    ${isSelected ? 'text-blue-600' : 'text-gray-500'}
+                                                    ${isAnimating ? 'scale-125 text-blue-500' : ''}
+                                                `}
+                                            >
+                                                {count}
+                                            </span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
                         </div>
                     </div>
                 </article>
