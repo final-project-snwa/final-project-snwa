@@ -11,6 +11,8 @@ import com.team.snwa.snwabackend.domain.article.repository.ArticleRepository;
 import com.team.snwa.snwabackend.domain.article.repository.CategoryRepository;
 import com.team.snwa.snwabackend.domain.article.repository.ClickLogRepository;
 import com.team.snwa.snwabackend.domain.user.entity.User;
+import com.team.snwa.snwabackend.domain.user.entity.enums.UserRole;
+import com.team.snwa.snwabackend.domain.wallet.service.CoinTransactionService;
 import com.team.snwa.snwabackend.global.exception.CustomException;
 import com.team.snwa.snwabackend.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +36,7 @@ public class ArticleService {
     private final BookmarkService bookmarkService;
     private final ReactionService reactionService;
     private final ClickLogRepository clickLogRepository;
+    private final CoinTransactionService coinTransactionService;
 
     /**
      * 기사 생성
@@ -115,12 +118,16 @@ public class ArticleService {
         }
 
         boolean isBookmarked = user != null && bookmarkService.isBookmarked(user, id);
-        
+
+        // admin이면 true, 아니면 해당 기사에 코인 사용 이력이 있으면 true
+        boolean hasUsedCoin = user != null && (
+                user.getRole() == UserRole.ADMIN || coinTransactionService.hasUsedCoinForArticle(user.getId(), id));
+
         // 감정 반응 정보 조회
         Long userId = user != null ? user.getId() : null;
         ReactionCountResponseDto reactionCounts = reactionService.getReactionCounts(id, userId);
-        
-        return ArticleDetailResponseDto.from(article, isBookmarked, displayClickCount, reactionCounts);
+
+        return ArticleDetailResponseDto.from(article, isBookmarked, displayClickCount, reactionCounts, hasUsedCoin);
     }
 
     /**

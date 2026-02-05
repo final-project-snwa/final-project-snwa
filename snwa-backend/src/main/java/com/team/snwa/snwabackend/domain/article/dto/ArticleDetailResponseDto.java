@@ -34,11 +34,18 @@ public class ArticleDetailResponseDto {
     private Long angryCount;
     private ReactionType userReaction;
 
+    /** 해당 기사에 유저가 코인을 사용했는지 여부 (admin이면 true) */
+    private boolean hasUsedCoin;
+
     public static ArticleDetailResponseDto from(Article article) {
-        return from(article, false, article.getClickCount(), null);
+        return from(article, false, article.getClickCount(), null, false);
     }
 
     public static ArticleDetailResponseDto from(Article article, boolean isBookmarked, Long displayedClickCount, ReactionCountResponseDto reactionCounts) {
+        return from(article, isBookmarked, displayedClickCount, reactionCounts, false);
+    }
+
+    public static ArticleDetailResponseDto from(Article article, boolean isBookmarked, Long displayedClickCount, ReactionCountResponseDto reactionCounts, boolean hasUsedCoin) {
         ArticleDetailResponseDtoBuilder builder = ArticleDetailResponseDto.builder()
                 .id(article.getId())
                 .title(article.getTitle())
@@ -56,7 +63,8 @@ public class ArticleDetailResponseDto {
                 .createdDate(article.getCreatedDate())
                 .updatedDate(article.getUpdatedDate())
                 .isBookmarked(isBookmarked)
-                .clickCount(displayedClickCount != null ? displayedClickCount : 0L);
+                .clickCount(displayedClickCount != null ? displayedClickCount : 0L)
+                .hasUsedCoin(hasUsedCoin);
 
         // 반응 정보 추가
         if (reactionCounts != null) {
