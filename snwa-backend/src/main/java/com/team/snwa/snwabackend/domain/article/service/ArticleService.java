@@ -3,6 +3,7 @@ package com.team.snwa.snwabackend.domain.article.service;
 import com.team.snwa.snwabackend.domain.article.dto.ArticleDetailResponseDto;
 import com.team.snwa.snwabackend.domain.article.dto.ArticleListResponseDto;
 import com.team.snwa.snwabackend.domain.article.dto.request.ArticleCreateRequestDto;
+import com.team.snwa.snwabackend.domain.article.dto.response.ReactionCountResponseDto;
 import com.team.snwa.snwabackend.domain.article.entity.Article;
 import com.team.snwa.snwabackend.domain.article.entity.Category;
 import com.team.snwa.snwabackend.domain.article.entity.ClickLog;
@@ -10,8 +11,6 @@ import com.team.snwa.snwabackend.domain.article.repository.ArticleRepository;
 import com.team.snwa.snwabackend.domain.article.repository.CategoryRepository;
 import com.team.snwa.snwabackend.domain.article.repository.ClickLogRepository;
 import com.team.snwa.snwabackend.domain.user.entity.User;
-import com.team.snwa.snwabackend.domain.user.entity.enums.UserRole;
-import com.team.snwa.snwabackend.domain.wallet.service.CoinTransactionService;
 import com.team.snwa.snwabackend.global.exception.CustomException;
 import com.team.snwa.snwabackend.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -33,9 +32,8 @@ public class ArticleService {
     private final ArticleRepository articleRepository;
     private final CategoryRepository categoryRepository;
     private final BookmarkService bookmarkService;
-    private final LikeService likeService;
+    private final ReactionService reactionService;
     private final ClickLogRepository clickLogRepository;
-    private final CoinTransactionService coinTransactionService;
 
     /**
      * 기사 생성
@@ -70,7 +68,7 @@ public class ArticleService {
                 .build();
 
         Article saved = articleRepository.save(article);
-        return ArticleDetailResponseDto.from(saved, false, false);
+        return ArticleDetailResponseDto.from(saved, false, saved.getClickCount(), null);
     }
 
     /**
@@ -95,31 +93,34 @@ public class ArticleService {
      * @throws CustomException 기사를 찾을 수 없을 경우
      */
     @Transactional
-    public ArticleDetailResponseDto getArticleDetail(Long id, User user) {
+    public ArticleDetailResponseDto getArticleDetail(Long id, User user, boolean recordView) {
         Article article = articleRepository.findByIdWithCategory(id)
                 .orElseThrow(() -> new CustomException(ErrorCode.ARTICLE_NOT_FOUND));
 
-        // 조회수 증가
-        articleRepository.incrementClickCountById(id);
-
-        // 클릭 로그 저장 (비로그인 유저는 조회수만 +1 로그에는 저장 X)
-        if (user != null) {
-            ClickLog clickLog = ClickLog.builder()
-                    .user(user)
-                    .article(article)
-                    .build();
-            clickLogRepository.save(clickLog);
+        Long displayClickCount;
+        if (recordView) {
+            // 조회수 증가
+            articleRepository.incrementClickCountById(id);
+            // 클릭 로그 저장 (비로그인 유저는 조회수만 +1 로그에는 저장 X)
+            if (user != null) {
+                ClickLog clickLog = ClickLog.builder()
+                        .user(user)
+                        .article(article)
+                        .build();
+                clickLogRepository.save(clickLog);
+            }
+            displayClickCount = (article.getClickCount() == null ? 0L : article.getClickCount()) + 1;
+        } else {
+            displayClickCount = article.getClickCount() == null ? 0L : article.getClickCount();
         }
 
         boolean isBookmarked = user != null && bookmarkService.isBookmarked(user, id);
-        boolean isLiked = user != null && likeService.isArticleLikedByUser(user.getId(), id);
-        long likeCount = likeService.getLikeCount(id);
-        // 방금 DB에서 1 증가시켰으므로 표시할 조회수 = 현재 엔티티 값 + 1
-        Long displayClickCount = (article.getClickCount() == null ? 0L : article.getClickCount()) + 1;
-        // admin이면 true, 아니면 해당 기사에 코인 사용 이력이 있으면 true
-        boolean hasUsedCoin = user != null && (
-                user.getRole() == UserRole.ADMIN || coinTransactionService.hasUsedCoinForArticle(user.getId(), id));
-        return ArticleDetailResponseDto.from(article, isBookmarked, isLiked, likeCount, displayClickCount, hasUsedCoin);
+        
+        // 감정 반응 정보 조회
+        Long userId = user != null ? user.getId() : null;
+        ReactionCountResponseDto reactionCounts = reactionService.getReactionCounts(id, userId);
+        
+        return ArticleDetailResponseDto.from(article, isBookmarked, displayClickCount, reactionCounts);
     }
 
     /**

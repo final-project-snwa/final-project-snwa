@@ -28,6 +28,7 @@ spring:
     init:
       mode: always
       continue-on-error: true
+      defer-datasource-initialization: true  # 추후 삭제 가능
 
   # aws/s3
   cloud:
