@@ -25,12 +25,12 @@ public class CoinTransaction extends BaseTimeEntity {
 
     //코인 거래 유형(코인 충전/사용)
     @Enumerated(EnumType.STRING)
-    @Column(nullable=false)
+    @Column(nullable=false, length=50)
     private CoinTransactionType type;
 
     //거래 처리 상태(성공/실패)
     @Enumerated(EnumType.STRING)
-    @Column(nullable=false)
+    @Column(nullable=false, length=20)
     private CoinTransactionStatus status;
 
     //거래 코인 수량(항상 양수, 증감은 type으로 판단)

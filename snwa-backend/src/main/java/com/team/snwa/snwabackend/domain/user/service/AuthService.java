@@ -107,7 +107,7 @@ public class AuthService {
 
         // 출석 보상은 별도 트랜잭션에서 실행 (실패해도 로그인에는 영향 없음)
         try {
-            self.giveAttendanceRewardInNewTransaction(user);
+            self.giveAttendanceRewardInNewTransaction(user.getId());
         } catch (Exception e) {
             log.warn("출석 보상 지급 실패 (userId={}, 무시): {}", user.getId(), e.getMessage());
         }
@@ -117,11 +117,16 @@ public class AuthService {
 
     /** 출석 보상을 새 트랜잭션에서 실행. 예외가 나도 로그인 트랜잭션은 롤백되지 않음 */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void giveAttendanceRewardInNewTransaction(User user) {
+    public void giveAttendanceRewardInNewTransaction(Long userId) {
         try {
-            walletTransactionService.giveAttendanceReward(user);
+            boolean rewarded = walletTransactionService.giveAttendanceRewardByUserId(userId);
+            if (rewarded) {
+                log.info("출석 보상 지급 완료 (userId={}, 1코인)", userId);
+            } else {
+                log.info("출석 보상 이미 지급됨 (userId={}, 오늘 재로그인)", userId);
+            }
         } catch (Exception e) {
-            log.warn("출석 보상 지급 실패 (userId={}): {}", user.getId(), e.getMessage());
+            log.warn("출석 보상 지급 실패 (userId={}): {}", userId, e.getMessage());
         }
     }
 

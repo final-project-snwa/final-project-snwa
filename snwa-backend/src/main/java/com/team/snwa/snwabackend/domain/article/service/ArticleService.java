@@ -3,6 +3,7 @@ package com.team.snwa.snwabackend.domain.article.service;
 import com.team.snwa.snwabackend.domain.article.dto.ArticleDetailResponseDto;
 import com.team.snwa.snwabackend.domain.article.dto.ArticleListResponseDto;
 import com.team.snwa.snwabackend.domain.article.dto.request.ArticleCreateRequestDto;
+import com.team.snwa.snwabackend.domain.article.dto.response.ReactionCountResponseDto;
 import com.team.snwa.snwabackend.domain.article.entity.Article;
 import com.team.snwa.snwabackend.domain.article.entity.Category;
 import com.team.snwa.snwabackend.domain.article.entity.ClickLog;
@@ -31,7 +32,7 @@ public class ArticleService {
     private final ArticleRepository articleRepository;
     private final CategoryRepository categoryRepository;
     private final BookmarkService bookmarkService;
-    private final LikeService likeService;
+    private final ReactionService reactionService;
     private final ClickLogRepository clickLogRepository;
 
     /**
@@ -67,7 +68,7 @@ public class ArticleService {
                 .build();
 
         Article saved = articleRepository.save(article);
-        return ArticleDetailResponseDto.from(saved, false, false);
+        return ArticleDetailResponseDto.from(saved, false, saved.getClickCount(), null);
     }
 
     /**
@@ -114,9 +115,12 @@ public class ArticleService {
         }
 
         boolean isBookmarked = user != null && bookmarkService.isBookmarked(user, id);
-        boolean isLiked = user != null && likeService.isArticleLikedByUser(user.getId(), id);
-        long likeCount = likeService.getLikeCount(id);
-        return ArticleDetailResponseDto.from(article, isBookmarked, isLiked, likeCount, displayClickCount);
+        
+        // 감정 반응 정보 조회
+        Long userId = user != null ? user.getId() : null;
+        ReactionCountResponseDto reactionCounts = reactionService.getReactionCounts(id, userId);
+        
+        return ArticleDetailResponseDto.from(article, isBookmarked, displayClickCount, reactionCounts);
     }
 
     /**
