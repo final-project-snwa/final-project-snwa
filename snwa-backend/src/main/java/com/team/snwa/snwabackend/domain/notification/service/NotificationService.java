@@ -8,6 +8,8 @@ import com.team.snwa.snwabackend.domain.notification.entity.NotificationSetting;
 import com.team.snwa.snwabackend.domain.notification.repository.NotificationRepository;
 import com.team.snwa.snwabackend.domain.notification.repository.NotificationSettingRepository;
 import com.team.snwa.snwabackend.domain.user.entity.User;
+import com.team.snwa.snwabackend.global.exception.CustomException;
+import com.team.snwa.snwabackend.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -19,7 +21,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class NotificationService {
 
-    // todo: 에러코드 추가해서 처리하기
     private final NotificationRepository notificationRepository;
     private final NotificationSettingRepository notificationSettingRepository;
 
@@ -64,7 +65,7 @@ public class NotificationService {
         validateNotificationEnabled(user);
 
         Notification notification = notificationRepository.findById(notificationId)
-                .orElseThrow(() -> new IllegalArgumentException("알림이 존재하지 않습니다."));
+                .orElseThrow(() -> new CustomException(ErrorCode.NOTIFICATION_NOT_FOUND));
 
         validateOwner(notification, user);
 
@@ -83,16 +84,16 @@ public class NotificationService {
 
     private void validateNotificationEnabled(User user) {
         NotificationSetting setting = notificationSettingRepository.findByUser(user)
-                .orElseThrow(() -> new IllegalStateException("알림 설정이 존재하지 않습니다."));
+                .orElseThrow(() -> new CustomException(ErrorCode.NOTIFICATION_SETTING_NOT_FOUND));
 
         if (!setting.isEnableNotification()) {
-            throw new IllegalStateException("알림 수신이 비활성화된 사용자입니다.");
+            throw new CustomException(ErrorCode.NOTIFICATION_DISABLED);
         }
     }
 
     private void validateOwner(Notification notification, User user) {
         if (!notification.getUser().getId().equals(user.getId())) {
-            throw new SecurityException("본인의 알림만 처리할 수 있습니다.");
+            throw new CustomException(ErrorCode.NOTIFICATION_ACCESS_DENIED);
         }
     }
 
@@ -108,7 +109,7 @@ public class NotificationService {
         validateNotificationEnabled(user);
 
         Notification notification = notificationRepository.findById(notificationId)
-                .orElseThrow(() -> new IllegalArgumentException("알림이 존재하지 않습니다."));
+                .orElseThrow(() -> new CustomException(ErrorCode.NOTIFICATION_NOT_FOUND));
 
         validateOwner(notification, user);
 
@@ -118,7 +119,7 @@ public class NotificationService {
     // 알림 설정 조회
     public NotificationSettingResponse getSetting(User user) {
         NotificationSetting setting = notificationSettingRepository.findByUser(user)
-                .orElseThrow(() -> new IllegalStateException("알림 설정이 존재하지 않습니다."));
+                .orElseThrow(() -> new CustomException(ErrorCode.NOTIFICATION_SETTING_NOT_FOUND));
 
         return new NotificationSettingResponse(setting.isEnableNotification());
     }
@@ -129,7 +130,7 @@ public class NotificationService {
             User user,
             NotificationSettingRequest request) {
         NotificationSetting setting = notificationSettingRepository.findByUser(user)
-                .orElseThrow(() -> new IllegalStateException("알림 설정이 존재하지 않습니다."));
+                .orElseThrow(() -> new CustomException(ErrorCode.NOTIFICATION_SETTING_NOT_FOUND));
 
         if (request.enableNotification()) {
             setting.enableNotification();

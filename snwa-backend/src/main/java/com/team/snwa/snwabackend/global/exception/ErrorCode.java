@@ -54,8 +54,13 @@ public enum ErrorCode {
     INVALID_CANCEL_AMOUNT(HttpStatus.BAD_REQUEST, "취소 금액이 올바르지 않습니다."),
     CANCEL_AMOUNT_EXCEEDS_REMAINING(HttpStatus.BAD_REQUEST, "취소 금액이 남은 결제 금액을 초과했습니다."),
 
-    TOSS_CANCEL_FAILED(HttpStatus.BAD_GATEWAY, "토스 결제 취소 요청에 실패했습니다.");
+    TOSS_CANCEL_FAILED(HttpStatus.BAD_GATEWAY, "토스 결제 취소 요청에 실패했습니다."),
 
+    //알림 관련 에러 코드
+    NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 알림입니다."),
+    NOTIFICATION_ACCESS_DENIED(HttpStatus.FORBIDDEN, "본인의 알림만 처리할 수 있습니다."),
+    NOTIFICATION_SETTING_NOT_FOUND(HttpStatus.NOT_FOUND, "알림 설정이 존재하지 않습니다."),
+    NOTIFICATION_DISABLED(HttpStatus.FORBIDDEN, "알림 수신이 비활성화된 사용자입니다.");
 
     private final HttpStatus status;
     private final String message;
