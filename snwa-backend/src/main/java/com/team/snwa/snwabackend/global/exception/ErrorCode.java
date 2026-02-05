@@ -56,6 +56,12 @@ public enum ErrorCode {
 
     TOSS_CANCEL_FAILED(HttpStatus.BAD_GATEWAY, "토스 결제 취소 요청에 실패했습니다."),
 
+    PAYMENT_CHARGE_NOT_FOUND(HttpStatus.NOT_FOUND, "결제 정보를 찾을 수 없습니다."),
+    CANNOT_CANCEL_USED_COIN_PAYMENT(HttpStatus.CONFLICT, "이미 사용된 코인이 포함된 결제는 취소할 수 없습니다."),
+
+    POLICY_NOT_FOUND(HttpStatus.NOT_FOUND, "결제 정책을 찾을 수 없습니다."),
+    POLICY_INACTIVE(HttpStatus.BAD_REQUEST, "현재 사용 중인 결제 정책이 아닙니다."),
+
     //알림 관련 에러 코드
     NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 알림입니다."),
     NOTIFICATION_ACCESS_DENIED(HttpStatus.FORBIDDEN, "본인의 알림만 처리할 수 있습니다."),

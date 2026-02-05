@@ -7,7 +7,7 @@ declare global {
     }
 }
 
-type PrepareResponse = {
+type OrderCreateResponse = {
     orderId: string;
     orderName: string;
     amount: number;
@@ -15,49 +15,52 @@ type PrepareResponse = {
 
 export default function PayPage() {
     const location = useLocation();
-    const [prepared, setPrepared] = useState<PrepareResponse | null>(null);
+    const [prepared, setPrepared] = useState<OrderCreateResponse | null>(null);
 
     const widgetRef = useRef<any>(null);
-
-    // ✅ 위젯 중복 초기화 방지 (StrictMode/useEffect 2번 실행 대비)
+    const orderCreatedRef = useRef(false);
     const initedRef = useRef(false);
 
-    const clientKey = import.meta.env.VITE_TOSS_CLIENT_KEY as string; // Vite 기준
+    const clientKey = import.meta.env.VITE_TOSS_CLIENT_KEY as string;
 
-    // 코인 구매 등에서 넘긴 주문 정보가 있으면 사용, 없으면 기존 prepare 호출
     useEffect(() => {
-        const state = location.state as { orderId?: string; orderName?: string; amount?: number } | null;
+        const state = location.state as
+            | { policyId?: number; orderId?: string; orderName?: string; amount?: number }
+            | null;
+
+        // 이미 주문정보를 넘겨받았으면 그대로 사용
         if (state?.orderId && state?.orderName != null && state?.amount != null) {
-            setPrepared({
-                orderId: state.orderId,
-                orderName: state.orderName,
-                amount: state.amount,
-            });
+            setPrepared({ orderId: state.orderId, orderName: state.orderName, amount: state.amount });
             return;
         }
+
+        if (orderCreatedRef.current) return;
+        orderCreatedRef.current = true;
+
+        const policyId = state?.policyId ?? 1; // 기본 10코인
 
         (async () => {
             const res = await fetch("/api/orders", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    userId: 1,
-                    orderName: "기사 1개 열람",
-                    amount: 1000,
-                }),
+                headers: {
+                    "Content-Type": "application/json",
+                    // 로그인 붙이면 Authorization 추가
+                    // "Authorization": `Bearer ${token}`,
+                },
+                body: JSON.stringify({ policyId }),
             });
 
             if (!res.ok) {
-                console.error("prepare failed", res.status, await res.text());
+                console.error("order create failed", res.status, await res.text());
+                orderCreatedRef.current = false;
                 return;
             }
 
-            const data: PrepareResponse = await res.json();
+            const data: OrderCreateResponse = await res.json();
             setPrepared(data);
         })();
     }, [location.state]);
 
-    // 2) 토스 위젯 초기화 + 렌더
     const initWidget = async () => {
         if (!prepared) return;
 
@@ -66,43 +69,32 @@ export default function PayPage() {
             return;
         }
 
-        // ✅ 혹시 남아있는 렌더 결과가 있으면 비워주기(안전장치)
         const pmEl = document.querySelector("#payment-method");
         const agEl = document.querySelector("#agreement");
         if (pmEl) pmEl.innerHTML = "";
         if (agEl) agEl.innerHTML = "";
 
         const tossPayments = window.TossPayments(clientKey);
-
-        // 비회원이면 ANONYMOUS
         const widgets = tossPayments.widgets({ customerKey: "ANONYMOUS" });
 
         await widgets.setAmount({ currency: "KRW", value: prepared.amount });
 
         await Promise.all([
-            widgets.renderPaymentMethods({
-                selector: "#payment-method",
-                variantKey: "DEFAULT",
-            }),
-            widgets.renderAgreement({
-                selector: "#agreement",
-                variantKey: "AGREEMENT",
-            }),
+            widgets.renderPaymentMethods({ selector: "#payment-method", variantKey: "DEFAULT" }),
+            widgets.renderAgreement({ selector: "#agreement", variantKey: "AGREEMENT" }),
         ]);
 
         widgetRef.current = widgets;
     };
 
-    // prepared가 생기면 자동 init (✅ 1회만 실행)
     useEffect(() => {
         if (!prepared) return;
+        if (initedRef.current) return;
 
-        if (initedRef.current) return; // ✅ 중복 방지
         initedRef.current = true;
-
         initWidget().catch((e) => {
             console.error("initWidget failed", e);
-            initedRef.current = false; // 초기화 실패하면 다시 시도 가능하게
+            initedRef.current = false;
         });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [prepared]);
@@ -118,20 +110,20 @@ export default function PayPage() {
                 failUrl: "http://localhost:3000/pay/fail",
             });
         } catch (e) {
-            // ✅ 결제창 닫기/취소는 흔한 정상 흐름이라 에러로 죽이면 안 됨
             console.warn("결제창 닫힘/취소/실패", e);
         }
     };
 
     return (
         <div style={{ padding: 24 }}>
-            <h1>결제 위젯 테스트 (React)</h1>
+            <h1>결제 위젯 테스트</h1>
 
             {!prepared && <p>주문 생성 중...</p>}
 
             {prepared && (
                 <>
                     <p>orderId: {prepared.orderId}</p>
+                    <p>orderName: {prepared.orderName}</p>
                     <p>amount: {prepared.amount}</p>
 
                     <div id="payment-method" style={{ marginTop: 16 }} />

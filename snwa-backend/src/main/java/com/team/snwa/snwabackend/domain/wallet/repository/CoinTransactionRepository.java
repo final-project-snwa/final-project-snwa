@@ -3,6 +3,7 @@ package com.team.snwa.snwabackend.domain.wallet.repository;
 import com.team.snwa.snwabackend.domain.wallet.entity.CoinTransaction;
 import com.team.snwa.snwabackend.domain.wallet.entity.enums.CoinTransactionType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -28,4 +29,26 @@ public interface CoinTransactionRepository extends JpaRepository<CoinTransaction
     );
 
     Optional<CoinTransaction> findByUserIdAndExternalRef(Long userId, String externalRef);
+
+    //이 결제(paymentKey)로 충전된 CHARGE 이후에
+    //같은 유저의 SPEND 기록이 하나라도 있으면
+    //이미 사용된 결제다
+    @Query("""
+    select count(tx) > 0
+    from CoinTransaction tx
+    where tx.userId = :userId
+      and tx.type = com.team.snwa.snwabackend.domain.wallet.entity.enums.CoinTransactionType.SPEND
+      and tx.createdDate > (
+          select c.createdDate
+          from CoinTransaction c
+          where c.userId = :userId
+            and c.type = com.team.snwa.snwabackend.domain.wallet.entity.enums.CoinTransactionType.CHARGE
+            and c.externalRef = :paymentKey
+      )
+""")
+    boolean existsSpendAfterCharge(
+            Long userId,
+            String paymentKey
+    );
+
 }

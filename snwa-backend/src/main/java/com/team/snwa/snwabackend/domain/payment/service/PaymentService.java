@@ -8,9 +8,9 @@ import com.team.snwa.snwabackend.domain.order.repository.OrderRepository;
 import com.team.snwa.snwabackend.domain.payment.dto.request.PaymentCancelRequest;
 import com.team.snwa.snwabackend.domain.payment.dto.request.PaymentConfirmRequest;
 import com.team.snwa.snwabackend.domain.payment.dto.response.PaymentCancelResponse;
-import com.team.snwa.snwabackend.domain.payment.dto.response.PaymentResultResponse;
 import com.team.snwa.snwabackend.domain.payment.dto.response.PaymentHistoryItemResponse;
 import com.team.snwa.snwabackend.domain.payment.dto.response.PaymentHistoryResponse;
+import com.team.snwa.snwabackend.domain.payment.dto.response.PaymentResultResponse;
 import com.team.snwa.snwabackend.domain.payment.entity.Payment;
 import com.team.snwa.snwabackend.domain.payment.entity.PaymentCancel;
 import com.team.snwa.snwabackend.domain.payment.entity.PaymentMethod;
@@ -19,22 +19,19 @@ import com.team.snwa.snwabackend.domain.payment.repository.PaymentRepository;
 import com.team.snwa.snwabackend.domain.payment.toss.TossCancelResponse;
 import com.team.snwa.snwabackend.domain.payment.toss.TossPaymentResponse;
 import com.team.snwa.snwabackend.domain.payment.toss.TossPaymentsClient;
-import com.team.snwa.snwabackend.global.exception.CustomException;
-import com.team.snwa.snwabackend.global.exception.ErrorCode;
-import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import com.team.snwa.snwabackend.domain.user.entity.User;
 import com.team.snwa.snwabackend.domain.wallet.entity.CoinChargePolicy;
 import com.team.snwa.snwabackend.domain.wallet.repository.CoinChargePolicyRepository;
 import com.team.snwa.snwabackend.domain.wallet.service.WalletTransactionService;
+import com.team.snwa.snwabackend.global.exception.CustomException;
+import com.team.snwa.snwabackend.global.exception.ErrorCode;
 import jakarta.persistence.EntityManager;
-
-
+import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -52,17 +49,22 @@ public class PaymentService {
     private final CoinChargePolicyRepository coinChargePolicyRepository;
     private final EntityManager entityManager;
 
-
-    @Transactional
+    /**
+     * 결제 승인(confirm)
+     * - 주문 row lock
+     * - 금액 검증
+     * - 결제 멱등(이미 결제면 그대로 응답)
+     * - 결제 저장 후 주문 PAID
+     * - 코인 충전(멱등): externalRef = paymentKey
+     * - Payment에 chargedCoinAmount 스냅샷 저장(정책 변경에도 취소/회수 정합성 유지)
+     */
     public PaymentResultResponse confirm(PaymentConfirmRequest req) {
 
         // 1) 주문 row 락
         Order order = orderRepo.findByOrderIdForUpdate(req.orderId())
                 .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_ORDER_NOT_FOUND));
+
         // 2) 상태 가드
-        // - PAID는 멱등 응답
-        // - CANCELED/EXPIRED는 재승인 불가(정책)
-        // - FAILED는 ✅ 재시도 허용(통과)
         if (order.getStatus() == OrderStatus.CANCELED) {
             throw new CustomException(ErrorCode.PAYMENT_ORDER_CANCELED);
         }
@@ -90,12 +92,18 @@ public class PaymentService {
             return PaymentResultResponse.alreadyPaid(order.getOrderId(), existingByOrder);
         }
 
+        // ✅ 정책 조회(코인 수량 확정) - Payment에 스냅샷 저장하기 위함
+        int price = Math.toIntExact(order.getAmount());
+        CoinChargePolicy policy = coinChargePolicyRepository.findByPriceAndActiveTrue(price)
+                .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_INCONSISTENT_STATE));
+        long coinAmount = policy.getCoinAmount().longValue();
+
         // 6) 토스 승인 호출
-        // ⚠️ 예외는 불확실 => FAILED 찍지 말고 PENDING/FAILED 그대로 둔다(재시도 가능하게)
         TossPaymentResponse tossRes;
         try {
             tossRes = tossClient.confirm(req.paymentKey(), req.orderId(), req.amount());
         } catch (Exception e) {
+            // 불확실 실패(재시도 허용) - 주문 상태를 FAILED로 확정 찍지 않음
             throw new CustomException(ErrorCode.TOSS_CONFIRM_FAILED);
         }
 
@@ -116,10 +124,8 @@ public class PaymentService {
             return PaymentResultResponse.alreadyPaid(order.getOrderId(), existedByKey);
         }
 
-        // 9) 저장
+        // 9) Payment 저장
         String raw = safeJson(tossRes);
-
-        // ✅ tossRes.method(String) -> PaymentMethod enum 변환
         PaymentMethod method = PaymentMethod.fromToss(tossRes.method());
 
         Payment payment = Payment.create(
@@ -127,9 +133,10 @@ public class PaymentService {
                 order.getUserId(),
                 order.getOrderName(),
                 tossRes.paymentKey(),
-                method,                 // ✅ enum 저장
+                method,
                 tossRes.status(),
                 tossRes.totalAmount(),
+                coinAmount,            // ✅ 결제 시점 코인 수량 스냅샷
                 tossRes.approvedAt(),
                 raw
         );
@@ -137,6 +144,7 @@ public class PaymentService {
         try {
             paymentRepo.save(payment);
         } catch (DataIntegrityViolationException e) {
+            // race 대비
             Payment existed = paymentRepo.findByPaymentKey(tossRes.paymentKey())
                     .orElseGet(() -> paymentRepo.findByOrderId(order.getOrderId())
                             .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_INCONSISTENT_STATE)));
@@ -144,24 +152,25 @@ public class PaymentService {
             return PaymentResultResponse.alreadyPaid(order.getOrderId(), existed);
         }
 
-        // 10) 최종 상태 변경(저장 성공 후)
+        // 10) 주문 상태 변경
         order.markPaid();
 
-        // ✅ 결제 성공 → 코인 충전(멱등)
-        // - 원(주문금액) 기준으로 활성 정책(price) 매칭해서 coinAmount 결정
-        // - externalRef = paymentKey (토스 결제 1건 전역 유니크)
-        int price = Math.toIntExact(order.getAmount()); // 주문금액(원)
-        CoinChargePolicy policy = coinChargePolicyRepository.findByPriceAndActiveTrue(price)
-                .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_INCONSISTENT_STATE));
-
+        // 11) 코인 충전(멱등)
         User userRef = entityManager.getReference(User.class, order.getUserId());
-        walletTransactionService.chargeIdempotent(userRef, policy.getCoinAmount().longValue(), payment.getPaymentKey());
+        walletTransactionService.chargeIdempotent(userRef, coinAmount, payment.getPaymentKey());
 
         return PaymentResultResponse.success(order.getOrderId(), payment);
-
     }
 
-    // 승인 취소
+    /**
+     * 승인 취소(cancel)
+     * - 주문 row lock
+     * - 취소 금액 검증
+     * - (정책) "코인 미사용일 때만 취소 가능" 체크는 토스 취소 호출 전에 수행해야 함
+     * - 토스 취소 성공 후 cancel 저장
+     * - 전액취소면 주문 CANCELED + 코인 회수(멱등)
+     *   => 회수량은 policy 재조회가 아니라 payment.chargedCoinAmount(스냅샷) 사용
+     */
     public PaymentCancelResponse cancel(String paymentKey, PaymentCancelRequest req) {
 
         Payment payment = paymentRepo.findByPaymentKey(paymentKey)
@@ -189,11 +198,16 @@ public class PaymentService {
             throw new CustomException(ErrorCode.CANCEL_AMOUNT_EXCEEDS_REMAINING);
         }
 
+        // ✅ (정책) "코인 미사용일 때만 취소 가능"
+        // 토스 취소 호출 전에 해야 함(외부 취소 이후 실패하면 정합성 깨짐)
+        // 아래 메서드는 wallet 도메인 구조에 맞춰 구현 필요
+        walletTransactionService.assertNotUsedCharge(payment.getUserId(), paymentKey);
+
+        // 토스 취소 호출
         TossCancelResponse tossRes;
         try {
             tossRes = tossClient.cancel(paymentKey, req.cancelReason(), req.cancelAmount());
         } catch (Exception e) {
-            // ✅ 토스 취소 호출 실패는 "확정 실패"가 아니라 "불확실"
             throw new CustomException(ErrorCode.TOSS_CANCEL_FAILED);
         }
 
@@ -215,6 +229,18 @@ public class PaymentService {
         boolean fullyCanceled = totalCanceledAfter >= order.getAmount();
         if (fullyCanceled) {
             order.markCanceled();
+
+            User userRef = entityManager.getReference(User.class, order.getUserId());
+
+            // externalRef는 충전(paymentKey)과 구분
+            String refundRef = "REFUND_" + paymentKey;
+
+            // ✅ policy 재조회 금지! 결제 당시 확정된 코인 수량으로 회수
+            walletTransactionService.refundIdempotent(
+                    userRef,
+                    payment.getChargedCoinAmount(),
+                    refundRef
+            );
         }
 
         return new PaymentCancelResponse(
