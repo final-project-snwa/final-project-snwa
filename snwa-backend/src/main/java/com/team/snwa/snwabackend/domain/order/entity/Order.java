@@ -26,7 +26,7 @@ public class Order extends BaseTimeEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // 토스 orderId
+    // Toss orderId
     @Column(name = "order_id", nullable = false, length = 64)
     private String orderId;
 
@@ -36,23 +36,46 @@ public class Order extends BaseTimeEntity {
     @Column(name = "order_name", nullable = false, length = 200)
     private String orderName;
 
+    // 결제 금액
     @Column(nullable = false)
     private Long amount;
+
+    // 충전될 코인 수
+    @Column(nullable = false)
+    private Integer coinAmount;
+
+    // 어떤 정책으로 충전했는지
+    @Column(nullable = false)
+    private Long policyId;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private OrderStatus status;
 
-    private Order(Long userId, String orderId, String orderName, Long amount) {
+    private Order(Long userId,
+                  String orderId,
+                  String orderName,
+                  Long amount,
+                  Integer coinAmount,
+                  Long policyId) {
+
         this.userId = userId;
         this.orderId = orderId;
         this.orderName = orderName;
         this.amount = amount;
+        this.coinAmount = coinAmount;
+        this.policyId = policyId;
         this.status = OrderStatus.PENDING;
     }
 
-    public static Order create(Long userId, String orderId, String orderName, Long amount) {
-        return new Order(userId, orderId, orderName, amount);
+    public static Order create(Long userId,
+                               String orderId,
+                               String orderName,
+                               Long amount,
+                               Integer coinAmount,
+                               Long policyId) {
+
+        return new Order(userId, orderId, orderName, amount, coinAmount, policyId);
     }
 
     public boolean isPaid() {
@@ -69,5 +92,15 @@ public class Order extends BaseTimeEntity {
 
     public void markCanceled() {
         this.status = OrderStatus.CANCELED;
+    }
+
+    // ✅ 내부 환불까지 완료
+    public void markCancelCompleted() {
+        this.status = OrderStatus.CANCEL_COMPLETED;
+    }
+
+    // ✅ 토스 취소 성공했는데 내부 환불 실패
+    public void markRefundFailed() {
+        this.status = OrderStatus.REFUND_FAILED;
     }
 }

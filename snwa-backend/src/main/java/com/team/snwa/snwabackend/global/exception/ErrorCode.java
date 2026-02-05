@@ -61,6 +61,13 @@ public enum ErrorCode {
 
     POLICY_NOT_FOUND(HttpStatus.NOT_FOUND, "결제 정책을 찾을 수 없습니다."),
     POLICY_INACTIVE(HttpStatus.BAD_REQUEST, "현재 사용 중인 결제 정책이 아닙니다."),
+    PARTIAL_CANCEL_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "부분취소는 지원하지 않습니다."),
+    POLICY_INVALID_PRICE(HttpStatus.BAD_REQUEST, "유효하지 않은 결제 금액 정책입니다."),
+    POLICY_INVALID_COIN_AMOUNT(HttpStatus.BAD_REQUEST, "유효하지 않은 코인 충전 수량입니다."),
+    POLICY_INVALID_NAME(HttpStatus.BAD_REQUEST, "유효하지 않은 결제 상품 이름입니다."),
+
+    ORDER_NOT_FOUND(HttpStatus.BAD_REQUEST, "주문을 찾을 수 없습니다."),
+    WALLET_REFUND_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "토스 취소는 완료됐지만 내부 환불 처리(코인 회수)에 실패했습니다. 고객센터로 문의해주세요."),
 
     //알림 관련 에러 코드
     NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 알림입니다."),
