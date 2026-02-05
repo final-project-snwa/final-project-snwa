@@ -46,6 +46,8 @@ public class PaymentService {
     private final WalletTransactionService walletTransactionService;
     private final EntityManager entityManager;
 
+    private final PaymentConfirmCommitService paymentConfirmCommitService;
+
     // ✅ 추가
     private final OrderStatusService orderStatusService;
     private final PaymentCancelCommitService paymentCancelCommitService;
@@ -62,22 +64,17 @@ public class PaymentService {
             throw new CustomException(ErrorCode.PAYMENT_ORDER_EXPIRED);
         }
 
-        // ✅ 확정 실패 -> FAILED를 "따로 커밋"
+        // ✅ 서버 기준 amount 검증 (불일치면 FAILED 확정)
         if (!order.getAmount().equals(req.amount())) {
             orderStatusService.markFailed(order.getOrderId());
             throw new CustomException(ErrorCode.PAYMENT_AMOUNT_MISMATCH);
         }
 
+        // 이미 PAID면 멱등 처리
         if (order.isPaid()) {
             Payment existing = paymentRepo.findByOrderId(order.getOrderId())
                     .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_INCONSISTENT_STATE));
             return PaymentResultResponse.alreadyPaid(order.getOrderId(), existing);
-        }
-
-        Payment existingByOrder = paymentRepo.findByOrderId(order.getOrderId()).orElse(null);
-        if (existingByOrder != null) {
-            order.markPaid();
-            return PaymentResultResponse.alreadyPaid(order.getOrderId(), existingByOrder);
         }
 
         long coinAmount = order.getCoinAmount().longValue();
@@ -86,11 +83,11 @@ public class PaymentService {
         try {
             tossRes = tossClient.confirm(req.paymentKey(), req.orderId(), req.amount());
         } catch (Exception e) {
-            // 불확실 실패(재시도 허용) -> FAILED 확정 찍지 않음
+            // 불확실 실패 -> FAILED 확정 찍지 않음(재시도 허용)
             throw new CustomException(ErrorCode.TOSS_CONFIRM_FAILED);
         }
 
-        // ✅ 확정 실패 -> FAILED를 "따로 커밋"
+        // ✅ toss 응답 검증 (불일치면 FAILED 확정)
         if (!req.orderId().equals(tossRes.orderId())) {
             orderStatusService.markFailed(order.getOrderId());
             throw new CustomException(ErrorCode.TOSS_ORDER_ID_MISMATCH);
@@ -98,12 +95,6 @@ public class PaymentService {
         if (!req.amount().equals(tossRes.totalAmount())) {
             orderStatusService.markFailed(order.getOrderId());
             throw new CustomException(ErrorCode.TOSS_AMOUNT_MISMATCH);
-        }
-
-        Payment existedByKey = paymentRepo.findByPaymentKey(tossRes.paymentKey()).orElse(null);
-        if (existedByKey != null) {
-            order.markPaid();
-            return PaymentResultResponse.alreadyPaid(order.getOrderId(), existedByKey);
         }
 
         String raw = safeJson(tossRes);
@@ -122,22 +113,22 @@ public class PaymentService {
                 raw
         );
 
+        // ✅ 여기서 “승인 성공 기록”을 무조건 커밋해버림
+        Payment committed = paymentConfirmCommitService.savePaymentAndMarkPaid(payment);
+
+        // ✅ 그 다음 코인 지급(실패할 수 있음)
+        User userRef = entityManager.getReference(User.class, order.getUserId());
         try {
-            paymentRepo.save(payment);
-        } catch (DataIntegrityViolationException e) {
-            Payment existed = paymentRepo.findByPaymentKey(tossRes.paymentKey())
-                    .orElseGet(() -> paymentRepo.findByOrderId(order.getOrderId())
-                            .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_INCONSISTENT_STATE)));
-            order.markPaid();
-            return PaymentResultResponse.alreadyPaid(order.getOrderId(), existed);
+            walletTransactionService.chargeIdempotent(userRef, coinAmount, committed.getPaymentKey());
+        } catch (Exception e) {
+            // ✅ 결제는 성공했는데 코인 지급이 실패한 상태를 남김 (운영/재처리 가능)
+            orderStatusService.markChargeFailed(order.getOrderId());
+
+
+            throw new CustomException(ErrorCode.WALLET_CHARGE_FAILED);
         }
 
-        order.markPaid();
-
-        User userRef = entityManager.getReference(User.class, order.getUserId());
-        walletTransactionService.chargeIdempotent(userRef, coinAmount, payment.getPaymentKey());
-
-        return PaymentResultResponse.success(order.getOrderId(), payment);
+        return PaymentResultResponse.success(order.getOrderId(), committed);
     }
 
     public PaymentCancelResponse cancel(String paymentKey, PaymentCancelRequest req) {

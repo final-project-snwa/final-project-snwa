@@ -68,6 +68,7 @@ public enum ErrorCode {
 
     ORDER_NOT_FOUND(HttpStatus.BAD_REQUEST, "주문을 찾을 수 없습니다."),
     WALLET_REFUND_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "토스 취소는 완료됐지만 내부 환불 처리(코인 회수)에 실패했습니다. 고객센터로 문의해주세요."),
+    WALLET_CHARGE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "토스 취소는 완료됐지만 내부 환불 처리(코인 회수)에 실패했습니다. 고객센터로 문의해주세요."),
 
     //알림 관련 에러 코드
     NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 알림입니다."),

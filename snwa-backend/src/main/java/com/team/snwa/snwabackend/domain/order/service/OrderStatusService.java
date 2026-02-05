@@ -42,4 +42,11 @@ public class OrderStatusService {
                 .orElseThrow(() -> new CustomException(ErrorCode.ORDER_NOT_FOUND));
         order.markRefundFailed();
     }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void markChargeFailed(String orderId) {
+        Order order = orderRepository.findByOrderIdForUpdate(orderId)
+                .orElseThrow(() -> new CustomException(ErrorCode.ORDER_NOT_FOUND));
+        order.markChargeFailed();
+    }
 }

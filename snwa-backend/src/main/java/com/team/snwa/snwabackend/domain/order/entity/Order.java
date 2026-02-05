@@ -103,4 +103,8 @@ public class Order extends BaseTimeEntity {
     public void markRefundFailed() {
         this.status = OrderStatus.REFUND_FAILED;
     }
+
+    public void markChargeFailed() {
+        this.status = OrderStatus.CHARGE_FAILED;
+    }
 }
