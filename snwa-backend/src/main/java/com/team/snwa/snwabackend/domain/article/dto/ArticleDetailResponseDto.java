@@ -1,6 +1,8 @@
 package com.team.snwa.snwabackend.domain.article.dto;
 
+import com.team.snwa.snwabackend.domain.article.dto.response.ReactionCountResponseDto;
 import com.team.snwa.snwabackend.domain.article.entity.Article;
+import com.team.snwa.snwabackend.domain.article.entity.enums.ReactionType;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -23,24 +25,21 @@ public class ArticleDetailResponseDto {
     private LocalDateTime createdDate;
     private LocalDateTime updatedDate;
     private boolean isBookmarked;
-    private boolean isLiked;
-    private Long likeCount;
     private Long clickCount;
+    
+    // 감정 반응 관련 필드 (좋아요 포함)
+    private Long likeCount;
+    private Long dislikeCount;
+    private Long sadCount;
+    private Long angryCount;
+    private ReactionType userReaction;
 
     public static ArticleDetailResponseDto from(Article article) {
-        return from(article, false, false);
+        return from(article, false, article.getClickCount(), null);
     }
 
-    public static ArticleDetailResponseDto from(Article article, boolean isBookmarked) {
-        return from(article, isBookmarked, false);
-    }
-
-    public static ArticleDetailResponseDto from(Article article, boolean isBookmarked, boolean isLiked) {
-        return from(article, isBookmarked, isLiked, 0L, article.getClickCount());
-    }
-
-    public static ArticleDetailResponseDto from(Article article, boolean isBookmarked, boolean isLiked, Long likeCount, Long displayedClickCount) {
-        return ArticleDetailResponseDto.builder()
+    public static ArticleDetailResponseDto from(Article article, boolean isBookmarked, Long displayedClickCount, ReactionCountResponseDto reactionCounts) {
+        ArticleDetailResponseDtoBuilder builder = ArticleDetailResponseDto.builder()
                 .id(article.getId())
                 .title(article.getTitle())
                 .translatedTitle(article.getTranslatedTitle())
@@ -57,9 +56,23 @@ public class ArticleDetailResponseDto {
                 .createdDate(article.getCreatedDate())
                 .updatedDate(article.getUpdatedDate())
                 .isBookmarked(isBookmarked)
-                .isLiked(isLiked)
-                .likeCount(likeCount != null ? likeCount : 0L)
-                .clickCount(displayedClickCount != null ? displayedClickCount : 0L)
-                .build();
+                .clickCount(displayedClickCount != null ? displayedClickCount : 0L);
+
+        // 반응 정보 추가
+        if (reactionCounts != null) {
+            builder.likeCount(reactionCounts.getLikeCount())
+                    .dislikeCount(reactionCounts.getDislikeCount())
+                    .sadCount(reactionCounts.getSadCount())
+                    .angryCount(reactionCounts.getAngryCount())
+                    .userReaction(reactionCounts.getUserReaction());
+        } else {
+            builder.likeCount(0L)
+                    .dislikeCount(0L)
+                    .sadCount(0L)
+                    .angryCount(0L)
+                    .userReaction(null);
+        }
+
+        return builder.build();
     }
 }
