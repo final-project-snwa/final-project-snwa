@@ -1,6 +1,7 @@
 package com.team.snwa.snwabackend.domain.order.service;
 
 import com.team.snwa.snwabackend.domain.order.entity.Order;
+import com.team.snwa.snwabackend.domain.order.entity.OrderStatus;
 import com.team.snwa.snwabackend.domain.order.repository.OrderRepository;
 import com.team.snwa.snwabackend.global.exception.CustomException;
 import com.team.snwa.snwabackend.global.exception.ErrorCode;
@@ -15,38 +16,19 @@ public class OrderStatusService {
 
     private final OrderRepository orderRepository;
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void markFailed(String orderId) {
-        Order order = orderRepository.findByOrderIdForUpdate(orderId)
-                .orElseThrow(() -> new CustomException(ErrorCode.ORDER_NOT_FOUND));
-        order.markFailed();
+    // ✅ 코인 지급 실패: 락 없이 빠르게 상태만 찍기
+    public void markChargeFailedFast(String orderId) {
+        orderRepository.updateStatus(orderId, OrderStatus.CHARGE_FAILED);
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void markCanceled(String orderId) {
-        Order order = orderRepository.findByOrderIdForUpdate(orderId)
-                .orElseThrow(() -> new CustomException(ErrorCode.ORDER_NOT_FOUND));
-        order.markCanceled();
+    public void markRefundFailedFast(String orderId) {
+        orderRepository.updateStatus(orderId, OrderStatus.REFUND_FAILED);
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void markCancelCompleted(String orderId) {
-        Order order = orderRepository.findByOrderIdForUpdate(orderId)
-                .orElseThrow(() -> new CustomException(ErrorCode.ORDER_NOT_FOUND));
-        order.markCancelCompleted();
+    public void markCancelCompletedFast(String orderId) {
+        orderRepository.updateStatus(orderId, OrderStatus.CANCEL_COMPLETED);
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void markRefundFailed(String orderId) {
-        Order order = orderRepository.findByOrderIdForUpdate(orderId)
-                .orElseThrow(() -> new CustomException(ErrorCode.ORDER_NOT_FOUND));
-        order.markRefundFailed();
-    }
-
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void markChargeFailed(String orderId) {
-        Order order = orderRepository.findByOrderIdForUpdate(orderId)
-                .orElseThrow(() -> new CustomException(ErrorCode.ORDER_NOT_FOUND));
-        order.markChargeFailed();
-    }
+    // ✅ FAILED 같은 건 confirm 커밋 트랜잭션 안에서 "order 엔티티 직접" 처리하는 게 더 안전
 }
+

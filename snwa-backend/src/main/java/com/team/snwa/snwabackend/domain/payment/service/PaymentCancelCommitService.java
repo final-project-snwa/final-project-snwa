@@ -23,15 +23,22 @@ public class PaymentCancelCommitService {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void saveCancelAndMarkCanceled(
-            String orderId,               // 1
-            Payment payment,              // 2
-            Long cancelAmount,            // 3
-            String cancelReason,          // 4
-            LocalDateTime canceledAt,     // 5 ✅
-            String rawJson                // 6 ✅
+            String orderId,
+            Payment payment,
+            Long cancelAmount,
+            String cancelReason,
+            LocalDateTime canceledAt,
+            String rawJson
     ) {
         Order order = orderRepo.findByOrderIdForUpdate(orderId)
                 .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_ORDER_NOT_FOUND));
+
+        // ✅ 멱등: 이미 취소 기록이 있으면 더 안 만든다
+        if (cancelRepo.existsByPaymentKey(payment.getPaymentKey())) {
+            // 상태만 보정
+            order.markCanceled();
+            return;
+        }
 
         PaymentCancel cancel = PaymentCancel.create(
                 payment,
@@ -42,7 +49,7 @@ public class PaymentCancelCommitService {
         );
 
         cancelRepo.save(cancel);
-
         order.markCanceled();
     }
 }
+

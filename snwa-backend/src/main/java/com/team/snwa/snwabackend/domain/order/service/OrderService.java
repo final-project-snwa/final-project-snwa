@@ -22,10 +22,10 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final CoinChargePolicyRepository policyRepository;
 
-    public OrderCreateResponse create(OrderCreateRequest req) {
-
-        // TODO: SecurityContext 적용
-        Long userId = 1L;
+    public OrderCreateResponse create(Long userId, OrderCreateRequest req) {
+        if (userId == null) {
+            throw new CustomException(ErrorCode.UNAUTHORIZED); // 프로젝트 ErrorCode에 맞게
+        }
 
         CoinChargePolicy policy = policyRepository.findById(req.policyId())
                 .orElseThrow(() -> new CustomException(ErrorCode.POLICY_NOT_FOUND));
@@ -34,7 +34,7 @@ public class OrderService {
             throw new CustomException(ErrorCode.POLICY_INACTIVE);
         }
 
-        // ✅ 방어: 정책 데이터 이상치 (선택이지만 추천)
+        // ✅ 방어: 정책 데이터 이상치
         if (policy.getPrice() == null || policy.getPrice().intValue() <= 0) {
             throw new CustomException(ErrorCode.POLICY_INVALID_PRICE);
         }
@@ -49,7 +49,7 @@ public class OrderService {
         String orderName = policy.getName();
         Long amount = policy.getPrice().longValue();
 
-        // ✅ 주문 스냅샷: amount / coinAmount / policyId를 Order에 확정 저장
+        // ✅ 주문 스냅샷 확정 저장
         Order order = Order.create(
                 userId,
                 orderId,

@@ -8,9 +8,11 @@ import org.springframework.data.repository.query.Param;
 public interface PaymentCancelRepository extends JpaRepository<PaymentCancel, Long> {
 
     @Query("""
-           select sum(c.cancelAmount)
-           from PaymentCancel c
-           where c.payment.paymentKey = :paymentKey
-           """)
+       select sum(c.cancelAmount)
+       from PaymentCancel c
+       where c.paymentKey = :paymentKey
+       """)
     Long sumCanceledAmountByPaymentKey(@Param("paymentKey") String paymentKey);
+
+    boolean existsByPaymentKey(String paymentKey);
 }

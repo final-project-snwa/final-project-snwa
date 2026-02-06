@@ -8,7 +8,7 @@ import com.team.snwa.snwabackend.domain.wallet.entity.enums.CoinTransactionType;
 import com.team.snwa.snwabackend.domain.wallet.repository.CoinTransactionRepository;
 import com.team.snwa.snwabackend.global.exception.CustomException;
 import com.team.snwa.snwabackend.global.exception.ErrorCode;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import java.time.LocalDate;
