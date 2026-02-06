@@ -1,0 +1,1 @@
+set $service_url http://snwa-backend-blue:8080;
