@@ -11,6 +11,8 @@ import MyPage from './pages/MyPage';
 import CoinPurchasePage from './pages/CoinPurchasePage';
 import AdminPage from './pages/AdminPage';
 import AuthTestPage from './pages/AuthTestPage';
+import ProfilePage from './pages/ProfilePage';
+import InterestSettingsPage from './pages/InterestSettingsPage';
 
 // ✅ 추가: 결제 테스트 페이지들
 import PayPage from './pages/PayPage';
@@ -51,6 +53,14 @@ const router = createBrowserRouter([
         element: <MyPage />,
     },
     {
+        path: '/profile',
+        element: <ProfilePage />,
+    },
+    {
+        path: '/interests',
+        element: <InterestSettingsPage />,
+    },
+    {
         path: '/coins',
         element: <CoinPurchasePage />,
     },
@@ -85,3 +95,4 @@ export default function App() {
         </AuthProvider>
     );
 }
+
