@@ -23,7 +23,8 @@ type ApiArticleDetail = {
     updatedDate: string;
     isBookmarked: boolean;
     clickCount: number;
-    // 감정 반응 관련 (좋아요 포함)
+    /** 해당 기사에 코인을 사용했는지 (true면 번역 본문 공개) */
+    hasUsedCoin: boolean;
     likeCount: number;
     dislikeCount: number;
     sadCount: number;
@@ -113,7 +114,11 @@ export default function ArticleDetailPage() {
     const [showOriginal, setShowOriginal] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    
+    /** API에서 내려준 코인 사용 여부 (false면 summary만 표시, true면 translatedContent 표시) */
+    const [hasUsedCoin, setHasUsedCoin] = useState(false);
+    const [articleSummary, setArticleSummary] = useState<string | null>(null);
+    const [useCoinLoading, setUseCoinLoading] = useState(false);
+
     // 감정 반응 상태
     const [reactions, setReactions] = useState<ReactionCounts>({
         likeCount: 0,
@@ -185,6 +190,36 @@ export default function ArticleDetailPage() {
         }
     };
 
+    /** 코인 사용하기: 기사 전체 번역 본문 열기 */
+    const handleUseCoin = async () => {
+        const auth = getAuthHeader();
+        if (!auth) {
+            alert('로그인이 필요합니다.');
+            navigate('/login');
+            return;
+        }
+        if (!id || useCoinLoading) return;
+        setUseCoinLoading(true);
+        try {
+            const res = await fetch('/api/coins/use', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...auth },
+                body: JSON.stringify({ amount: 1, externalRef: `ARTICLE_${id}` }),
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                alert(err.message ?? '코인 사용에 실패했습니다. 잔액을 확인해 주세요.');
+                return;
+            }
+            setHasUsedCoin(true);
+        } catch (e) {
+            console.error(e);
+            alert('코인 사용에 실패했습니다.');
+        } finally {
+            setUseCoinLoading(false);
+        }
+    };
+
     useEffect(() => {
         if (!id) {
             setLoading(false);
@@ -204,7 +239,8 @@ export default function ArticleDetailPage() {
             })
             .then((data: ApiArticleDetail) => {
                 setArticle(mapDetailToArticle(data));
-                // 반응 정보 설정
+                setHasUsedCoin(data.hasUsedCoin ?? false);
+                setArticleSummary(data.summary ?? null);
                 setReactions({
                     likeCount: data.likeCount ?? 0,
                     dislikeCount: data.dislikeCount ?? 0,
@@ -276,21 +312,45 @@ export default function ArticleDetailPage() {
                             <span>·</span>
                             <span>조회 {article.clickCount ?? 0}</span>
                         </div>
-                        <div className="flex justify-end mt-6 mb-6">
-                            <button
-                                onClick={() => setShowOriginal(!showOriginal)}
-                                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                            >
-                                {showOriginal ? '번역 보기' : '원문 보기'}
-                            </button>
-                        </div>
-                        <div className="prose prose-gray max-w-none">
-                            {showOriginal ? (
-                                <div className="text-gray-700 leading-relaxed whitespace-pre-line">{article.originalContent}</div>
-                            ) : (
-                                <div className="text-gray-900 leading-relaxed whitespace-pre-line">{article.translatedContent}</div>
-                            )}
-                        </div>
+                        {/* 코인 미사용: 요약만 표시 + 1 코인 사용하기 버튼 */}
+                        {!hasUsedCoin ? (
+                            <>
+                                {articleSummary && (
+                                    <div className="prose prose-gray max-w-none mb-6">
+                                        <p className="text-gray-700 leading-relaxed whitespace-pre-line">{articleSummary}</p>
+                                    </div>
+                                )}
+                                <div className="rounded-lg border border-gray-200 bg-white p-6 text-center">
+                                    <p className="text-sm text-gray-500 mb-4">원문을 보려면 코인을 사용해야 합니다.</p>
+                                    <button
+                                        type="button"
+                                        onClick={handleUseCoin}
+                                        disabled={useCoinLoading}
+                                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                                    >
+                                        {useCoinLoading ? '처리 중...' : '코인 사용하기'}
+                                    </button>
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <div className="flex justify-end mt-6 mb-6">
+                                    <button
+                                        onClick={() => setShowOriginal(!showOriginal)}
+                                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                                    >
+                                        {showOriginal ? '번역 보기' : '원문 보기'}
+                                    </button>
+                                </div>
+                                <div className="prose prose-gray max-w-none">
+                                    {showOriginal ? (
+                                        <div className="text-gray-700 leading-relaxed whitespace-pre-line">{article.originalContent}</div>
+                                    ) : (
+                                        <div className="text-gray-900 leading-relaxed whitespace-pre-line">{article.translatedContent}</div>
+                                    )}
+                                </div>
+                            </>
+                        )}
 
                         {/* 감정 반응 버튼 */}
                         <div className="mt-8 pt-6 border-t border-gray-200">
