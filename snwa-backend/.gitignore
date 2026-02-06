@@ -53,7 +53,7 @@ build/
 **/dist/
 
 # Env
-.env
+../.env
 .env.*
 **/.env
 **/.env.*
