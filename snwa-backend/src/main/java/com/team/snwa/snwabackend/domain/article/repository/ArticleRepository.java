@@ -11,6 +11,8 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Sort;
+
 public interface ArticleRepository extends JpaRepository<Article, Long> {
 
     @Query("SELECT a FROM Article a " +
@@ -104,6 +106,12 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
             @Param("excludeArticleId") Long excludeArticleId,
             org.springframework.data.domain.Pageable limit
     );
+
+    /**
+     * 관리자용: 삭제되지 않은 기사만 조회 (등록일 내림차순)
+     */
+    @Query("SELECT a FROM Article a LEFT JOIN FETCH a.user WHERE a.deletedAt IS NULL")
+    List<Article> findAllByDeletedAtIsNull(Sort sort);
 
     // 크롤링한 기사 중복 검사용
     boolean existsByOriginalUrl(String originalUrl);
