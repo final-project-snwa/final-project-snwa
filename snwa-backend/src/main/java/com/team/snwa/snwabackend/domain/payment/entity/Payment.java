@@ -25,15 +25,12 @@ public class Payment extends BaseTimeEntity {
     @Column(name = "payment_key", nullable = false, length = 200)
     private String paymentKey;
 
-    // ✅ Order 엔티티 대신 식별자만 저장
     @Column(name = "order_id", nullable = false, length = 64)
     private String orderId;
 
-    // ✅ history 조회용(조인 제거)
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
-    // ✅ 주문명도 스냅샷 저장(조인 제거)
     @Column(name = "order_name", nullable = false, length = 200)
     private String orderName;
 
@@ -47,6 +44,9 @@ public class Payment extends BaseTimeEntity {
     @Column(nullable = false)
     private Long totalAmount;
 
+    @Column(nullable = false)
+    private Long chargedCoinAmount;
+
     private String approvedAt;
 
     @Lob
@@ -54,7 +54,8 @@ public class Payment extends BaseTimeEntity {
 
     private Payment(String orderId, Long userId, String orderName,
                     String paymentKey, PaymentMethod method, String tossStatus,
-                    Long totalAmount, String approvedAt, String rawJson) {
+                    Long totalAmount, Long chargedCoinAmount,
+                    String approvedAt, String rawJson) {
         this.orderId = orderId;
         this.userId = userId;
         this.orderName = orderName;
@@ -62,13 +63,16 @@ public class Payment extends BaseTimeEntity {
         this.method = method;
         this.tossStatus = tossStatus;
         this.totalAmount = totalAmount;
+        this.chargedCoinAmount = chargedCoinAmount;
         this.approvedAt = approvedAt;
         this.rawJson = rawJson;
     }
 
     public static Payment create(String orderId, Long userId, String orderName,
                                  String paymentKey, PaymentMethod method, String tossStatus,
-                                 Long totalAmount, String approvedAt, String rawJson) {
-        return new Payment(orderId, userId, orderName, paymentKey, method, tossStatus, totalAmount, approvedAt, rawJson);
+                                 Long totalAmount, Long chargedCoinAmount,
+                                 String approvedAt, String rawJson) {
+        return new Payment(orderId, userId, orderName, paymentKey, method, tossStatus,
+                totalAmount, chargedCoinAmount, approvedAt, rawJson);
     }
 }

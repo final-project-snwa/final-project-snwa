@@ -3,5 +3,7 @@ package com.team.snwa.snwabackend.domain.wallet.entity.enums;
 public enum CoinTransactionType {
     CHARGE, //코인충전
     SPEND, //코인사용
-    ATTENDANCE_REWARD //출석 보상
+    ATTENDANCE_REWARD, //출석 보상
+
+    REFUND // ✅ 결제 취소로 인한 코인 회수(차감)
 }

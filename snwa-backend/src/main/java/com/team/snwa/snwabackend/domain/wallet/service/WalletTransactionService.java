@@ -123,4 +123,83 @@ public class WalletTransactionService {
         coinTransactionService.save(tx);
         return true; // 지급 완료
     }
+
+    // 결제 도메인에서 호출할 멱등 충전
+    @Transactional
+    public CoinTransaction chargeIdempotent(User user, Long amount, String externalRef) {
+        if (externalRef == null || externalRef.isBlank()) {
+            throw new CustomException(ErrorCode.WALLET_EXTERNAL_REF_REQUIRED);
+        }
+
+        // 이미 처리된 결제(paymentKey)면 기존 tx 그대로 반환 (멱등)
+        return coinTransactionRepository.findByUserIdAndExternalRef(user.getId(), externalRef)
+                .orElseGet(() -> charge(user, amount, externalRef));
+    }
+
+    /**
+     * 결제 취소 시 코인 회수(차감)
+     * - externalRef는 "REFUND_" + paymentKey 같은 형태 추천
+     */
+    @Transactional
+    public CoinTransaction refund(User user, Long amount, String externalRef) {
+        if (externalRef == null || externalRef.isBlank()) {
+            throw new CustomException(ErrorCode.WALLET_EXTERNAL_REF_REQUIRED);
+        }
+
+        // 이미 처리된 회수 요청이면 중복 방지
+        if (coinTransactionService.isDuplicate(user.getId(), externalRef)) {
+            throw new CustomException(ErrorCode.WALLET_TRANSACTION_DUPLICATED);
+        }
+
+        Wallet wallet = walletService.getOrCreate(user);
+
+        // ✅ 코인 회수 = 잔액 차감
+        wallet.decrease(amount);
+
+        CoinTransaction tx = CoinTransaction.create(
+                user.getId(),
+                CoinTransactionType.REFUND,
+                CoinTransactionStatus.SUCCESS,
+                amount,
+                wallet.getBalance(),
+                externalRef
+        );
+        return coinTransactionService.save(tx);
+    }
+
+    /**
+     * 결제 취소 회수 멱등 처리
+     * - 이미 externalRef(=REFUND_paymentKey) 기록이 있으면 그대로 반환
+     */
+    @Transactional
+    public CoinTransaction refundIdempotent(User user, Long amount, String externalRef) {
+        if (externalRef == null || externalRef.isBlank()) {
+            throw new CustomException(ErrorCode.WALLET_EXTERNAL_REF_REQUIRED);
+        }
+
+        return coinTransactionRepository.findByUserIdAndExternalRef(user.getId(), externalRef)
+                .orElseGet(() -> refund(user, amount, externalRef));
+    }
+
+
+
+    @Transactional(readOnly = true)
+    public void assertNotUsedCharge(Long userId, String paymentKey) {
+
+        // 1) 해당 결제로 충전된 기록이 있는지 확인
+        CoinTransaction chargeTx = coinTransactionRepository
+                .findByUserIdAndExternalRef(userId, paymentKey)
+                .orElseThrow(() ->
+                        new CustomException(ErrorCode.PAYMENT_CHARGE_NOT_FOUND)
+                );
+
+        // 2) 충전 이후 사용(SPEND)이 있었는지 검사
+        boolean used = coinTransactionRepository
+                .existsSpendAfterCharge(userId, paymentKey);
+
+        if (used) {
+            throw new CustomException(ErrorCode.CANNOT_CANCEL_USED_COIN_PAYMENT);
+        }
+    }
+
 }
