@@ -124,14 +124,14 @@ public class AdminService {
     }
 
     /**
-     * 전체 글 목록 조회 (관리자 전용) - 삭제된 글 포함
+     * 전체 글 목록 조회 (관리자 전용) - 삭제되지 않은 글만
      */
     public List<AdminArticleListResponse> getAllArticles(User adminUser) {
         // 관리자 권한 확인
         checkAdminRole(adminUser);
 
-        // 모든 글 조회 (등록 날짜 내림차순, 삭제된 글도 포함)
-        List<Article> articles = articleRepository.findAll(
+        // 삭제되지 않은 글만 조회 (등록 날짜 내림차순)
+        List<Article> articles = articleRepository.findAllByDeletedAtIsNull(
             Sort.by("createdDate").descending()
         );
 

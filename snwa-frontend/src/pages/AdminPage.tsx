@@ -369,7 +369,9 @@ export default function AdminPage() {
                                   <td className="px-6 py-3">{u.nickname ?? '-'}</td>
                                   <td className="px-6 py-3">{u.role ?? 'USER'}</td>
                                   <td className="px-6 py-3">
-                                    {u.status === 'DELETE' ? (
+                                    {u.role === 'ADMIN' ? (
+                                      <span className="text-gray-600">{statusLabel[u.status] ?? u.status}</span>
+                                    ) : u.status === 'DELETE' ? (
                                       <span className="text-gray-500">{statusLabel[u.status] ?? u.status}</span>
                                     ) : (
                                       <select
@@ -390,13 +392,17 @@ export default function AdminPage() {
                                     {new Date(u.createdDate).toLocaleString('ko-KR')}
                                   </td>
                                   <td className="px-6 py-3">
-                                    <button
-                                      type="button"
-                                      onClick={() => openPaymentHistory(u)}
-                                      className="px-3 py-1.5 text-sm font-medium rounded-md border border-gray-300 text-gray-700 bg-white hover:bg-gray-50"
-                                    >
-                                      결제내역
-                                    </button>
+                                    {u.role === 'ADMIN' ? (
+                                      <span className="text-gray-400">—</span>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        onClick={() => openPaymentHistory(u)}
+                                        className="px-3 py-1.5 text-sm font-medium rounded-md border border-gray-300 text-gray-700 bg-white hover:bg-gray-50"
+                                      >
+                                        결제내역
+                                      </button>
+                                    )}
                                   </td>
                                 </tr>
                               ))
