@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useLocation } from "react-router";
+import { useLocation, useSearchParams } from "react-router";
 
 declare global {
     interface Window {
@@ -7,57 +7,111 @@ declare global {
     }
 }
 
-type PrepareResponse = {
+type OrderCreateResponse = {
     orderId: string;
     orderName: string;
     amount: number;
 };
 
+type PayLocationState =
+    | { policyId?: number; orderId?: string; orderName?: string; amount?: number }
+    | null;
+
+const storageKey = (policyId: number) => `pay_prepared_policy_${policyId}`;
+
+const toNumber = (v: string | null): number | null => {
+    if (v == null) return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+};
+
 export default function PayPage() {
     const location = useLocation();
-    const [prepared, setPrepared] = useState<PrepareResponse | null>(null);
+    const [searchParams] = useSearchParams();
+
+    const [prepared, setPrepared] = useState<OrderCreateResponse | null>(null);
 
     const widgetRef = useRef<any>(null);
-
-    // ✅ 위젯 중복 초기화 방지 (StrictMode/useEffect 2번 실행 대비)
     const initedRef = useRef(false);
 
-    const clientKey = import.meta.env.VITE_TOSS_CLIENT_KEY as string; // Vite 기준
+    const clientKey = import.meta.env.VITE_TOSS_CLIENT_KEY as string;
 
-    // 코인 구매 등에서 넘긴 주문 정보가 있으면 사용, 없으면 기존 prepare 호출
     useEffect(() => {
-        const state = location.state as { orderId?: string; orderName?: string; amount?: number } | null;
+        const state = location.state as PayLocationState;
+
+        // ✅ 0) URL 쿼리스트링에서도 주문정보 받기
+        const qpPolicyId = toNumber(searchParams.get("policyId"));
+        const qpOrderId = searchParams.get("orderId");
+        const qpOrderName = searchParams.get("orderName");
+        const qpAmount = toNumber(searchParams.get("amount"));
+
+        // policyId 결정: state > query > default(1)
+        const policyId = state?.policyId ?? qpPolicyId ?? 1;
+
+        // ✅ 1) state로 주문정보를 넘겨받았으면 그대로 사용 + 캐시 갱신
         if (state?.orderId && state?.orderName != null && state?.amount != null) {
-            setPrepared({
-                orderId: state.orderId,
-                orderName: state.orderName,
-                amount: state.amount,
-            });
+            const next = { orderId: state.orderId, orderName: state.orderName, amount: state.amount };
+            setPrepared(next);
+            sessionStorage.setItem(storageKey(policyId), JSON.stringify(next));
+            initedRef.current = false; // prepared 바뀌면 위젯 다시 초기화 가능
             return;
         }
 
-        (async () => {
-            const res = await fetch("/api/orders", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    userId: 1,
-                    orderName: "기사 1개 열람",
-                    amount: 1000,
-                }),
-            });
+        // ✅ 2) 쿼리스트링으로 주문정보가 있으면 그대로 사용 + 캐시 갱신
+        if (qpOrderId && qpOrderName != null && qpAmount != null) {
+            const next = { orderId: qpOrderId, orderName: qpOrderName, amount: qpAmount };
+            setPrepared(next);
+            sessionStorage.setItem(storageKey(policyId), JSON.stringify(next));
+            initedRef.current = false;
+            return;
+        }
 
-            if (!res.ok) {
-                console.error("prepare failed", res.status, await res.text());
-                return;
+        // ✅ 3) 캐시가 있으면 재사용
+        const cachedRaw = sessionStorage.getItem(storageKey(policyId));
+        if (cachedRaw) {
+            try {
+                const cached = JSON.parse(cachedRaw) as OrderCreateResponse;
+                if (cached?.orderId && cached?.orderName != null && cached?.amount != null) {
+                    setPrepared(cached);
+                    initedRef.current = false;
+                    return;
+                }
+            } catch {
+                sessionStorage.removeItem(storageKey(policyId));
             }
+        }
 
-            const data: PrepareResponse = await res.json();
-            setPrepared(data);
+        // ✅ 4) 캐시도 없으면 주문 생성
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await fetch("/api/orders", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ policyId }),
+                });
+
+                if (!res.ok) {
+                    console.error("order create failed", res.status, await res.text());
+                    return;
+                }
+
+                const data: OrderCreateResponse = await res.json();
+                if (cancelled) return;
+
+                setPrepared(data);
+                sessionStorage.setItem(storageKey(policyId), JSON.stringify(data));
+                initedRef.current = false;
+            } catch (e) {
+                console.error("order create exception", e);
+            }
         })();
-    }, [location.state]);
 
-    // 2) 토스 위젯 초기화 + 렌더
+        return () => {
+            cancelled = true;
+        };
+    }, [location.state, searchParams]);
+
     const initWidget = async () => {
         if (!prepared) return;
 
@@ -66,45 +120,34 @@ export default function PayPage() {
             return;
         }
 
-        // ✅ 혹시 남아있는 렌더 결과가 있으면 비워주기(안전장치)
+        // ✅ 위젯 DOM 초기화
         const pmEl = document.querySelector("#payment-method");
         const agEl = document.querySelector("#agreement");
-        if (pmEl) pmEl.innerHTML = "";
-        if (agEl) agEl.innerHTML = "";
+        if (pmEl) (pmEl as HTMLElement).innerHTML = "";
+        if (agEl) (agEl as HTMLElement).innerHTML = "";
 
         const tossPayments = window.TossPayments(clientKey);
-
-        // 비회원이면 ANONYMOUS
         const widgets = tossPayments.widgets({ customerKey: "ANONYMOUS" });
 
         await widgets.setAmount({ currency: "KRW", value: prepared.amount });
 
         await Promise.all([
-            widgets.renderPaymentMethods({
-                selector: "#payment-method",
-                variantKey: "DEFAULT",
-            }),
-            widgets.renderAgreement({
-                selector: "#agreement",
-                variantKey: "AGREEMENT",
-            }),
+            widgets.renderPaymentMethods({ selector: "#payment-method", variantKey: "DEFAULT" }),
+            widgets.renderAgreement({ selector: "#agreement", variantKey: "AGREEMENT" }),
         ]);
 
         widgetRef.current = widgets;
     };
 
-    // prepared가 생기면 자동 init (✅ 1회만 실행)
     useEffect(() => {
         if (!prepared) return;
+        if (initedRef.current) return;
 
-        if (initedRef.current) return; // ✅ 중복 방지
         initedRef.current = true;
-
         initWidget().catch((e) => {
             console.error("initWidget failed", e);
-            initedRef.current = false; // 초기화 실패하면 다시 시도 가능하게
+            initedRef.current = false;
         });
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [prepared]);
 
     const requestPay = async () => {
@@ -114,24 +157,24 @@ export default function PayPage() {
             await widgetRef.current.requestPayment({
                 orderId: prepared.orderId,
                 orderName: prepared.orderName,
-                successUrl: "http://localhost:3000/pay/success",
-                failUrl: "http://localhost:3000/pay/fail",
+                successUrl: `http://localhost:3000/pay/success`,
+                failUrl: `http://localhost:3000/pay/fail`,
             });
         } catch (e) {
-            // ✅ 결제창 닫기/취소는 흔한 정상 흐름이라 에러로 죽이면 안 됨
             console.warn("결제창 닫힘/취소/실패", e);
         }
     };
 
     return (
         <div style={{ padding: 24 }}>
-            <h1>결제 위젯 테스트 (React)</h1>
+            <h1>결제 위젯 테스트</h1>
 
             {!prepared && <p>주문 생성 중...</p>}
 
             {prepared && (
                 <>
                     <p>orderId: {prepared.orderId}</p>
+                    <p>orderName: {prepared.orderName}</p>
                     <p>amount: {prepared.amount}</p>
 
                     <div id="payment-method" style={{ marginTop: 16 }} />

@@ -123,3 +123,10 @@ INSERT IGNORE INTO articles (
     NOW(),
     NOW()
 );
+
+DELETE FROM coin_charge_policy;
+INSERT INTO coin_charge_policy (id, name, coin_amount, price, active) VALUES
+                                                                          (1,'10코인',10,1100,true),
+                                                                          (2,'30코인',30,3100,true),
+                                                                          (3,'50코인',50,5000,true),
+                                                                          (4,'100코인',100,9900,true);

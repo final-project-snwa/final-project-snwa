@@ -6,9 +6,13 @@ import com.team.snwa.snwabackend.domain.payment.dto.request.PaymentCancelRequest
 import com.team.snwa.snwabackend.domain.payment.dto.request.PaymentConfirmRequest;
 import com.team.snwa.snwabackend.domain.payment.dto.response.*;
 import com.team.snwa.snwabackend.domain.payment.service.PaymentService;
+import com.team.snwa.snwabackend.domain.user.entity.User;
+import com.team.snwa.snwabackend.global.exception.CustomException;
+import com.team.snwa.snwabackend.global.exception.ErrorCode;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -17,35 +21,39 @@ import org.springframework.web.bind.annotation.*;
 public class PaymentController {
 
     private final PaymentService paymentService;
-
-
-    // 2) 결제 승인 (successUrl에서 받은 paymentKey/orderId/amount로 호출)
     @PostMapping("/confirm")
-    public PaymentResultResponse confirm(@Valid @RequestBody PaymentConfirmRequest req) {
-        return paymentService.confirm(req);
+    public PaymentResultResponse confirm(
+            @AuthenticationPrincipal User user,
+            @Valid @RequestBody PaymentConfirmRequest req
+    ) {
+        if (user == null) throw new CustomException(ErrorCode.UNAUTHORIZED);
+        return paymentService.confirm(user.getId(), req);
     }
 
-    // 3) 결제 취소(전액/부분)
     @PostMapping("/{paymentKey}/cancel")
-    public PaymentCancelResponse cancel(@PathVariable String paymentKey,
-                                        @Valid @RequestBody PaymentCancelRequest req) {
-        return paymentService.cancel(paymentKey, req);
+    public PaymentCancelResponse cancel(
+            @AuthenticationPrincipal User user,
+            @PathVariable String paymentKey,
+            @Valid @RequestBody PaymentCancelRequest req
+    ) {
+        if (user == null) throw new CustomException(ErrorCode.UNAUTHORIZED);
+        return paymentService.cancel(user.getId(), paymentKey, req);
     }
 
-    // 4) 웹훅(수신만)
+    // 웹훅(수신만)
     @PostMapping("/webhook")
     public WebhookAckResponse webhook(@RequestBody String payload) {
         paymentService.handleWebhook(payload);
         return WebhookAckResponse.ok();
     }
 
-    // 5) 결제내역 조회(유저별)
+    // 결제내역 조회(유저별)
     @GetMapping("/users/{userId}")
     public PaymentHistoryResponse history(@PathVariable Long userId) {
         return paymentService.getHistoryByUser(userId);
     }
 
-    // 6) 결제 단건 상세(결제키로)
+    // 결제 단건 상세(결제키로)
     @GetMapping("/{paymentKey}")
     public PaymentResultResponse detail(@PathVariable String paymentKey) {
         return paymentService.getPaymentDetail(paymentKey);

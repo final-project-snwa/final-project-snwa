@@ -13,7 +13,10 @@ import java.time.LocalDateTime;
 @Entity
 
 @Table(
-        name="payment_cancels",
+        name = "payment_cancels",
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_payment_cancels_payment_key", columnNames = "payment_key")
+        },
         indexes = {
                 @Index(name="idx_payment_cancels_payment_key", columnList="payment_key")
         }

@@ -8,26 +8,26 @@ import com.team.snwa.snwabackend.domain.order.repository.OrderRepository;
 import com.team.snwa.snwabackend.domain.payment.dto.request.PaymentCancelRequest;
 import com.team.snwa.snwabackend.domain.payment.dto.request.PaymentConfirmRequest;
 import com.team.snwa.snwabackend.domain.payment.dto.response.PaymentCancelResponse;
-import com.team.snwa.snwabackend.domain.payment.dto.response.PaymentResultResponse;
 import com.team.snwa.snwabackend.domain.payment.dto.response.PaymentHistoryItemResponse;
 import com.team.snwa.snwabackend.domain.payment.dto.response.PaymentHistoryResponse;
+import com.team.snwa.snwabackend.domain.payment.dto.response.PaymentResultResponse;
 import com.team.snwa.snwabackend.domain.payment.entity.Payment;
-import com.team.snwa.snwabackend.domain.payment.entity.PaymentCancel;
 import com.team.snwa.snwabackend.domain.payment.entity.PaymentMethod;
 import com.team.snwa.snwabackend.domain.payment.repository.PaymentCancelRepository;
 import com.team.snwa.snwabackend.domain.payment.repository.PaymentRepository;
 import com.team.snwa.snwabackend.domain.payment.toss.TossCancelResponse;
 import com.team.snwa.snwabackend.domain.payment.toss.TossPaymentResponse;
 import com.team.snwa.snwabackend.domain.payment.toss.TossPaymentsClient;
+import com.team.snwa.snwabackend.domain.user.entity.User;
+import com.team.snwa.snwabackend.domain.wallet.service.WalletTransactionService;
 import com.team.snwa.snwabackend.global.exception.CustomException;
 import com.team.snwa.snwabackend.global.exception.ErrorCode;
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -41,17 +41,25 @@ public class PaymentService {
     private final TossPaymentsClient tossClient;
     private final ObjectMapper objectMapper;
 
+    private final WalletTransactionService walletTransactionService;
+    private final EntityManager entityManager;
 
-    @Transactional
-    public PaymentResultResponse confirm(PaymentConfirmRequest req) {
+    private final PaymentConfirmCommitService paymentConfirmCommitService;
+    private final PaymentCancelCommitService paymentCancelCommitService;
 
-        // 1) 주문 row 락
-        Order order = orderRepo.findByOrderIdForUpdate(req.orderId())
+    /**
+     * ✅ 컨트롤러 시그니처에 맞춘 confirm
+     */
+    public PaymentResultResponse confirm(Long userId, PaymentConfirmRequest req) {
+
+        Order order = orderRepo.findByOrderId(req.orderId())
                 .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_ORDER_NOT_FOUND));
-        // 2) 상태 가드
-        // - PAID는 멱등 응답
-        // - CANCELED/EXPIRED는 재승인 불가(정책)
-        // - FAILED는 ✅ 재시도 허용(통과)
+
+        // ✅ 내 주문만 결제 승인 가능
+        if (!order.getUserId().equals(userId)) {
+            throw new CustomException(ErrorCode.FORBIDDEN);
+        }
+
         if (order.getStatus() == OrderStatus.CANCELED) {
             throw new CustomException(ErrorCode.PAYMENT_ORDER_CANCELED);
         }
@@ -59,28 +67,19 @@ public class PaymentService {
             throw new CustomException(ErrorCode.PAYMENT_ORDER_EXPIRED);
         }
 
-        // 3) 서버 DB 금액 검증(확정 실패) -> FAILED
         if (!order.getAmount().equals(req.amount())) {
-            order.markFailed();
             throw new CustomException(ErrorCode.PAYMENT_AMOUNT_MISMATCH);
         }
 
-        // 4) 이미 결제 완료면 멱등 처리
         if (order.isPaid()) {
             Payment existing = paymentRepo.findByOrderId(order.getOrderId())
                     .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_INCONSISTENT_STATE));
             return PaymentResultResponse.alreadyPaid(order.getOrderId(), existing);
         }
 
-        // 5) 주문은 PAID가 아닌데 payment가 먼저 생긴 케이스(정합성 보정)
-        Payment existingByOrder = paymentRepo.findByOrderId(order.getOrderId()).orElse(null);
-        if (existingByOrder != null) {
-            order.markPaid();
-            return PaymentResultResponse.alreadyPaid(order.getOrderId(), existingByOrder);
-        }
+        long coinAmount = order.getCoinAmount().longValue();
 
-        // 6) 토스 승인 호출
-        // ⚠️ 예외는 불확실 => FAILED 찍지 말고 PENDING/FAILED 그대로 둔다(재시도 가능하게)
+        // ✅ 외부 호출(락 잡지 말기)
         TossPaymentResponse tossRes;
         try {
             tossRes = tossClient.confirm(req.paymentKey(), req.orderId(), req.amount());
@@ -88,27 +87,14 @@ public class PaymentService {
             throw new CustomException(ErrorCode.TOSS_CONFIRM_FAILED);
         }
 
-        // 7) 토스 응답 검증(확정 실패) -> FAILED
         if (!req.orderId().equals(tossRes.orderId())) {
-            order.markFailed();
             throw new CustomException(ErrorCode.TOSS_ORDER_ID_MISMATCH);
         }
         if (!req.amount().equals(tossRes.totalAmount())) {
-            order.markFailed();
             throw new CustomException(ErrorCode.TOSS_AMOUNT_MISMATCH);
         }
 
-        // 8) paymentKey 기반 멱등 처리
-        Payment existedByKey = paymentRepo.findByPaymentKey(tossRes.paymentKey()).orElse(null);
-        if (existedByKey != null) {
-            order.markPaid();
-            return PaymentResultResponse.alreadyPaid(order.getOrderId(), existedByKey);
-        }
-
-        // 9) 저장
         String raw = safeJson(tossRes);
-
-        // ✅ tossRes.method(String) -> PaymentMethod enum 변환
         PaymentMethod method = PaymentMethod.fromToss(tossRes.method());
 
         Payment payment = Payment.create(
@@ -116,97 +102,121 @@ public class PaymentService {
                 order.getUserId(),
                 order.getOrderName(),
                 tossRes.paymentKey(),
-                method,                 // ✅ enum 저장
+                method,
                 tossRes.status(),
                 tossRes.totalAmount(),
+                coinAmount,
                 tossRes.approvedAt(),
                 raw
         );
 
+        // ✅ "결제 저장 + 주문 paid" 는 커밋 서비스에서 (여기서만 락/정합성 처리)
+        Payment committed = paymentConfirmCommitService.savePaymentAndMarkPaid(payment, req.amount());
+
+        // ✅ 코인 충전(후처리)
+        User userRef = entityManager.getReference(User.class, order.getUserId());
         try {
-            paymentRepo.save(payment);
-        } catch (DataIntegrityViolationException e) {
-            Payment existed = paymentRepo.findByPaymentKey(tossRes.paymentKey())
-                    .orElseGet(() -> paymentRepo.findByOrderId(order.getOrderId())
-                            .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_INCONSISTENT_STATE)));
-            order.markPaid();
-            return PaymentResultResponse.alreadyPaid(order.getOrderId(), existed);
+            walletTransactionService.chargeIdempotent(userRef, coinAmount, committed.getPaymentKey());
+        } catch (Exception e) {
+            orderRepo.updateStatus(order.getOrderId(), OrderStatus.CHARGE_FAILED);
+            throw new CustomException(ErrorCode.WALLET_CHARGE_FAILED);
         }
 
-        // 10) 최종 상태 변경(저장 성공 후)
-        order.markPaid();
-
-        return PaymentResultResponse.success(order.getOrderId(), payment);
+        return PaymentResultResponse.success(order.getOrderId(), committed);
     }
 
-    // 승인 취소
-    public PaymentCancelResponse cancel(String paymentKey, PaymentCancelRequest req) {
+    /**
+     * ✅ 컨트롤러 시그니처에 맞춘 cancel
+     */
+    public PaymentCancelResponse cancel(Long userId, String paymentKey, PaymentCancelRequest req) {
 
         Payment payment = paymentRepo.findByPaymentKey(paymentKey)
                 .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_NOT_FOUND));
 
+        // ✅ 내 결제만 취소 가능
+        if (!payment.getUserId().equals(userId)) {
+            throw new CustomException(ErrorCode.FORBIDDEN);
+        }
+
         String orderId = payment.getOrderId();
 
-        // ✅ 주문 row 락
-        Order order = orderRepo.findByOrderIdForUpdate(orderId)
+        // ✅ 락 없이 조회 (락 잡고 외부 API 호출 금지)
+        Order order = orderRepo.findByOrderId(orderId)
                 .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_ORDER_NOT_FOUND));
 
-        // 이미 취소된 주문이면 더 진행하지 않는다.
         if (order.getStatus() == OrderStatus.CANCELED) {
             throw new CustomException(ErrorCode.PAYMENT_ALREADY_CANCELED);
         }
 
-        // 검증: 취소금액 유효성/초과 방지
         Long sum = cancelRepo.sumCanceledAmountByPaymentKey(paymentKey);
         long totalCanceled = (sum == null) ? 0L : sum;
 
-        if (req.cancelAmount() == null || req.cancelAmount() <= 0) {
-            throw new CustomException(ErrorCode.INVALID_CANCEL_AMOUNT);
-        }
-        if (totalCanceled + req.cancelAmount() > order.getAmount()) {
-            throw new CustomException(ErrorCode.CANCEL_AMOUNT_EXCEEDS_REMAINING);
+        long remaining = order.getAmount() - totalCanceled;
+        if (remaining <= 0) {
+            throw new CustomException(ErrorCode.PAYMENT_ALREADY_CANCELED);
         }
 
+        Long cancelAmount = req.cancelAmount();
+        if (cancelAmount == null) cancelAmount = remaining;
+
+        if (cancelAmount <= 0) throw new CustomException(ErrorCode.INVALID_CANCEL_AMOUNT);
+        if (cancelAmount > remaining) throw new CustomException(ErrorCode.CANCEL_AMOUNT_EXCEEDS_REMAINING);
+
+        // 부분취소 금지
+        if (!cancelAmount.equals(remaining)) throw new CustomException(ErrorCode.PARTIAL_CANCEL_NOT_ALLOWED);
+
+        // ✅ 토스 취소 전에 코인 미사용 체크 (락 없이)
+        walletTransactionService.assertNotUsedCharge(payment.getUserId(), paymentKey);
+
+        // ✅ 토스 취소(외부 호출) - 락 없이
         TossCancelResponse tossRes;
         try {
-            tossRes = tossClient.cancel(paymentKey, req.cancelReason(), req.cancelAmount());
+            tossRes = tossClient.cancel(paymentKey, req.cancelReason(), cancelAmount);
         } catch (Exception e) {
-            // ✅ 토스 취소 호출 실패는 "확정 실패"가 아니라 "불확실"
             throw new CustomException(ErrorCode.TOSS_CANCEL_FAILED);
         }
 
-        // 취소 이력 저장
+        // ✅ 토스 취소 성공 후에만 "취소 기록 + 주문취소" 커밋 (여기서만 락)
         String raw = safeJson(tossRes);
-        PaymentCancel cancel = PaymentCancel.create(
+        paymentCancelCommitService.saveCancelAndMarkCanceled(
+                orderId,
                 payment,
                 tossRes.cancelAmount(),
                 req.cancelReason(),
                 tossRes.canceledAt(),
                 raw
         );
-        cancelRepo.save(cancel);
 
-        // 전액 취소 여부 판정
+        // ✅ 내부 환불(코인 회수)
+        User userRef = entityManager.getReference(User.class, payment.getUserId());
+        String refundRef = "REFUND_" + paymentKey;
+
+        try {
+            walletTransactionService.refundIdempotent(
+                    userRef,
+                    payment.getChargedCoinAmount(),
+                    refundRef
+            );
+            orderRepo.updateStatus(orderId, OrderStatus.CANCEL_COMPLETED);
+
+        } catch (Exception e) {
+            orderRepo.updateStatus(orderId, OrderStatus.REFUND_FAILED);
+            throw new CustomException(ErrorCode.WALLET_REFUND_FAILED);
+        }
+
         Long sumAfter = cancelRepo.sumCanceledAmountByPaymentKey(paymentKey);
         long totalCanceledAfter = (sumAfter == null) ? 0L : sumAfter;
-
-        boolean fullyCanceled = totalCanceledAfter >= order.getAmount();
-        if (fullyCanceled) {
-            order.markCanceled();
-        }
 
         return new PaymentCancelResponse(
                 paymentKey,
                 tossRes.cancelAmount(),
                 totalCanceledAfter,
-                fullyCanceled,
+                true,
                 tossRes.canceledAt()
         );
     }
 
-    public void handleWebhook(String payload) {
-        // MVP: 수신만 OK. 운영 단계에서 서명 검증/이벤트 처리 붙이기.
-    }
+    public void handleWebhook(String payload) { }
 
     private String safeJson(Object obj) {
         try {
@@ -216,7 +226,64 @@ public class PaymentService {
         }
     }
 
-    // 결제내역 조회
+    /**
+     * ✅ (권장) history/detail도 원래는 로그인 유저 기준으로 제한하는 게 맞음.
+     * 지금 컨트롤러가 userId/paymentKey를 그냥 열어놔서,
+     * 최소한 Service는 "요청자 == 대상" 방어는 해두는 게 안전함.
+     */
+    @Transactional(readOnly = true)
+    public PaymentHistoryResponse getHistoryByUser(Long requesterId, Long userId) {
+        if (!requesterId.equals(userId)) {
+            throw new CustomException(ErrorCode.FORBIDDEN);
+        }
+
+        List<Payment> payments = paymentRepo.findAllByUserIdOrderByApprovedAtDesc(userId);
+
+        List<PaymentHistoryItemResponse> items = payments.stream()
+                .map(p -> new PaymentHistoryItemResponse(
+                        p.getOrderId(),
+                        p.getPaymentKey(),
+                        p.getOrderName(),
+                        p.getTotalAmount(),
+                        p.getMethod().name(),
+                        p.getTossStatus(),
+                        p.getApprovedAt()
+                ))
+                .toList();
+
+        return PaymentHistoryResponse.of(userId, items);
+    }
+
+    @Transactional(readOnly = true)
+    public PaymentResultResponse getPaymentDetail(Long requesterId, String paymentKey) {
+        Payment payment = paymentRepo.findByPaymentKey(paymentKey)
+                .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_NOT_FOUND));
+
+        if (!payment.getUserId().equals(requesterId)) {
+            throw new CustomException(ErrorCode.FORBIDDEN);
+        }
+
+        return PaymentResultResponse.success(payment.getOrderId(), payment);
+    }
+
+    /* =========================
+       🔻 호환용(기존 호출처 대비)
+       ========================= */
+
+    /** @deprecated 컨트롤러는 confirm(userId, req) 쓰도록 */
+    @Deprecated
+    public PaymentResultResponse confirm(PaymentConfirmRequest req) {
+        throw new CustomException(ErrorCode.PAYMENT_NOT_FOUND);
+    }
+
+    /** @deprecated 컨트롤러는 cancel(userId, paymentKey, req) 쓰도록 */
+    @Deprecated
+    public PaymentCancelResponse cancel(String paymentKey, PaymentCancelRequest req) {
+        throw new CustomException(ErrorCode.PAYMENT_NOT_FOUND);
+    }
+
+    /** @deprecated 컨트롤러는 getHistoryByUser(requesterId, userId) 쓰도록 */
+    @Deprecated
     @Transactional(readOnly = true)
     public PaymentHistoryResponse getHistoryByUser(Long userId) {
         List<Payment> payments = paymentRepo.findAllByUserIdOrderByApprovedAtDesc(userId);
@@ -236,6 +303,8 @@ public class PaymentService {
         return PaymentHistoryResponse.of(userId, items);
     }
 
+    /** @deprecated 컨트롤러는 getPaymentDetail(requesterId, paymentKey) 쓰도록 */
+    @Deprecated
     @Transactional(readOnly = true)
     public PaymentResultResponse getPaymentDetail(String paymentKey) {
         Payment payment = paymentRepo.findByPaymentKey(paymentKey)
