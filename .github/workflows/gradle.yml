@@ -63,7 +63,7 @@ jobs:
 
       # 빌드된 JAR 파일을 artifact로 업로드
       - name: Upload backend JAR artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: backend-jar
           path: ./snwa-backend/build/libs/*.jar
