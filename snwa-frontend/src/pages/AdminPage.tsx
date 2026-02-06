@@ -1,7 +1,8 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router';
 import Header from '../components/Header';
-import { Users, FileText, ChevronRight, ChevronDown } from 'lucide-react';
+import { Users, FileText, ChevronRight, ChevronDown, Bot } from 'lucide-react';
+import CrawlerManager from '../components/admin/CrawlerManager';
 
 type AdminUser = {
   id: number;
@@ -44,7 +45,7 @@ function getAuthHeader() {
   return { Authorization: `Bearer ${token}` };
 }
 
-type Section = 'users' | 'articles';
+type Section = 'users' | 'articles' | 'crawler';
 
 export default function AdminPage() {
   const navigate = useNavigate();
@@ -285,6 +286,18 @@ export default function AdminPage() {
                     <FileText className="w-5 h-5 flex-shrink-0" style={{ color: '#ffffff' }} />
                     <span style={{ color: '#ffffff', fontSize: '15px' }}>전체 게시물 조회</span>
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setSection('crawler')}
+                    className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded"
+                    style={{
+                      backgroundColor: section === 'crawler' ? '#0ea5e9' : 'transparent',
+                      fontWeight: section === 'crawler' ? 500 : 400,
+                    }}
+                  >
+                    <Bot className="w-5 h-5 flex-shrink-0" style={{ color: '#ffffff' }} />
+                    <span style={{ color: '#ffffff', fontSize: '15px' }}>크롤러 관리</span>
+                  </button>
                 </div>
               )}
             </div>
@@ -297,7 +310,7 @@ export default function AdminPage() {
               <span>관리</span>
               <span>/</span>
               <span className="font-medium text-gray-900">
-                {section === 'users' ? '전체 회원 조회' : '전체 게시물 조회'}
+                {section === 'users' ? '전체 회원 조회' : section === 'articles' ? '전체 게시물 조회' : '크롤러 관리'}
               </span>
             </div>
 
@@ -545,6 +558,8 @@ export default function AdminPage() {
                     </div>
                   </>
                 )}
+
+                {section === 'crawler' && <CrawlerManager />}
               </>
             )}
           </div>
