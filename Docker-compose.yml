@@ -16,15 +16,16 @@ services:
     networks:
       - db-net
 
-  snwa-backend:
+  snwa-backend-blue:
     build: ./snwa-backend
-    image: snwa-backend-server:v1
+    image: snwa-backend-server:blue
     expose:
       - 8080
     depends_on:
       mysql:
         condition: service_healthy
     environment:
+      SERVER_PORT: 8080
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
@@ -40,7 +41,35 @@ services:
       AWS_REGION_STATIC: ${AWS_REGION_STATIC}
       AWS_S3_BUCKET: ${AWS_S3_BUCKET}
       TOSS_SECRET_KEY: ${TOSS_SECRET_KEY:-}
+    networks:
+      - backend-net
+      - db-net
 
+  snwa-backend-green:
+    build: ./snwa-backend
+    image: snwa-backend-server:green
+    expose:
+      - 8081
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: 8081
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      APP_BASE_URL: http://localhost:70
+      DEEPL_API_KEY: ${DEEPL_API_KEY}
+      DEEPL_API_BASE_URL: ${DEEPL_API_BASE_URL}
+      MAIL_USERNAME: ${MAIL_USERNAME}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
+      MAIL_HOST: ${MAIL_HOST:-smtp.gmail.com}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_REGION_STATIC: ${AWS_REGION_STATIC}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET}
+      TOSS_SECRET_KEY: ${TOSS_SECRET_KEY:-}
     networks:
       - backend-net
       - db-net
@@ -48,19 +77,18 @@ services:
   snwa-frontend:
     build: ./snwa-frontend
     image: snwa-frontend-server:v1
-    depends_on:
-      - snwa-backend
     networks:
       - frontend-net
 
   nginx:
     build: ./nginx
     image: snwa-nginx:v1
+    container_name: snwa-nginx # 컨테이너 이름 명시 (reload 시 필요)
     ports:
-      - 70:80
-    depends_on:
-      - snwa-backend
-      - snwa-frontend
+      - "70:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+      - ./nginx/service-url.inc:/etc/nginx/conf.d/service-url.inc
     networks:
       - backend-net
       - frontend-net
@@ -73,7 +101,7 @@ services:
     ports:
       - "9090:9090"
     depends_on:
-      - snwa-backend
+      - snwa-backend-blue
     networks:
       - backend-net
 
