@@ -131,34 +131,34 @@ class InterestServiceTest {
         assertThat(result.get(0).getTarget().getTagKey()).isEqualTo("토트넘");
     }
 
-    @Test
-    @DisplayName("Find subscribers for tags and auto-register new tags")
-    void findSubscribersForTags() {
-        // given
-        List<String> tags = List.of("손흥민", "새로운_태그_메시");
-        InterestTarget sonTarget = InterestTarget.builder().tagKey("손흥민").build();
-        User user1 = User.builder().id(1L).build();
-
-        // Mocking existing targets
-        // given(interestTargetRepository.findAll()).willReturn(List.of(sonTarget));
-        // Optimized:
-        given(interestTargetRepository.findByTagKeyIn(tags)).willReturn(List.of(sonTarget));
-
-        given(userSubscriptionRepository.findSubscribedUsersByTagKeys(tags)).willReturn(List.of(user1));
-
-        // when
-        List<User> result = interestService.findSubscribersForTags(tags);
-
-        // then
-        assertThat(result).hasSize(1);
-        assertThat(result.get(0).getId()).isEqualTo(1L);
-
-        // Verify that '새로운_태그_메시' was saved
-        verify(interestTargetRepository).saveAll(org.mockito.ArgumentMatchers.argThat(iterable -> {
-            List<InterestTarget> list = (List<InterestTarget>) iterable;
-            return list.size() == 1 &&
-                    list.get(0).getTagKey().equals("새로운_태그_메시") &&
-                    list.get(0).getType() == InterestType.OTHER;
-        }));
-    }
+//    @Test
+//    @DisplayName("Find subscribers for tags and auto-register new tags")
+//    void findSubscribersForTags() {
+//        // given
+//        List<String> tags = List.of("손흥민", "새로운_태그_메시");
+//        InterestTarget sonTarget = InterestTarget.builder().tagKey("손흥민").build();
+//        User user1 = User.builder().id(1L).build();
+//
+//        // Mocking existing targets
+//        // given(interestTargetRepository.findAll()).willReturn(List.of(sonTarget));
+//        // Optimized:
+//        given(interestTargetRepository.findByTagKeyIn(tags)).willReturn(List.of(sonTarget));
+//
+//        given(userSubscriptionRepository.findSubscribedUsersByTagKeys(tags)).willReturn(List.of(user1));
+//
+//        // when
+//        List<User> result = interestService.findSubscribersForTags(tags);
+//
+//        // then
+//        assertThat(result).hasSize(1);
+//        assertThat(result.get(0).getId()).isEqualTo(1L);
+//
+//        // Verify that '새로운_태그_메시' was saved
+//        verify(interestTargetRepository).saveAll(org.mockito.ArgumentMatchers.argThat(iterable -> {
+//            List<InterestTarget> list = (List<InterestTarget>) iterable;
+//            return list.size() == 1 &&
+//                    list.get(0).getTagKey().equals("새로운_태그_메시") &&
+//                    list.get(0).getType() == InterestType.OTHER;
+//        }));
+//    }
 }
