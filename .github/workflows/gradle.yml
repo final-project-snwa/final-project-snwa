@@ -111,12 +111,12 @@ jobs:
 
       # 빌드된 JAR를 EC2로 복사
       - name: Copy backend JAR to EC2
-        run: scp -o StrictHostKeyChecking=no ./backend-jar/*.jar ec2-user@${{ secrets.EC2_HOST }}:/home/ec2-user/snwa/app.jar
+        run: scp -o StrictHostKeyChecking=no ./backend-jar/*.jar ec2-user@${{ secrets.EC2_HOST }}:/home/ec2-user/final-project-snwa/snwa-backend/app.jar
 
       - name: Deploy to EC2 (Blue-Green)
         run: |
           ssh -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_HOST }} << 'EOF'
-            cd /home/ec2-user/snwa
+            cd /home/ec2-user/final-project-snwa
 
             # git 소스 업데이트는 필요하면 유지하거나 주석처리 가능
             # git fetch origin develop
@@ -136,8 +136,8 @@ jobs:
             echo "NEW=$NEW (Port:$NEW_PORT), OLD=$OLD"
             
             # 1. 빌드된 JAR를 백엔드 도커 빌드 경로로 이동
-            mv /home/ec2-user/snwa/app.jar /home/ec2-user/snwa/snwa-backend/app.jar
-            
+            mv /home/ec2-user/final-project-snwa/snwa-backend/app.jar /home/ec2-user/final-project-snwa/snwa-backend/app.jar
+      
             # 2. 새 컨테이너 빌드 및 실행
             docker-compose build snwa-backend-$NEW
             docker-compose up -d snwa-backend-$NEW
@@ -146,7 +146,7 @@ jobs:
             sleep 20
             
             # 4. [핵심] Nginx가 바라보는 변수 파일 수정
-            echo "set \$service_url http://snwa-backend-$NEW:$NEW_PORT;" | sudo tee /home/ec2-user/snwa/nginx/service-url.inc
+            echo "set \$service_url http://snwa-backend-$NEW:$NEW_PORT;" | sudo tee /home/ec2-user/final-project-snwa/nginx/service-url.inc
             
             # 5. Nginx 설정 재로드
             docker exec snwa-nginx nginx -s reload
