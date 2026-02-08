@@ -118,10 +118,10 @@ jobs:
           ssh -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_HOST }} << 'EOF'
             cd /home/ec2-user/final-project-snwa
 
-            # git 소스 업데이트는 필요하면 유지하거나 주석처리 가능
-            # git fetch origin develop
-            # git checkout develop
-            # git reset --hard origin/develop
+            # EC2 서버의 소스코드를 GitHub 최신 상태와 동기화
+            git fetch origin develop  # 원격의 최신 정보를 가져옴
+            git checkout develop
+            git reset --hard origin/develop   # GitHub의 develop 상태와 서버를 동기화
 
             if docker ps --format '{{.Names}}' | grep -q snwa-backend-blue; then
               NEW=green
