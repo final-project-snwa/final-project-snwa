@@ -1,6 +1,7 @@
 services:
   mysql:
     image: mysql:8.0
+    container_name: snwa-mysql
     expose:
       - 3306
     environment:
@@ -19,6 +20,7 @@ services:
   snwa-backend-blue:
     build: ./snwa-backend
     image: snwa-backend-server:blue
+    container_name: snwa-backend-server-blue
     expose:
       - 8080
     depends_on:
@@ -48,6 +50,7 @@ services:
   snwa-backend-green:
     build: ./snwa-backend
     image: snwa-backend-server:green
+    container_name: snwa-backend-server-green
     expose:
       - 8081
     depends_on:
@@ -77,6 +80,7 @@ services:
   snwa-frontend:
     build: ./snwa-frontend
     image: snwa-frontend-server:v1
+    container_name: snwa-frontend-server
     networks:
       - frontend-net
 

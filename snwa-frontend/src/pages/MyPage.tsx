@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router';
 import { useAuth } from '../contexts/AuthContext';
 import Header from '../components/Header';
+import { User } from 'lucide-react';
 import ArticleCard from '../components/ArticleCard';
 import { Article } from '../data/mockArticles';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
@@ -24,23 +25,31 @@ const API_CATEGORY_MAP: Record<string, 'Football' | 'Soccer' | 'Basketball' | 'B
 // 원형 그래프 색상 설정
 const PIE_COLORS = ['#3b82f6', '#22c55e', '#eab308', '#ef4444'];
 
+// 프로필 데이터 타입
+interface ProfileData {
+    nickname?: string;
+    email?: string;
+    introduction?: string;
+    phoneNumber?: string;
+    profileImageUrl?: string;
+    status?: string;
+    role?: string;
+    createdAt?: string;
+}
+
 export default function MyPage() {
-    const { user, logout, updatePreferences } = useAuth();
+    const { user, logout } = useAuth();
     const navigate = useNavigate();
-    const [selectedSports, setSelectedSports] = useState<string[]>([]);
     const [recentArticles, setRecentArticles] = useState<Article[]>([]);
-    const [saved, setSaved] = useState(false);
     const [categoryClicks, setCategoryClicks] = useState<CategoryClick[]>([]);
     const [clicksLoading, setClicksLoading] = useState(false);
-
-    const sports = ['Football', 'Basketball', 'Baseball', 'Esports'];
+    const [profile, setProfile] = useState<ProfileData | null>(null);
 
     useEffect(() => {
         if (!user) {
             navigate('/login');
             return;
         }
-        setSelectedSports(user.preferredSports || []);
 
         const viewedIds = JSON.parse(localStorage.getItem('snwa_viewed_articles') || '[]') as string[];
         const ids = viewedIds.slice(0, 6);
@@ -93,27 +102,30 @@ export default function MyPage() {
         setClicksLoading(true);
         fetch('/api/users/profile', { headers: { ...auth } })
             .then((res) => (res.ok ? res.json() : Promise.reject()))
-            .then((data: { categoryClickCount?: CategoryClick[]; category_click_count?: CategoryClick[] }) => {
+            .then((data: ProfileData & { categoryClickCount?: CategoryClick[]; category_click_count?: CategoryClick[] }) => {
+                // 프로필 데이터 설정
+                setProfile({
+                    nickname: data.nickname,
+                    email: data.email,
+                    introduction: data.introduction,
+                    phoneNumber: data.phoneNumber,
+                    profileImageUrl: data.profileImageUrl,
+                    status: data.status,
+                    role: data.role,
+                    createdAt: data.createdAt,
+                });
+                // 카테고리 클릭 데이터 설정
                 const list = data.categoryClickCount ?? data.category_click_count ?? [];
                 setCategoryClicks(Array.isArray(list) ? list : []);
             })
-            .catch(() => setCategoryClicks([]))
+            .catch(() => {
+                setProfile(null);
+                setCategoryClicks([]);
+            })
             .finally(() => setClicksLoading(false));
     }, [user]);
 
-    const toggleSport = (sport: string) => {
-        setSelectedSports(prev =>
-            prev.includes(sport)
-                ? prev.filter(s => s !== sport)
-                : [...prev, sport]
-        );
-    };
 
-    const handleSave = () => {
-        updatePreferences(selectedSports);
-        setSaved(true);
-        setTimeout(() => setSaved(false), 2000);
-    };
 
     const handleLogout = () => {
         logout();
@@ -132,12 +144,8 @@ export default function MyPage() {
                 <h1 className="text-3xl font-bold text-gray-900 mb-8">마이페이지</h1>
 
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-                    <h2 className="text-lg font-bold text-gray-900 mb-4">계정 정보</h2>
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-sm text-gray-500 mb-1">이메일</p>
-                            <p className="text-gray-900">{user.email}</p>
-                        </div>
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-lg font-bold text-gray-900">계정 정보</h2>
                         <button
                             onClick={handleLogout}
                             className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
@@ -145,34 +153,92 @@ export default function MyPage() {
                             로그아웃
                         </button>
                     </div>
+
+                    {/* 프로필 이미지 및 기본 정보 */}
+                    <div className="flex items-center gap-4 mb-6 pb-4 border-b border-gray-100">
+                        <div className="w-20 h-20 rounded-full overflow-hidden bg-gray-100 border-2 border-gray-200 flex-shrink-0">
+                            {profile?.profileImageUrl ? (
+                                <img
+                                    src={profile.profileImageUrl}
+                                    alt="프로필"
+                                    className="w-full h-full object-cover"
+                                />
+                            ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                    <User className="w-10 h-10 text-gray-400" />
+                                </div>
+                            )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-lg font-semibold text-gray-900 truncate">
+                                {profile?.nickname || user.email?.split('@')[0] || '사용자'}
+                            </p>
+                            <p className="text-sm text-gray-500 truncate">{user.email}</p>
+                            {profile?.introduction && (
+                                <p className="text-sm text-gray-600 mt-1 line-clamp-2">{profile.introduction}</p>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* 상세 정보 */}
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <p className="text-xs text-gray-500 mb-1">상태</p>
+                            <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${profile?.status === 'ACTIVE' ? 'bg-green-100 text-green-700' :
+                                    profile?.status === 'SUSPENDED' ? 'bg-yellow-100 text-yellow-700' :
+                                        'bg-gray-100 text-gray-700'
+                                }`}>
+                                {profile?.status === 'ACTIVE' ? '활성' : profile?.status === 'SUSPENDED' ? '정지' : profile?.status || '확인 중'}
+                            </span>
+                        </div>
+                        <div>
+                            <p className="text-xs text-gray-500 mb-1">역할</p>
+                            <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${profile?.role === 'ADMIN' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+                                }`}>
+                                {profile?.role === 'ADMIN' ? '관리자' : '일반 사용자'}
+                            </span>
+                        </div>
+                        {profile?.phoneNumber && (
+                            <div>
+                                <p className="text-xs text-gray-500 mb-1">연락처</p>
+                                <p className="text-sm text-gray-900">{profile.phoneNumber}</p>
+                            </div>
+                        )}
+                        {profile?.createdAt && (
+                            <div>
+                                <p className="text-xs text-gray-500 mb-1">가입일</p>
+                                <p className="text-sm text-gray-900">
+                                    {new Date(profile.createdAt).toLocaleDateString('ko-KR')}
+                                </p>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="flex gap-3 pt-4 border-t border-gray-100">
+                        <Link
+                            to="/profile"
+                            className="flex-1 px-4 py-3 text-center text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors"
+                        >
+                            프로필 수정
+                        </Link>
+                    </div>
                 </div>
 
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-                    <h2 className="text-lg font-bold text-gray-900 mb-4">선호 스포츠 설정</h2>
-                    <p className="text-sm text-gray-500 mb-4">
-                        관심 있는 스포츠를 선택하세요. (복수 선택 가능)
-                    </p>
-                    <div className="grid grid-cols-2 gap-3 mb-4">
-                        {sports.map(sport => (
-                            <button
-                                key={sport}
-                                onClick={() => toggleSport(sport)}
-                                className={`px-4 py-3 rounded-lg border-2 font-medium transition-all ${
-                                    selectedSports.includes(sport)
-                                        ? 'border-gray-900 bg-gray-900 text-white'
-                                        : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
-                                }`}
-                            >
-                                {sport}
-                            </button>
-                        ))}
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h2 className="text-lg font-bold text-gray-900">관심사 설정</h2>
+                            <p className="text-sm text-gray-500 mt-1">
+                                관심 있는 선수, 팀, 리그를 구독하고 새 기사 알림을 받아보세요
+                            </p>
+                        </div>
+                        <Link
+                            to="/interests"
+                            className="px-6 py-3 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors"
+                        >
+                            설정하기
+                        </Link>
                     </div>
-                    <button
-                        onClick={handleSave}
-                        className="w-full bg-gray-900 text-white py-3 rounded-lg font-medium hover:bg-gray-800 transition-colors"
-                    >
-                        {saved ? '저장되었습니다 ✓' : '저장하기'}
-                    </button>
                 </div>
 
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">

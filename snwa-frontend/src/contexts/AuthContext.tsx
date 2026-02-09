@@ -24,6 +24,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const token = sessionStorage.getItem('snwa_token');
     const savedUser = sessionStorage.getItem('snwa_user');
 
+
+
     if (!token || !savedUser) {
       sessionStorage.removeItem('snwa_user');
       return;
