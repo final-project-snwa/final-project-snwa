@@ -1,8 +1,9 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router';
 import Header from '../components/Header';
-import { Users, FileText, ChevronRight, ChevronDown, Bot } from 'lucide-react';
+import { Users, FileText, ChevronRight, ChevronDown, Bot, Languages } from 'lucide-react';
 import CrawlerManager from '../components/admin/CrawlerManager';
+import TranslationManager from '../components/admin/TranslationManager';
 
 type AdminUser = {
   id: number;
@@ -45,7 +46,7 @@ function getAuthHeader() {
   return { Authorization: `Bearer ${token}` };
 }
 
-type Section = 'users' | 'articles' | 'crawler';
+type Section = 'users' | 'articles' | 'crawler' | 'translation';
 
 export default function AdminPage() {
   const navigate = useNavigate();
@@ -298,6 +299,18 @@ export default function AdminPage() {
                     <Bot className="w-5 h-5 flex-shrink-0" style={{ color: '#ffffff' }} />
                     <span style={{ color: '#ffffff', fontSize: '15px' }}>크롤러 관리</span>
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setSection('translation')}
+                    className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded"
+                    style={{
+                      backgroundColor: section === 'translation' ? '#0ea5e9' : 'transparent',
+                      fontWeight: section === 'translation' ? 500 : 400,
+                    }}
+                  >
+                    <Languages className="w-5 h-5 flex-shrink-0" style={{ color: '#ffffff' }} />
+                    <span style={{ color: '#ffffff', fontSize: '15px' }}>번역 · 요약 관리</span>
+                  </button>
                 </div>
               )}
             </div>
@@ -310,7 +323,9 @@ export default function AdminPage() {
               <span>관리</span>
               <span>/</span>
               <span className="font-medium text-gray-900">
-                {section === 'users' ? '전체 회원 조회' : section === 'articles' ? '전체 게시물 조회' : '크롤러 관리'}
+                {section === 'users' ? '전체 회원 조회' :
+                 section === 'articles' ? '전체 게시물 조회' :
+                 section === 'crawler' ? '크롤러 관리' : '번역 · 요약 · 태그 관리'}
               </span>
             </div>
 
@@ -560,6 +575,7 @@ export default function AdminPage() {
                 )}
 
                 {section === 'crawler' && <CrawlerManager />}
+                {section === 'translation' && <TranslationManager />}
               </>
             )}
           </div>
