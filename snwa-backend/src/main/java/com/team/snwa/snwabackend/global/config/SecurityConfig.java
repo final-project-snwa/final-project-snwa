@@ -59,6 +59,7 @@ public class SecurityConfig {
                                 .requestMatchers("/api/scheduler/**").permitAll()  // 요약 및 번역테스트용 스케줄러
                         .requestMatchers("/actuator/**").permitAll() // 모니터링용
                         .requestMatchers("/error").permitAll()  // 에러 페이지 허용
+                        .requestMatchers("/api/notifications/subscribe").permitAll() // SSE는 토큰 쿼리로 처리
 //                        .requestMatchers("/api/admin/**").hasRole("ADMIN")  // 관리자 전용 실제 서비스용
                         .requestMatchers("/api/admin/**").permitAll() // 테스트용
                         //.requestMatchers("/api/orders/**","/api/coins/**","/api/payments/**").permitAll() //결제테스트용

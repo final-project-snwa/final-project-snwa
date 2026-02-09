@@ -13,6 +13,7 @@ import AdminPage from './pages/AdminPage';
 import AuthTestPage from './pages/AuthTestPage';
 import ProfilePage from './pages/ProfilePage';
 import InterestSettingsPage from './pages/InterestSettingsPage';
+import NotificationsPage from './pages/NotificationsPage';
 
 // ✅ 추가: 결제 테스트 페이지들
 import PayPage from './pages/PayPage';
@@ -61,6 +62,10 @@ const router = createBrowserRouter([
         element: <InterestSettingsPage />,
     },
     {
+        path: '/notifications',
+        element: <NotificationsPage />,
+    },
+    {
         path: '/coins',
         element: <CoinPurchasePage />,
     },
@@ -95,4 +100,3 @@ export default function App() {
         </AuthProvider>
     );
 }
-
