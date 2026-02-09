@@ -3,6 +3,9 @@ package com.team.snwa.snwabackend.domain.user.service;
 import com.team.snwa.snwabackend.domain.article.dto.response.AdminArticleListResponse;
 import com.team.snwa.snwabackend.domain.article.dto.response.AdminArticleTranslationSummaryTagsResponse;
 import com.team.snwa.snwabackend.domain.article.entity.Article;
+import com.team.snwa.snwabackend.domain.comment.entity.Comment;
+import com.team.snwa.snwabackend.domain.comment.repository.CommentRepository;
+import com.team.snwa.snwabackend.domain.user.dto.response.AdminUserCommentResponse;
 import com.team.snwa.snwabackend.domain.article.entity.ArticleTag;
 import com.team.snwa.snwabackend.domain.article.repository.ArticleRepository;
 import com.team.snwa.snwabackend.domain.article.repository.ArticleTagRepository;
@@ -30,6 +33,7 @@ import java.util.stream.Collectors;
 public class AdminService {
     private final UserRepository userRepository;
     private final ArticleRepository articleRepository;
+    private final CommentRepository commentRepository;
     private final PaymentService paymentService;
     private final S3Service s3Service;
     private final ArticleTagRepository articleTagRepository;
@@ -175,6 +179,31 @@ public class AdminService {
     public PaymentHistoryResponse getPaymentHistoryByUserId(User adminUser, Long userId) {
         checkAdminRole(adminUser);
         return paymentService.getHistoryByUser(userId);
+    }
+
+    /**
+     * 관리자가 특정 사용자의 댓글 목록 조회 (관리자 전용)
+     * 어느 기사에 무슨 댓글을 달았는지 반환
+     */
+    public List<AdminUserCommentResponse> getUserComments(User adminUser, Long userId) {
+        checkAdminRole(adminUser);
+        userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        List<Comment> comments = commentRepository.findByUserIdOrderByCreatedDateDesc(userId);
+        return comments.stream()
+                .map(AdminUserCommentResponse::from)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 관리자가 임의의 댓글 삭제 (관리자 전용)
+     */
+    @Transactional
+    public void adminDeleteComment(User adminUser, Long commentId) {
+        checkAdminRole(adminUser);
+        Comment comment = commentRepository.findById(commentId)
+                .orElseThrow(() -> new CustomException(ErrorCode.COMMENT_NOT_FOUND));
+        commentRepository.delete(comment);
     }
 
     /**

@@ -1,6 +1,8 @@
 package com.team.snwa.snwabackend.domain.comment.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.team.snwa.snwabackend.domain.comment.entity.Comment;
+import com.team.snwa.snwabackend.domain.user.entity.enums.UserRole;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -15,17 +17,28 @@ public class CommentResponseDto {
     private Long userId;
     private String nickname;
     private String profileImageUrl;
+    private boolean isAdmin;
+    @JsonProperty("isMine")
+    private boolean isMine;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
     public static CommentResponseDto from(Comment comment) {
+        return from(comment, null);
+    }
+
+    public static CommentResponseDto from(Comment comment, Long currentUserId) {
+        boolean isAdmin = comment.getUser().getRole() == UserRole.ADMIN;
+        boolean isMine = currentUserId != null && comment.getUser().getId().equals(currentUserId);
         return CommentResponseDto.builder()
                 .commentId(comment.getId())
                 .content(comment.getContent())
                 .userId(comment.getUser().getId())
                 .nickname(comment.getUser().getNickname())
                 .profileImageUrl(comment.getUser().getProfileImageUrl())
+                .isAdmin(isAdmin)
+                .isMine(isMine)
                 .createdAt(comment.getCreatedDate())
                 .updatedAt(comment.getUpdatedDate())
                 .build();

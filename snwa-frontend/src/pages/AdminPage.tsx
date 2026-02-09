@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, Link } from 'react-router';
 import Header from '../components/Header';
 import { Users, FileText, ChevronRight, ChevronDown, Bot, Languages } from 'lucide-react';
 import CrawlerManager from '../components/admin/CrawlerManager';
@@ -40,6 +40,15 @@ type PaymentHistoryResponse = {
   items: PaymentHistoryItem[];
 };
 
+/** 관리자용: 사용자 댓글 한 건 */
+type UserCommentItem = {
+  commentId: number;
+  content: string;
+  articleId: number;
+  articleTitle: string;
+  createdAt: string;
+};
+
 function getAuthHeader() {
   const token = sessionStorage.getItem('snwa_token');
   if (!token) return null;
@@ -63,6 +72,10 @@ export default function AdminPage() {
   const [paymentModalUser, setPaymentModalUser] = useState<{ id: number; nickname: string | null } | null>(null);
   const [paymentHistory, setPaymentHistory] = useState<PaymentHistoryResponse | null>(null);
   const [paymentHistoryLoading, setPaymentHistoryLoading] = useState(false);
+  const [commentModalOpen, setCommentModalOpen] = useState(false);
+  const [commentModalUser, setCommentModalUser] = useState<{ id: number; nickname: string | null } | null>(null);
+  const [userComments, setUserComments] = useState<UserCommentItem[]>([]);
+  const [userCommentsLoading, setUserCommentsLoading] = useState(false);
 
   useEffect(() => {
     const auth = getAuthHeader();
@@ -188,6 +201,43 @@ export default function AdminPage() {
       setPaymentHistory({ userId: user.id, items: [] });
     } finally {
       setPaymentHistoryLoading(false);
+    }
+  };
+
+  const openUserComments = async (user: AdminUser) => {
+    const auth = getAuthHeader();
+    if (!auth) return;
+    setCommentModalUser({ id: user.id, nickname: user.nickname ?? null });
+    setCommentModalOpen(true);
+    setUserComments([]);
+    setUserCommentsLoading(true);
+    try {
+      const res = await fetch(`/api/admin/users/${user.id}/comments`, { headers: auth });
+      if (res.ok) {
+        const data = (await res.json()) as UserCommentItem[];
+        setUserComments(Array.isArray(data) ? data : []);
+      }
+    } catch {
+      setUserComments([]);
+    } finally {
+      setUserCommentsLoading(false);
+    }
+  };
+
+  const adminDeleteComment = async (commentId: number) => {
+    const auth = getAuthHeader();
+    if (!auth || !commentModalUser) return;
+    if (!confirm('이 댓글을 삭제하시겠습니까?')) return;
+    try {
+      const res = await fetch(`/api/admin/comments/${commentId}`, { method: 'DELETE', headers: auth });
+      if (res.ok) {
+        setUserComments((prev) => prev.filter((c) => c.commentId !== commentId));
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.message ?? '댓글 삭제에 실패했습니다.');
+      }
+    } catch (e) {
+      alert('댓글 삭제에 실패했습니다.');
     }
   };
 
@@ -380,12 +430,13 @@ export default function AdminPage() {
                               <th className="text-left px-6 py-3 font-medium">이메일인증</th>
                               <th className="text-left px-6 py-3 font-medium whitespace-nowrap">가입일</th>
                               <th className="text-left px-6 py-3 font-medium">결제내역</th>
+                              <th className="text-left px-6 py-3 font-medium">댓글</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-gray-200">
                             {filteredUsers.length === 0 ? (
                               <tr>
-                                <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
+                                <td colSpan={9} className="px-6 py-8 text-center text-gray-500">
                                   {memberSearch ? '검색 결과가 없습니다.' : '등록된 회원이 없습니다.'}
                                 </td>
                               </tr>
@@ -419,7 +470,7 @@ export default function AdminPage() {
                                   <td className="px-6 py-3 whitespace-nowrap">
                                     {new Date(u.createdDate).toLocaleString('ko-KR')}
                                   </td>
-                                  <td className="px-6 py-3">
+                                    <td className="px-6 py-3">
                                     {u.role === 'ADMIN' ? (
                                       <span className="text-gray-400">—</span>
                                     ) : (
@@ -432,6 +483,15 @@ export default function AdminPage() {
                                       </button>
                                     )}
                                   </td>
+                                  <td className="px-6 py-3">
+                                    <button
+                                      type="button"
+                                      onClick={() => openUserComments(u)}
+                                      className="px-3 py-1.5 text-sm font-medium rounded-md border border-gray-300 text-gray-700 bg-white hover:bg-gray-50"
+                                    >
+                                      댓글
+                                    </button>
+                                  </td>
                                 </tr>
                               ))
                             )}
@@ -439,6 +499,76 @@ export default function AdminPage() {
                         </table>
                       </div>
                     </div>
+
+                    {/* 댓글 모달 */}
+                    {commentModalOpen && (
+                      <div
+                        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+                        onClick={() => setCommentModalOpen(false)}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="comment-modal-title"
+                      >
+                        <div
+                          className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] flex flex-col"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+                            <h3 id="comment-modal-title" className="text-lg font-semibold text-gray-900">
+                              댓글 목록 {commentModalUser?.nickname ? `- ${commentModalUser.nickname}` : ''}
+                            </h3>
+                            <button
+                              type="button"
+                              onClick={() => setCommentModalOpen(false)}
+                              className="p-1 rounded text-gray-500 hover:bg-gray-100"
+                              aria-label="닫기"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                          <div className="p-4 overflow-auto flex-1">
+                            {userCommentsLoading ? (
+                              <div className="py-8 text-center text-gray-500">불러오는 중...</div>
+                            ) : userComments.length === 0 ? (
+                              <div className="py-8 text-center text-gray-500">작성한 댓글이 없습니다.</div>
+                            ) : (
+                              <div className="space-y-4">
+                                {userComments.map((c) => (
+                                  <div
+                                    key={c.commentId}
+                                    className="p-4 rounded-lg border border-gray-200 bg-gray-50"
+                                  >
+                                    <div className="flex items-start justify-between gap-2">
+                                      <div className="flex-1 min-w-0">
+                                        <Link
+                                          to={`/articles/${c.articleId}`}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="text-sm font-medium text-blue-600 hover:underline"
+                                        >
+                                          {c.articleTitle}
+                                        </Link>
+                                        <p className="mt-1 text-gray-700 whitespace-pre-wrap">{c.content}</p>
+                                        <p className="mt-1 text-xs text-gray-500">
+                                          {new Date(c.createdAt).toLocaleString('ko-KR')}
+                                        </p>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => adminDeleteComment(c.commentId)}
+                                        className="flex-shrink-0 px-2 py-1 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded"
+                                      >
+                                        삭제
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                     {/* 결제 내역 모달 */}
                     {paymentModalOpen && (

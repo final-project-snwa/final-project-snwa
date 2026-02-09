@@ -6,13 +6,14 @@ import com.team.snwa.snwabackend.domain.article.dto.request.ArticleCreateRequest
 import com.team.snwa.snwabackend.domain.article.service.ArticleService;
 import com.team.snwa.snwabackend.domain.user.entity.User;
 import com.team.snwa.snwabackend.domain.user.repository.UserRepository;
+import com.team.snwa.snwabackend.global.exception.CustomException;
+import com.team.snwa.snwabackend.global.exception.ErrorCode;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
@@ -26,23 +27,33 @@ public class ArticleController {
     private final ArticleService articleService;
     private final UserRepository userRepository;
 
-    /** Principal(이메일)이 있으면 User 조회, 없으면 null — 카테고리별 클릭(ClickLog)용 */
+    /** Principal(이메일)이 있으면 User 조회, 없으면 null */
     private User resolveUser(Principal principal) {
         if (principal == null || principal.getName() == null) return null;
         return userRepository.findByEmail(principal.getName()).orElse(null);
     }
 
+    /** Principal에서 User 조회 (필수 인증, 없으면 예외) */
+    private User getRequiredUser(Principal principal) {
+        if (principal == null || principal.getName() == null) {
+            throw new CustomException(ErrorCode.UNAUTHORIZED);
+        }
+        return userRepository.findByEmail(principal.getName())
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+    }
+
     /**
      * 기사 생성
      * @param request 생성 요청 (categoryId, title, content 필수)
-     * @param user 인증된 사용자 (글 작성자)
+     * @param principal 인증된 사용자 (이메일)
      * @return 생성된 기사 상세 정보
      */
     @PostMapping
     public ResponseEntity<ArticleDetailResponseDto> createArticle(
             @Valid @RequestBody ArticleCreateRequestDto request,
-            @AuthenticationPrincipal User user
+            Principal principal
     ) {
+        User user = getRequiredUser(principal);
         ArticleDetailResponseDto created = articleService.createArticle(user, request);
         return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED).body(created);
     }
@@ -51,14 +62,16 @@ public class ArticleController {
      * 기사 목록 조회
      * @param categoryId 카테고리 ID (선택적)
      * @param pageable 페이지 정보 (기본값: size=10, sort=createdDate,desc)
+     * @param principal 인증된 사용자 (이메일, 없으면 null)
      * @return 기사 목록
      */
     @GetMapping
     public ResponseEntity<Page<ArticleListResponseDto>> getArticleList(
             @RequestParam(required = false) Long categoryId,
             @PageableDefault(size = 10, sort = "createdDate", direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable,
-            @AuthenticationPrincipal User user
+            Principal principal
     ) {
+        User user = resolveUser(principal);
         Page<ArticleListResponseDto> articles = articleService.getArticleList(categoryId, pageable, user);
         return ResponseEntity.ok(articles);
     }
@@ -82,13 +95,15 @@ public class ArticleController {
     /**
      * 관련 기사 조회 (같은 카테고리의 최신 기사 3개, 현재 기사 제외)
      * @param id 현재 기사 ID
+     * @param principal 인증된 사용자 (이메일, 없으면 null)
      * @return 관련 기사 목록 (최대 3개)
      */
     @GetMapping("/{id}/related")
     public ResponseEntity<List<ArticleListResponseDto>> getRelatedArticles(
             @PathVariable Long id,
-            @AuthenticationPrincipal User user
+            Principal principal
     ) {
+        User user = resolveUser(principal);
         List<ArticleListResponseDto> relatedArticles = articleService.getRelatedArticles(id, user);
         return ResponseEntity.ok(relatedArticles);
     }
@@ -97,14 +112,16 @@ public class ArticleController {
      * 기사 검색 (제목 + 내용)
      * @param keyword 검색어
      * @param pageable 페이지 정보 (기본값: size=10, sort=createdDate,desc)
+     * @param principal 인증된 사용자 (이메일, 없으면 null)
      * @return 검색된 기사 목록
      */
     @GetMapping("/search")
     public ResponseEntity<Page<ArticleListResponseDto>> searchArticles(
             @RequestParam String keyword,
             @PageableDefault(size = 10, sort = "createdDate", direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable,
-            @AuthenticationPrincipal User user
+            Principal principal
     ) {
+        User user = resolveUser(principal);
         Page<ArticleListResponseDto> articles = articleService.searchArticles(keyword, pageable, user);
         return ResponseEntity.ok(articles);
     }
@@ -113,14 +130,16 @@ public class ArticleController {
      * 제목만 검색
      * @param keyword 검색어
      * @param pageable 페이지 정보 (기본값: size=10, sort=createdDate,desc)
+     * @param principal 인증된 사용자 (이메일, 없으면 null)
      * @return 검색된 기사 목록
      */
     @GetMapping("/search/title")
     public ResponseEntity<Page<ArticleListResponseDto>> searchByTitle(
             @RequestParam String keyword,
             @PageableDefault(size = 10, sort = "createdDate", direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable,
-            @AuthenticationPrincipal User user
+            Principal principal
     ) {
+        User user = resolveUser(principal);
         Page<ArticleListResponseDto> articles = articleService.searchByTitle(keyword, pageable, user);
         return ResponseEntity.ok(articles);
     }
@@ -129,14 +148,16 @@ public class ArticleController {
      * 내용만 검색
      * @param keyword 검색어
      * @param pageable 페이지 정보 (기본값: size=10, sort=createdDate,desc)
+     * @param principal 인증된 사용자 (이메일, 없으면 null)
      * @return 검색된 기사 목록
      */
     @GetMapping("/search/content")
     public ResponseEntity<Page<ArticleListResponseDto>> searchByContent(
             @RequestParam String keyword,
             @PageableDefault(size = 10, sort = "createdDate", direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable,
-            @AuthenticationPrincipal User user
+            Principal principal
     ) {
+        User user = resolveUser(principal);
         Page<ArticleListResponseDto> articles = articleService.searchByContent(keyword, pageable, user);
         return ResponseEntity.ok(articles);
     }

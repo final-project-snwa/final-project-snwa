@@ -7,6 +7,7 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: ${MYSQL_DATABASE}
+      TZ: "Asia/Seoul"
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 10s
@@ -43,6 +44,7 @@ services:
       AWS_REGION_STATIC: ${AWS_REGION_STATIC}
       AWS_S3_BUCKET: ${AWS_S3_BUCKET}
       TOSS_SECRET_KEY: ${TOSS_SECRET_KEY:-}
+      TZ: "Asia/Seoul"
     networks:
       - backend-net
       - db-net
@@ -74,6 +76,7 @@ services:
       AWS_REGION_STATIC: ${AWS_REGION_STATIC}
       AWS_S3_BUCKET: ${AWS_S3_BUCKET}
       TOSS_SECRET_KEY: ${TOSS_SECRET_KEY:-}
+      TZ: "Asia/Seoul"
     networks:
       - backend-net
       - db-net

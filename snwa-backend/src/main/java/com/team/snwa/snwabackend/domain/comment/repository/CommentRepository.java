@@ -8,8 +8,16 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
+
 @Repository
 public interface CommentRepository extends JpaRepository<Comment, Long> {
+
+    /**
+     * 특정 사용자가 작성한 댓글 목록을 생성일 내림차순으로 조회함
+     */
+    @Query("SELECT c FROM Comment c JOIN FETCH c.article WHERE c.user.id = :userId ORDER BY c.createdDate DESC")
+    List<Comment> findByUserIdOrderByCreatedDateDesc(@Param("userId") Long userId);
 
     /**
      * 특정 기사에 달린 댓글 목록을 페이징하여 조회함

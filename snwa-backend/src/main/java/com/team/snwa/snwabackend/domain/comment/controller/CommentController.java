@@ -50,17 +50,24 @@ public class CommentController {
      *
      * @param articleId 조회할 기사의 ID
      * @param pageable  페이징 설정 (기본값: 생성일 내림차순, 10개씩)
+     * @param email     인증된 사용자 이메일 (있으면 isMine 설정)
      * @return 댓글 목록 페이지
-     *
-     * @DateOfCreated 2026-02-03
-     * @DateOfEdit 2026-02-03
      */
     @GetMapping("/articles/{articleId}/comments")
     public ResponseEntity<Page<CommentResponseDto>> getComments(
             @PathVariable Long articleId,
-            @PageableDefault(size = 10, sort = "createdDate", direction = Sort.Direction.DESC) Pageable pageable
+            @PageableDefault(size = 10, sort = "createdDate", direction = Sort.Direction.DESC) Pageable pageable,
+            @AuthenticationPrincipal String email
     ) {
-        return ResponseEntity.ok(commentService.getComments(articleId, pageable));
+        Long currentUserId = null;
+        if (email != null && !email.isBlank()) {
+            try {
+                User user = findUserByEmail(email);
+                currentUserId = user.getId();
+            } catch (Exception ignored) {
+            }
+        }
+        return ResponseEntity.ok(commentService.getComments(articleId, pageable, currentUserId));
     }
 
     /**
