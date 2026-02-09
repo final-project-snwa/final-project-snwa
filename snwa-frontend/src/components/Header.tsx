@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router';
 import { useAuth } from '../contexts/AuthContext';
-import { User, LogOut, Settings, Coins } from 'lucide-react';
+import { User, LogOut, Settings, Coins, Bell } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 
 interface HeaderProps {
@@ -14,6 +14,8 @@ export default function Header({ showCategories = false, selectedCategory, onCat
   const navigate = useNavigate();
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const eventSourceRef = useRef<EventSource | null>(null);
 
   const categories = ['All', 'Football', 'Basketball', 'Baseball', 'Esports'];
 
@@ -27,6 +29,57 @@ export default function Header({ showCategories = false, selectedCategory, onCat
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (!user) {
+      setUnreadCount(0);
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+      return;
+    }
+
+    const token = sessionStorage.getItem('snwa_token');
+    if (!token) return;
+
+    fetch('/api/notifications/unread/count', {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && typeof data.unreadCount === 'number') {
+          setUnreadCount(data.unreadCount);
+        }
+      })
+      .catch(() => setUnreadCount(0));
+
+    const es = new EventSource(`/api/notifications/subscribe?token=${encodeURIComponent(token)}`);
+    eventSourceRef.current = es;
+
+    const handleNotification = (event: MessageEvent) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data && data.notificationId) {
+          setUnreadCount((c) => c + 1);
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    es.addEventListener('notification', handleNotification);
+    es.onerror = () => {
+      es.close();
+      eventSourceRef.current = null;
+    };
+
+    return () => {
+      es.removeEventListener('notification', handleNotification);
+      es.close();
+      eventSourceRef.current = null;
+    };
+  }, [user]);
 
   const handleLogout = () => {
     logout();
@@ -65,61 +118,76 @@ export default function Header({ showCategories = false, selectedCategory, onCat
           {/* Auth Section */}
           <div className="flex items-center gap-4">
             {user ? (
-              <div className="relative" ref={dropdownRef}>
-                <button
-                  onClick={() => setShowDropdown(!showDropdown)}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  <div className="w-8 h-8 rounded-full bg-gray-900 flex items-center justify-center">
-                    <User className="w-4 h-4 text-white" />
+              <>
+                {user.email !== 'admin@snwa.com' && unreadCount > 0 && (
+                  <div className="relative inline-flex items-center justify-center w-7 h-7 rounded-full bg-red-500 text-white text-[11px] font-semibold">
+                    {unreadCount > 99 ? '99+' : unreadCount}
                   </div>
-                  <span className="text-sm text-gray-700 hidden sm:inline">
-                    {user.nickname || user.email.split('@')[0]}
-                  </span>
-                </button>
+                )}
+                <div className="relative" ref={dropdownRef}>
+                  <button
+                    onClick={() => setShowDropdown(!showDropdown)}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-gray-900 flex items-center justify-center">
+                      <User className="w-4 h-4 text-white" />
+                    </div>
+                    <span className="text-sm text-gray-700 hidden sm:inline">
+                      {user.nickname || user.email.split('@')[0]}
+                    </span>
+                  </button>
 
-                {showDropdown && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1">
-                    {user.email !== 'admin@snwa.com' && (
-                      <>
+                  {showDropdown && (
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1">
+                      {user.email !== 'admin@snwa.com' && (
+                        <>
+                          <Link
+                            to="/notifications"
+                            onClick={() => setShowDropdown(false)}
+                            className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                          >
+                            <Bell className="w-4 h-4" />
+                            알림
+                          </Link>
+                          <Link
+                            to="/mypage"
+                            onClick={() => setShowDropdown(false)}
+                            className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                          >
+                            <Settings className="w-4 h-4" />
+                            마이페이지
+                          </Link>
+                          <Link
+                            to="/coins"
+                            onClick={() => setShowDropdown(false)}
+                            className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                          >
+                            <Coins className="w-4 h-4" />
+                            코인 구매
+                          </Link>
+                        </>
+                      )}
+                      {user.email === 'admin@snwa.com' && (
                         <Link
-                          to="/mypage"
+                          to="/admin"
                           onClick={() => setShowDropdown(false)}
                           className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                         >
                           <Settings className="w-4 h-4" />
-                          마이페이지
+                          관리자 페이지
                         </Link>
-                        <Link
-                          to="/coins"
-                          onClick={() => setShowDropdown(false)}
-                          className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                        >
-                          <Coins className="w-4 h-4" />
-                          코인 구매
-                        </Link>
-                      </>
-                    )}
-                    {user.email === 'admin@snwa.com' && (
-                      <Link
-                        to="/admin"
-                        onClick={() => setShowDropdown(false)}
-                        className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                      )}
+                      <button
+                        onClick={handleLogout}
+                        className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 w-full text-left"
                       >
-                        <Settings className="w-4 h-4" />
-                        관리자 페이지
-                      </Link>
-                    )}
-                    <button
-                      onClick={handleLogout}
-                      className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 w-full text-left"
-                    >
-                      <LogOut className="w-4 h-4" />
-                      로그아웃
-                    </button>
-                  </div>
-                )}
-              </div>
+                        <LogOut className="w-4 h-4" />
+                        로그아웃
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </>
             ) : (
               <Link
                 to="/login"

@@ -37,6 +37,11 @@ public class NotificationService {
                     if (setting.isEnableNotification()) {
                         Notification notification = Notification.create(user, article, message);
                         notificationRepository.save(notification);
+                        // 실시간 알림 push
+                        sseEmitterService.send(
+                                user.getId(),
+                                NotificationResponse.from(notification)
+                        );
                     }
                 },
                 () -> {
@@ -91,12 +96,11 @@ public class NotificationService {
     }
 
     private void validateNotificationEnabled(User user) {
-        NotificationSetting setting = notificationSettingRepository.findByUser(user)
-                .orElseThrow(() -> new CustomException(ErrorCode.NOTIFICATION_SETTING_NOT_FOUND));
-
-        if (!setting.isEnableNotification()) {
-            throw new CustomException(ErrorCode.NOTIFICATION_DISABLED);
-        }
+        notificationSettingRepository.findByUser(user).ifPresent(setting -> {
+            if (!setting.isEnableNotification()) {
+                throw new CustomException(ErrorCode.NOTIFICATION_DISABLED);
+            }
+        });
     }
 
     private void validateOwner(Notification notification, User user) {
@@ -126,10 +130,9 @@ public class NotificationService {
 
     // 알림 설정 조회
     public NotificationSettingResponse getSetting(User user) {
-        NotificationSetting setting = notificationSettingRepository.findByUser(user)
-                .orElseThrow(() -> new CustomException(ErrorCode.NOTIFICATION_SETTING_NOT_FOUND));
-
-        return new NotificationSettingResponse(setting.isEnableNotification());
+        return notificationSettingRepository.findByUser(user)
+                .map(setting -> new NotificationSettingResponse(setting.isEnableNotification()))
+                .orElseGet(() -> new NotificationSettingResponse(true));
     }
 
     // 알림 설정 변경
@@ -137,8 +140,7 @@ public class NotificationService {
     public NotificationSettingResponse updateSetting(
             User user,
             NotificationSettingRequest request) {
-        NotificationSetting setting = notificationSettingRepository.findByUser(user)
-                .orElseThrow(() -> new CustomException(ErrorCode.NOTIFICATION_SETTING_NOT_FOUND));
+        NotificationSetting setting = getOrCreateSetting(user);
 
         if (request.enableNotification()) {
             setting.enableNotification();
@@ -147,5 +149,10 @@ public class NotificationService {
         }
 
         return new NotificationSettingResponse(setting.isEnableNotification());
+    }
+
+    private NotificationSetting getOrCreateSetting(User user) {
+        return notificationSettingRepository.findByUser(user)
+                .orElseGet(() -> notificationSettingRepository.save(NotificationSetting.createDefault(user)));
     }
 }

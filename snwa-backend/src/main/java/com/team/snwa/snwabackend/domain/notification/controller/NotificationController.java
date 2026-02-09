@@ -7,11 +7,15 @@ import com.team.snwa.snwabackend.domain.notification.dto.response.NotificationRe
 import com.team.snwa.snwabackend.domain.notification.dto.response.NotificationSettingResponse;
 import com.team.snwa.snwabackend.domain.notification.service.NotificationService;
 import com.team.snwa.snwabackend.domain.user.entity.User;
+import com.team.snwa.snwabackend.domain.user.repository.UserRepository;
+import com.team.snwa.snwabackend.global.exception.CustomException;
+import com.team.snwa.snwabackend.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+
+import java.security.Principal;
 
 @RestController
 @RequestMapping("/api/notifications")
@@ -19,6 +23,7 @@ import org.springframework.web.bind.annotation.*;
 public class NotificationController {
 
     private final NotificationService notificationService;
+    private final UserRepository userRepository;
 
 
     /**
@@ -26,9 +31,11 @@ public class NotificationController {
      */
     @GetMapping
     public Page<NotificationResponse> getNotifications(
-            @AuthenticationPrincipal User user,
+            Principal principal,
             Pageable pageable
     ) {
+        User user = resolveUser(principal);
+        if (user == null) throw new CustomException(ErrorCode.UNAUTHORIZED);
         return notificationService.getMyNotifications(user, pageable)
                 .map(NotificationResponse::from);
     }
@@ -38,9 +45,11 @@ public class NotificationController {
      */
     @GetMapping("/unread")
     public Page<NotificationResponse> getUnreadNotifications(
-            @AuthenticationPrincipal User user,
+            Principal principal,
             Pageable pageable
     ) {
+        User user = resolveUser(principal);
+        if (user == null) throw new CustomException(ErrorCode.UNAUTHORIZED);
         return notificationService.getUnreadNotifications(user, pageable)
                 .map(NotificationResponse::from);
     }
@@ -50,8 +59,10 @@ public class NotificationController {
      */
     @GetMapping("/unread/count")
     public NotificationCountResponse getUnreadCount(
-            @AuthenticationPrincipal User user
+            Principal principal
     ) {
+        User user = resolveUser(principal);
+        if (user == null) throw new CustomException(ErrorCode.UNAUTHORIZED);
         long count = notificationService.getUnreadCount(user);
         return new NotificationCountResponse(count);
     }
@@ -61,9 +72,11 @@ public class NotificationController {
      */
     @PatchMapping("/{notificationId}/read")
     public NotificationActionResponse readNotification(
-            @AuthenticationPrincipal User user,
+            Principal principal,
             @PathVariable Long notificationId
     ) {
+        User user = resolveUser(principal);
+        if (user == null) throw new CustomException(ErrorCode.UNAUTHORIZED);
         notificationService.readNotification(notificationId, user);
         return new NotificationActionResponse(true);
     }
@@ -73,8 +86,10 @@ public class NotificationController {
      */
     @PatchMapping("/read-all")
     public NotificationActionResponse readAllNotifications(
-            @AuthenticationPrincipal User user
+            Principal principal
     ) {
+        User user = resolveUser(principal);
+        if (user == null) throw new CustomException(ErrorCode.UNAUTHORIZED);
         notificationService.readAll(user);
         return new NotificationActionResponse(true);
     }
@@ -84,9 +99,11 @@ public class NotificationController {
      */
     @DeleteMapping("/{notificationId}")
     public NotificationActionResponse deleteNotification(
-            @AuthenticationPrincipal User user,
+            Principal principal,
             @PathVariable Long notificationId
     ) {
+        User user = resolveUser(principal);
+        if (user == null) throw new CustomException(ErrorCode.UNAUTHORIZED);
         notificationService.delete(notificationId, user);
         return new NotificationActionResponse(true);
     }
@@ -96,8 +113,10 @@ public class NotificationController {
      */
     @GetMapping("/settings")
     public NotificationSettingResponse getNotificationSetting(
-            @AuthenticationPrincipal User user
+            Principal principal
     ) {
+        User user = resolveUser(principal);
+        if (user == null) throw new CustomException(ErrorCode.UNAUTHORIZED);
         return notificationService.getSetting(user);
     }
 
@@ -106,10 +125,16 @@ public class NotificationController {
      */
     @PatchMapping("/settings")
     public NotificationSettingResponse updateNotificationSetting(
-            @AuthenticationPrincipal User user,
+            Principal principal,
             @RequestBody NotificationSettingRequest request
     ) {
+        User user = resolveUser(principal);
+        if (user == null) throw new CustomException(ErrorCode.UNAUTHORIZED);
         return notificationService.updateSetting(user, request);
     }
 
+    private User resolveUser(Principal principal) {
+        if (principal == null || principal.getName() == null) return null;
+        return userRepository.findByEmail(principal.getName()).orElse(null);
+    }
 }
