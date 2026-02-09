@@ -33,8 +33,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * 크롤링 작업의 전반적인 라이프사이클을 관리하는 비즈니스 로직 클래스
@@ -93,40 +96,104 @@ public class CrawlerService {
             // 크롤링 수행
             List<CrawledArticleDto> articles = strategy.crawl(job.getTargetUrl());
 
-            int savedCount = 0;
+            if (articles.isEmpty()) {
+                log.info("수집된 기사가 없습니다.");
+                crawlingLog.updateSuccess(0);
+                return;
+            }
 
-            // 결과 저장
+            // 배치 처리를 위한 준비
+            List<String> originalUrls = articles.stream()
+                    .map(CrawledArticleDto::getOriginalUrl)
+                    .collect(Collectors.toList());
+
+            List<Article> existingArticles = articleRepository.findByOriginalUrlIn(originalUrls);
+            Map<String, Article> existingArticleMap = existingArticles.stream()
+                    .collect(Collectors.toMap(Article::getOriginalUrl, a -> a, (k1, k2) -> k1));
+
+            List<Article> newArticles = new ArrayList<>();
+            int pendingActionCount = 0;
+
             for (CrawledArticleDto dto : articles) {
-                if (saveArticleIfNotExists(dto, job)) {
-                    savedCount++;
+                if (existingArticleMap.containsKey(dto.getOriginalUrl())) {
+                    Article existing = existingArticleMap.get(dto.getOriginalUrl());
+                    boolean hasTranslatedContent = existing.getTranslatedContent() != null;
+                    boolean hasTranslatedTitle = existing.getTranslatedTitle() != null;
+                    boolean hasSummary = existing.getSummary() != null;
+
+                    if (hasTranslatedContent && hasTranslatedTitle && hasSummary) {
+                        // 이미 완료된 기사, 스킵
+                        continue;
+                    }
+                    // 미완료된 경우, 후속 작업 카운트 증가
+                    pendingActionCount++;
+                } else {
+                    // 신규 기사
+                    if (job.getCategory() == null) {
+                        log.error("Job(ID: {})에 연결된 카테고리 정보가 없습니다.", job.getId());
+                        continue;
+                    }
+
+                    Article article = Article.builder()
+                            .category(job.getCategory())
+                            .title(dto.getTitle())
+                            .content(dto.getContent())
+                            .originalUrl(dto.getOriginalUrl())
+                            .authorName(dto.getAuthorName())
+                            .publisherName(dto.getPublisherName())
+                            .imageUrl(dto.getImageUrl())
+                            .build();
+                    newArticles.add(article);
                 }
             }
 
-            // 성공 상태 업데이트
-            crawlingLog.updateSuccess(savedCount);
+            // 신규 기사 배치 저장 및 트래킹 정보 저장
+            if (!newArticles.isEmpty()) {
+                List<Article> savedArticles = articleRepository.saveAll(newArticles);
+                pendingActionCount += savedArticles.size();
+
+                List<ArticleCrawlingTracking> trackings = savedArticles.stream()
+                        .map(savedArticle -> {
+                            ArticleCrawlingTracking tracking = new ArticleCrawlingTracking();
+                            tracking.setArticle(savedArticle);
+                            tracking.setJobId(job.getId());
+                            tracking.setCategoryId(job.getCategory().getId());
+                            tracking.setArticleUrl(savedArticle.getOriginalUrl());
+                            tracking.setTitleOrigin(savedArticle.getTitle());
+                            tracking.setContentOrigin(savedArticle.getContent());
+                            return tracking;
+                        })
+                        .collect(Collectors.toList());
+                
+                trackingRepository.saveAll(trackings);
+                log.info("신규 기사 {}개 저장 완료", savedArticles.size());
+            }
+
+            // 성공 상태 업데이트 (후속 작업이 필요한 기사 수 기준)
+            crawlingLog.updateSuccess(pendingActionCount);
 
             // 크롤링 완료 후 번역/요약 스케줄러 실행 (트랜잭션 커밋 후 실행)
-            if (savedCount > 0) {
-                log.info("크롤링 완료: {}개 기사 저장됨", savedCount);
+            if (pendingActionCount > 0) {
+                log.info("크롤링 완료: {}개 기사 처리 예정 (신규/미완료 포함)", pendingActionCount);
 
                 TransactionSynchronizationManager.registerSynchronization(
                         new TransactionSynchronizationAdapter() {
                             @Override
                             public void afterCommit() {
                                 try {
-                                    // 1. 번역 처리
+                                    // 번역 처리
                                     log.info("번역 스케줄러 실행");
                                     translationScheduler.process();
 
                                     Thread.sleep(1000); // 1초 대기
 
-                                    // 2. 요약 처리
+                                    // 요약 처리
                                     log.info("요약 스케줄러 실행");
                                     summaryScheduler.process();
 
                                     Thread.sleep(1000); // 1초 대기
 
-                                    // 3. 키워드 태그 추출 처리
+                                    // 키워드 태그 추출 처리
                                     log.info("키워드 태그 추출 스케줄러 실행");
                                     keywordsTagScheduler.process();
 
@@ -162,71 +229,7 @@ public class CrawlerService {
                 .orElseThrow(() -> new IllegalArgumentException("지원하지 않는 소스입니다: " + sourceName));
     }
 
-    /**
-     * 수집된 기사 DTO를 검증하고 중복이 없을 경우 DB에 저장함
-     * Article 엔티티와 추적용 Tracking 엔티티를 함께 생성하여 저장함
-     *
-     * @param dto 크롤링 전략을 통해 수집된 기사 데이터 객체
-     * @param job 현재 실행 중인 크롤링 작업 정보
-     * @return 저장 성공 여부 (true: 저장됨, false: 중복 또는 에러로 스킵됨)
-     * @author 허준형
-     * @DateOfCreated 2026-01-26
-     * @DateOfEdit 2026-01-26
-     */
-    private boolean saveArticleIfNotExists(CrawledArticleDto dto, CrawlingJob job) {
-        // 중복 검사 (비어있는 값 확인)
-        Optional<Article> optionalArticle = articleRepository.findByOriginalUrl(dto.getOriginalUrl());
 
-        if (optionalArticle.isPresent()) {
-            Article existingArticle = optionalArticle.get();
-
-            boolean hasTranslatedContent = existingArticle.getTranslatedContent() != null;
-            boolean hasTranslatedTitle = existingArticle.getTranslatedTitle() != null;
-            boolean hasSummary = existingArticle.getSummary() != null;
-
-            if (hasTranslatedContent && hasTranslatedTitle && hasSummary) {
-                // 모두 완료된 기사, 스킵
-                log.info("완료된 중복 기사 스킵: {}", dto.getTitle());
-                return false;
-            }
-
-            // 부족한 부분이 있음 -> 후속 작업 필요
-            log.info("기존 기사에 번역/요약 미완료, 후속 작업 진행: {}", dto.getTitle());
-            return true;
-        }
-
-        // 안전장치
-        if (job.getCategory() == null) {
-            log.error("Job(ID: {})에 연결된 카테고리 정보가 없습니다.", job.getId());
-            return false;
-        }
-
-        Article article = Article.builder()
-                .category(job.getCategory())
-                .title(dto.getTitle())
-                .content(dto.getContent())
-                .originalUrl(dto.getOriginalUrl())
-                .authorName(dto.getAuthorName())
-                .publisherName(dto.getPublisherName())
-                .imageUrl(dto.getImageUrl())
-                .translatedContent(null)
-                .summary(null)
-                .build();
-
-        Article savedArticle = articleRepository.save(article);
-
-        // Tracking 정보 저장
-        ArticleCrawlingTracking tracking = new ArticleCrawlingTracking();
-        tracking.setArticle(savedArticle);
-        tracking.setJobId(job.getId());
-        tracking.setCategoryId(job.getCategory().getId());
-        tracking.setArticleUrl(dto.getOriginalUrl());
-        tracking.setTitleOrigin(dto.getTitle());
-        tracking.setContentOrigin(dto.getContent());
-        trackingRepository.save(tracking);
-
-        return true;
-    }
 
     /**
      * 관리자 요청을 받아 새로운 크롤링 Job을 DB에 저장함

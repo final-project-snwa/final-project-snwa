@@ -99,6 +99,22 @@ export default function CrawlerJobs() {
         if (!auth) return;
 
         try {
+            // Validate inputs
+            if (!formData.jobName.trim()) {
+                toast.error("작업명을 입력해주세요.");
+                return;
+            }
+
+            if ((formData.sourceName === 'ESPN' || formData.sourceName === 'SKY_SPORTS') && !formData.league) {
+                toast.error("리그를 선택해주세요.");
+                return;
+            }
+
+            if (formData.sourceName !== 'ESPN' && formData.sourceName !== 'SKY_SPORTS' && !formData.targetUrl) {
+                toast.error("타겟 URL을 입력해주세요.");
+                return;
+            }
+
             // Construct payload based on source
             const payload: any = {
                 sourceName: formData.sourceName,
