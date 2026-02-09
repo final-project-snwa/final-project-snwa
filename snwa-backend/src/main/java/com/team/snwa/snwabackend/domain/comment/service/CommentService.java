@@ -11,7 +11,7 @@ public interface CommentService {
     CommentResponseDto createComment(Long articleId, CommentRequestDto commentRequestDto,
                                      User user);
 
-    Page<CommentResponseDto> getComments(Long articleId, Pageable pageable);
+    Page<CommentResponseDto> getComments(Long articleId, Pageable pageable, Long currentUserId);
 
     CommentResponseDto updateComment(Long commentId, CommentRequestDto commentRequestDto,
                                      User user);

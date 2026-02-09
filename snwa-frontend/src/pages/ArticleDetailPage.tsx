@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Bookmark } from 'lucide-react';
 import Header from '../components/Header';
 import ArticleCard from '../components/ArticleCard';
 import { formatDate, Article } from '../data/mockArticles';
@@ -51,6 +51,17 @@ type ApiArticleListItem = {
     imageUrl: string | null;
     createdDate: string;
     clickCount: number | null;
+};
+
+type ApiComment = {
+    commentId: number;
+    content: string;
+    userId: number;
+    nickname: string;
+    isAdmin: boolean;
+    isMine?: boolean;
+    createdAt: string;
+    updatedAt?: string;
 };
 
 const API_CATEGORY_TO_DISPLAY: Record<string, 'Football' | 'Soccer' | 'Basketball' | 'Baseball' | 'Esports'> = {
@@ -128,6 +139,16 @@ export default function ArticleDetailPage() {
         userReaction: null,
     });
     const [reactionLoading, setReactionLoading] = useState(false);
+
+    // 북마크 상태 (API 응답에서 초기화, 토글 시 로컬 업데이트)
+    const [isBookmarked, setIsBookmarked] = useState(false);
+    const [bookmarkLoading, setBookmarkLoading] = useState(false);
+
+    // 댓글 상태
+    const [comments, setComments] = useState<ApiComment[]>([]);
+    const [commentsLoading, setCommentsLoading] = useState(false);
+    const [commentContent, setCommentContent] = useState('');
+    const [commentSubmitting, setCommentSubmitting] = useState(false);
 
     // 반응 타입별 카운트 가져오기
     const getReactionCount = (type: ReactionType): number => {
@@ -220,6 +241,105 @@ export default function ArticleDetailPage() {
         }
     };
 
+    /** 북마크 토글: 추가된 상태에서 한 번 더 누르면 삭제 */
+    const handleBookmarkToggle = async () => {
+        const auth = getAuthHeader();
+        if (!auth) {
+            alert('로그인이 필요합니다.');
+            navigate('/login');
+            return;
+        }
+        if (!id || bookmarkLoading) return;
+        setBookmarkLoading(true);
+        try {
+            const method = isBookmarked ? 'DELETE' : 'POST';
+            const res = await fetch(`/api/bookmarks/${id}`, {
+                method,
+                headers: auth,
+            });
+            if (res.ok) {
+                setIsBookmarked(!isBookmarked);
+            } else {
+                const err = await res.json().catch(() => ({}));
+                alert(err.message ?? '북마크 처리에 실패했습니다.');
+            }
+        } catch (e) {
+            console.error(e);
+            alert('북마크 처리에 실패했습니다.');
+        } finally {
+            setBookmarkLoading(false);
+        }
+    };
+
+    /** 댓글 목록 로드 */
+    const fetchComments = async (page = 0, append = false) => {
+        if (!id) return;
+        setCommentsLoading(true);
+        const auth = getAuthHeader();
+        const headers: Record<string, string> = {};
+        if (auth) Object.assign(headers, auth);
+        try {
+            const res = await fetch(`/api/articles/${id}/comments?page=${page}&size=10`, { headers });
+            if (!res.ok) return;
+            const data = await res.json();
+            const list = data?.content ?? [];
+            setComments((prev) => (append ? [...prev, ...list] : list));
+        } catch {
+            setComments([]);
+        } finally {
+            setCommentsLoading(false);
+        }
+    };
+
+    /** 댓글 작성 */
+    const handleSubmitComment = async () => {
+        const auth = getAuthHeader();
+        if (!auth) {
+            alert('로그인이 필요합니다.');
+            navigate('/login');
+            return;
+        }
+        if (!id || !commentContent.trim() || commentSubmitting) return;
+        setCommentSubmitting(true);
+        try {
+            const res = await fetch(`/api/articles/${id}/comments`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...auth },
+                body: JSON.stringify({ content: commentContent.trim() }),
+            });
+            if (res.ok) {
+                setCommentContent('');
+                fetchComments(0, false);
+            } else {
+                const err = await res.json().catch(() => ({}));
+                alert(err.message ?? '댓글 작성에 실패했습니다.');
+            }
+        } catch (e) {
+            console.error(e);
+            alert('댓글 작성에 실패했습니다.');
+        } finally {
+            setCommentSubmitting(false);
+        }
+    };
+
+    /** 댓글 삭제 (본인 댓글) */
+    const handleDeleteComment = async (commentId: number) => {
+        const auth = getAuthHeader();
+        if (!auth) return;
+        if (!confirm('댓글을 삭제하시겠습니까?')) return;
+        try {
+            const res = await fetch(`/api/comments/${commentId}`, {
+                method: 'DELETE',
+                headers: auth,
+            });
+            if (res.ok) {
+                setComments((prev) => prev.filter((c) => c.commentId !== commentId));
+            }
+        } catch {
+            alert('삭제에 실패했습니다.');
+        }
+    };
+
     useEffect(() => {
         if (!id) {
             setLoading(false);
@@ -240,6 +360,7 @@ export default function ArticleDetailPage() {
             .then((data: ApiArticleDetail) => {
                 setArticle(mapDetailToArticle(data));
                 setHasUsedCoin(data.hasUsedCoin ?? false);
+                setIsBookmarked(data.isBookmarked ?? false);
                 setArticleSummary(data.summary ?? null);
                 setReactions({
                     likeCount: data.likeCount ?? 0,
@@ -257,6 +378,7 @@ export default function ArticleDetailPage() {
             .then((list: ApiArticleListItem[]) => {
                 setRelatedArticles((list ?? []).map(mapListItemToArticle));
             })
+            .then(() => fetchComments(0, false))
             .catch((e) => {
                 setError(e instanceof Error ? e.message : '기사를 불러오지 못했습니다.');
                 setArticle(null);
@@ -352,10 +474,10 @@ export default function ArticleDetailPage() {
                             </>
                         )}
 
-                        {/* 감정 반응 버튼 */}
+                        {/* 감정 반응 버튼 + 북마크 */}
                         <div className="mt-8 pt-6 border-t border-gray-200">
                             <p className="text-sm text-gray-500 mb-3">이 기사에 대한 반응을 남겨주세요</p>
-                            <div className="flex flex-wrap gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                                 {REACTION_CONFIG.map(({ type, emoji, label }) => {
                                     const isSelected = reactions.userReaction === type;
                                     const isAnimating = animatingType === type;
@@ -393,10 +515,89 @@ export default function ArticleDetailPage() {
                                         </button>
                                     );
                                 })}
+                                <button
+                                    type="button"
+                                    onClick={handleBookmarkToggle}
+                                    disabled={bookmarkLoading}
+                                    title={isBookmarked ? '북마크 해제' : '북마크 추가'}
+                                    className={`
+                                        inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-full
+                                        border transform transition-all duration-200
+                                        ${isBookmarked
+                                            ? 'bg-amber-50 border-amber-300 text-amber-700 shadow-md ring-2 ring-amber-200 fill-amber-600'
+                                            : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100 hover:border-gray-300 hover:scale-105'
+                                        }
+                                        ${bookmarkLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer active:scale-95'}
+                                    `}
+                                >
+                                    <Bookmark className={`w-4 h-4 ${isBookmarked ? 'fill-current' : ''}`} strokeWidth={1.5} />
+                                    <span>{isBookmarked ? '북마크됨' : '북마크'}</span>
+                                </button>
                             </div>
                         </div>
                     </div>
                 </article>
+
+                {/* 댓글 섹션 */}
+                <section className="mt-12">
+                    <h2 className="text-xl font-bold text-gray-900 mb-4">댓글 ({comments.length})</h2>
+
+                    {/* 댓글 작성 폼 */}
+                    <div className="mb-6">
+                        <textarea
+                            value={commentContent}
+                            onChange={(e) => setCommentContent(e.target.value)}
+                            placeholder="댓글을 입력하세요..."
+                            rows={3}
+                            className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent resize-none"
+                            disabled={commentSubmitting}
+                        />
+                        <button
+                            type="button"
+                            onClick={handleSubmitComment}
+                            disabled={!commentContent.trim() || commentSubmitting}
+                            className="mt-2 px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {commentSubmitting ? '등록 중...' : '댓글 등록'}
+                        </button>
+                    </div>
+
+                    {/* 댓글 목록 */}
+                    {commentsLoading ? (
+                        <p className="text-sm text-gray-500">댓글 불러오는 중...</p>
+                    ) : comments.length === 0 ? (
+                        <p className="text-sm text-gray-500 py-4">아직 댓글이 없습니다.</p>
+                    ) : (
+                        <ul className="space-y-4">
+                            {comments.map((c) => (
+                                <li key={c.commentId} className="flex flex-col gap-1 p-4 bg-gray-50 rounded-lg border border-gray-100">
+                                    <div className="flex items-center justify-between gap-2">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <span className="font-medium text-gray-900">
+                                                {c.nickname ?? '알 수 없음'}
+                                            </span>
+                                            {c.isAdmin && (
+                                                <span className="text-xs font-semibold text-gray-900">관리자</span>
+                                            )}
+                                            <span className="text-xs text-gray-500">{formatDate(c.createdAt)}</span>
+                                        </div>
+                                        {(c.isMine ?? c.mine) && (
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDeleteComment(c.commentId)}
+                                                className="text-xs text-gray-500 hover:text-red-600"
+                                            >
+                                                삭제
+                                            </button>
+                                        )}
+                                    </div>
+                                    <p className="text-gray-700 whitespace-pre-wrap">{c.content}</p>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </section>
+
                 {relatedArticles.length > 0 && (
                     <div className="mt-12">
                         <h2 className="text-xl font-bold text-gray-900 mb-6">관련 기사</h2>

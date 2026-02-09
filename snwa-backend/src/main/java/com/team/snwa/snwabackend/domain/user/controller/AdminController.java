@@ -3,6 +3,7 @@ package com.team.snwa.snwabackend.domain.user.controller;
 import com.team.snwa.snwabackend.domain.article.dto.response.AdminArticleListResponse;
 import com.team.snwa.snwabackend.domain.article.dto.response.AdminArticleTranslationSummaryTagsResponse;
 import com.team.snwa.snwabackend.domain.payment.dto.response.PaymentHistoryResponse;
+import com.team.snwa.snwabackend.domain.user.dto.response.AdminUserCommentResponse;
 import com.team.snwa.snwabackend.domain.user.dto.request.AdminUserUpdateRequest;
 import com.team.snwa.snwabackend.domain.user.dto.response.AdminUserResponse;
 import com.team.snwa.snwabackend.domain.user.entity.User;
@@ -70,6 +71,32 @@ public class AdminController {
         User currentUser = getCurrentUser(principal);
         adminService.deleteUser(currentUser, userId);
         return ResponseEntity.ok().build();
+    }
+
+    /**
+     * 관리자가 특정 사용자의 댓글 목록 조회 (어느 기사에 무슨 댓글을 달았는지)
+     * GET /api/admin/users/{userId}/comments
+     */
+    @GetMapping("/users/{userId}/comments")
+    public ResponseEntity<List<AdminUserCommentResponse>> getUserComments(
+            Principal principal,
+            @PathVariable Long userId) {
+        User currentUser = getCurrentUser(principal);
+        List<AdminUserCommentResponse> comments = adminService.getUserComments(currentUser, userId);
+        return ResponseEntity.ok(comments);
+    }
+
+    /**
+     * 관리자가 댓글 삭제 (모든 회원의 댓글 관리 가능)
+     * DELETE /api/admin/comments/{commentId}
+     */
+    @DeleteMapping("/comments/{commentId}")
+    public ResponseEntity<Void> adminDeleteComment(
+            Principal principal,
+            @PathVariable Long commentId) {
+        User currentUser = getCurrentUser(principal);
+        adminService.adminDeleteComment(currentUser, commentId);
+        return ResponseEntity.noContent().build();
     }
 
     /**

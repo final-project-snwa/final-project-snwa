@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router';
 import { useAuth } from '../contexts/AuthContext';
 import Header from '../components/Header';
-import { User } from 'lucide-react';
+import { User, Bookmark, X } from 'lucide-react';
 import ArticleCard from '../components/ArticleCard';
 import { Article } from '../data/mockArticles';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
@@ -52,6 +52,9 @@ export default function MyPage() {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
     const [recentArticles, setRecentArticles] = useState<Article[]>([]);
+    const [bookmarkArticles, setBookmarkArticles] = useState<Article[]>([]);
+    const [bookmarkCount, setBookmarkCount] = useState(0);
+    const [bookmarkLoading, setBookmarkLoading] = useState(false);
     const [categoryClicks, setCategoryClicks] = useState<CategoryClick[]>([]);
     const [clicksLoading, setClicksLoading] = useState(false);
     const [profile, setProfile] = useState<ProfileData | null>(null);
@@ -108,6 +111,63 @@ export default function MyPage() {
             .then((results) => setRecentArticles(results.filter((a): a is Article => a != null)))
             .catch(() => setRecentArticles([]));
     }, [user, navigate]);
+
+    useEffect(() => {
+        const auth = getAuthHeader();
+        if (!auth || !user) return;
+        setBookmarkLoading(true);
+        Promise.all([
+            fetch('/api/bookmarks/me?size=50', { headers: auth }),
+            fetch('/api/bookmarks/me/count', { headers: auth }),
+        ])
+            .then(([listRes, countRes]) => Promise.all([listRes.json(), countRes.json()]))
+            .then(([pageData, countData]) => {
+                const items = pageData?.content ?? [];
+                const list = items.map((d: {
+                    id: number;
+                    title: string;
+                    translatedTitle: string | null;
+                    categoryName: string;
+                    publisherName: string | null;
+                    authorName: string | null;
+                    imageUrl: string | null;
+                    createdDate: string;
+                    clickCount?: number | null;
+                }) => ({
+                    id: String(d.id),
+                    category: API_CATEGORY_MAP[d.categoryName] ?? 'Football',
+                    translatedTitle: d.translatedTitle ?? d.title,
+                    originalTitle: d.title,
+                    source: d.publisherName || d.authorName || '',
+                    publishedAt: d.createdDate?.replace('Z', '') || '',
+                    thumbnail: d.imageUrl || '',
+                    translatedContent: '',
+                    originalContent: '',
+                    clickCount: d.clickCount ?? 0,
+                }));
+                setBookmarkArticles(list);
+                setBookmarkCount(countData?.count ?? list.length);
+            })
+            .catch(() => {
+                setBookmarkArticles([]);
+                setBookmarkCount(0);
+            })
+            .finally(() => setBookmarkLoading(false));
+    }, [user]);
+
+    const removeBookmark = async (articleId: string) => {
+        const auth = getAuthHeader();
+        if (!auth) return;
+        try {
+            const res = await fetch(`/api/bookmarks/${articleId}`, { method: 'DELETE', headers: auth });
+            if (res.ok) {
+                setBookmarkArticles((prev) => prev.filter((a) => a.id !== articleId));
+                setBookmarkCount((c) => Math.max(0, c - 1));
+            }
+        } catch {
+            // ignore
+        }
+    };
 
     useEffect(() => {
         const auth = getAuthHeader();
@@ -264,6 +324,42 @@ export default function MyPage() {
                             설정하기
                         </Link>
                     </div>
+                </div>
+
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+                    <div className="mb-4">
+                        <h2 className="text-lg font-bold text-gray-900">북마크 목록</h2>
+                        <p className="text-xs text-gray-500 mt-1">총 {bookmarkCount}개</p>
+                    </div>
+                    {bookmarkLoading ? (
+                        <p className="text-sm text-gray-500">불러오는 중...</p>
+                    ) : bookmarkArticles.length === 0 ? (
+                        <div className="text-center py-8">
+                            <Bookmark className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+                            <p className="text-sm text-gray-500">북마크한 기사가 없습니다</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-4">
+                            {bookmarkArticles.map((article) => (
+                                <div
+                                    key={article.id}
+                                    className="flex items-center gap-3 bg-gray-50 rounded-lg border border-gray-100 p-4"
+                                >
+                                    <div className="flex-1 min-w-0">
+                                        <ArticleCard article={article} compact />
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => removeBookmark(article.id)}
+                                        title="북마크 해제"
+                                        className="flex-shrink-0 p-2 rounded-lg text-gray-500 hover:bg-red-50 hover:text-red-600 transition-colors"
+                                    >
+                                        <X className="w-5 h-5" />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">

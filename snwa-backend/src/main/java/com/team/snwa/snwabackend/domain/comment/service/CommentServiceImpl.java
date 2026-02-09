@@ -68,13 +68,13 @@ public class CommentServiceImpl implements CommentService {
      * @DateOfCreated 2026-02-03
      * @DateOfEdit 2026-02-03
      */
-    public Page<CommentResponseDto> getComments(Long articleId, Pageable pageable) {
+    public Page<CommentResponseDto> getComments(Long articleId, Pageable pageable, Long currentUserId) {
         if (!articleRepository.existsById(articleId)) {
             throw new CustomException(ErrorCode.ARTICLE_NOT_FOUND);
         }
 
         return commentRepository.findByArticleId(articleId, pageable)
-                .map(CommentResponseDto::from);
+                .map(c -> CommentResponseDto.from(c, currentUserId));
     }
 
     /**
