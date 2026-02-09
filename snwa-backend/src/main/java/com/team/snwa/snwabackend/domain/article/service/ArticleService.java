@@ -77,15 +77,30 @@ public class ArticleService {
     /**
      * 기사 목록 조회
      * @param categoryId 카테고리 ID (선택적, null이면 전체 조회)
+     * @param publisherName 출판사명 (선택적, null/빈 문자열이면 전체)
      * @param pageable 페이지 정보
      * @param user 인증된 사용자 (null이면 비로그인, isBookmarked는 false)
      * @return 기사 목록
      */
-    public Page<ArticleListResponseDto> getArticleList(Long categoryId, Pageable pageable, User user) {
-        Page<Article> articles = articleRepository.findAllWithCategory(categoryId, pageable);
+    public Page<ArticleListResponseDto> getArticleList(Long categoryId, String publisherName, Pageable pageable, User user) {
+        Page<Article> articles = articleRepository.findAllWithCategory(categoryId, publisherName, pageable);
         Set<Long> bookmarkedIds = bookmarkService.getBookmarkedArticleIds(user,
                 articles.getContent().stream().map(Article::getId).toList());
         return articles.map(a -> ArticleListResponseDto.from(a, bookmarkedIds.contains(a.getId())));
+    }
+
+    /**
+     * 카테고리(종목) 목록 조회
+     */
+    public List<Category> getCategories() {
+        return categoryRepository.findAll();
+    }
+
+    /**
+     * 기사에 등장하는 출판사명 목록 (중복 제거)
+     */
+    public List<String> getPublisherNames() {
+        return articleRepository.findDistinctPublisherNames();
     }
 
     /**
