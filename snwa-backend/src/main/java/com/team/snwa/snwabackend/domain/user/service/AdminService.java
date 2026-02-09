@@ -1,8 +1,11 @@
 package com.team.snwa.snwabackend.domain.user.service;
 
 import com.team.snwa.snwabackend.domain.article.dto.response.AdminArticleListResponse;
+import com.team.snwa.snwabackend.domain.article.dto.response.AdminArticleTranslationSummaryTagsResponse;
 import com.team.snwa.snwabackend.domain.article.entity.Article;
+import com.team.snwa.snwabackend.domain.article.entity.ArticleTag;
 import com.team.snwa.snwabackend.domain.article.repository.ArticleRepository;
+import com.team.snwa.snwabackend.domain.article.repository.ArticleTagRepository;
 import com.team.snwa.snwabackend.domain.payment.dto.response.PaymentHistoryResponse;
 import com.team.snwa.snwabackend.domain.payment.service.PaymentService;
 import com.team.snwa.snwabackend.domain.user.dto.request.AdminUserUpdateRequest;
@@ -29,6 +32,7 @@ public class AdminService {
     private final ArticleRepository articleRepository;
     private final PaymentService paymentService;
     private final S3Service s3Service;
+    private final ArticleTagRepository articleTagRepository;
 
     /**
      * 관리자 권한 확인
@@ -171,5 +175,33 @@ public class AdminService {
     public PaymentHistoryResponse getPaymentHistoryByUserId(User adminUser, Long userId) {
         checkAdminRole(adminUser);
         return paymentService.getHistoryByUser(userId);
+    }
+
+    /**
+     * 전체 글의 번역/요약/태그 상세 목록 조회 (관리자 전용)
+     */
+    public List<AdminArticleTranslationSummaryTagsResponse> getAllArticleTranslations(User adminUser) {
+        // 관리자 권한 확인 (기존 메서드 활용)
+        checkAdminRole(adminUser);
+
+        // 삭제되지 않은 모든 기사 조회 (ID 역순)
+        List<Article> articles = articleRepository.findAllByDeletedAtIsNull(Sort.by("id").descending());
+
+        return articles.stream().map(article -> {
+            // 해당 기사의 태그 이름들만 추출
+            List<String> tagNames = articleTagRepository.findAllByArticleId(article.getId())
+                    .stream()
+                    .map(ArticleTag::getTagName)
+                    .collect(Collectors.toList());
+
+            // 요청하신 5개 필드(ID, 번역제목, 번역내용, 요약, 태그) 반환
+            return new AdminArticleTranslationSummaryTagsResponse(
+                    article.getId(),
+                    article.getTranslatedTitle(),
+                    article.getTranslatedContent(),
+                    article.getSummary(),
+                    tagNames
+            );
+        }).collect(Collectors.toList());
     }
 }

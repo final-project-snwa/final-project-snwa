@@ -1,6 +1,7 @@
 package com.team.snwa.snwabackend.domain.user.controller;
 
 import com.team.snwa.snwabackend.domain.article.dto.response.AdminArticleListResponse;
+import com.team.snwa.snwabackend.domain.article.dto.response.AdminArticleTranslationSummaryTagsResponse;
 import com.team.snwa.snwabackend.domain.payment.dto.response.PaymentHistoryResponse;
 import com.team.snwa.snwabackend.domain.user.dto.request.AdminUserUpdateRequest;
 import com.team.snwa.snwabackend.domain.user.dto.response.AdminUserResponse;
@@ -106,5 +107,16 @@ public class AdminController {
         User currentUser = getCurrentUser(principal);
         adminService.deleteArticle(currentUser, articleId);
         return ResponseEntity.ok().build();
+    }
+
+    /**
+     * 전체 글의 번역 · 요약 · 태그 정보 조회 (관리자 전용)
+     * GET /api/admin/articles/translations
+     */
+    @GetMapping("/articles/translations")
+    public ResponseEntity<List<AdminArticleTranslationSummaryTagsResponse>> getAllArticleTranslations(Principal principal) {
+        User currentUser = getCurrentUser(principal);
+        List<AdminArticleTranslationSummaryTagsResponse> translations = adminService.getAllArticleTranslations(currentUser);
+        return ResponseEntity.ok(translations);
     }
 }
