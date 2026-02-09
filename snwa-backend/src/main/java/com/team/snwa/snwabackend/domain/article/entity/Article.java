@@ -10,7 +10,10 @@ import lombok.Setter;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "articles")
+@Table(name = "articles", indexes = {
+        // category_id로 먼저 추려내고, 그 안에서 published_at으로 정렬된 목차를 만듦
+        @Index(name = "idx_article_category_created", columnList = "category_id, createdDate")
+})
 @Getter
 public class Article extends BaseTimeEntity {
     @Id

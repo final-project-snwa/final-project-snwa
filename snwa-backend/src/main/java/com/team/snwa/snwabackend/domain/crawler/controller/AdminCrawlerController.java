@@ -15,6 +15,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
 
 import java.util.List;
 
@@ -47,15 +48,17 @@ public class AdminCrawlerController {
         return ResponseEntity.ok(crawlerService.getAllJobs());
     }
 
+
+
     /**
      * 새로운 Job 생성 및 스케줄러 등록
      *
      * @author 허준형
      * @DateOfCreated 2026-01-26
-     * @DateOfEdit 2026-01-27
+     * @DateOfEdit 2026-02-09
      */
     @PostMapping("/jobs")
-    public ResponseEntity<String> createJob(@RequestBody CrawlingJobRequestDto request) {
+    public ResponseEntity<String> createJob(@Valid @RequestBody CrawlingJobRequestDto request) {
         Long newJobId = crawlerService.createCrawlingJob(request);
         schedulingService.startJob(newJobId);
         return ResponseEntity.ok("새로운 크롤링 Job이 등록되고 스케줄러가 시작되었습니다. (ID: " + newJobId + ")");
