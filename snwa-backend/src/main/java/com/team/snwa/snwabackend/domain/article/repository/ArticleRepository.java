@@ -19,9 +19,11 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
             "LEFT JOIN FETCH a.category " +
             "WHERE a.deletedAt IS NULL " +
             "AND (:categoryId IS NULL OR a.category.id = :categoryId) " +
+            "AND (:publisherName IS NULL OR :publisherName = '' OR a.publisherName = :publisherName) " +
             "ORDER BY a.createdDate DESC")
     Page<Article> findAllWithCategory(
             @Param("categoryId") Long categoryId,
+            @Param("publisherName") String publisherName,
             Pageable pageable
     );
 
@@ -117,6 +119,12 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
     boolean existsByOriginalUrl(String originalUrl);
 
     Optional<Article> findByOriginalUrl(String originalUrl);
+
+    /**
+     * 삭제되지 않은 기사에서 출판사명 목록 (중복 제거, null/빈 문자열 제외)
+     */
+    @Query("SELECT DISTINCT a.publisherName FROM Article a WHERE a.deletedAt IS NULL AND a.publisherName IS NOT NULL AND a.publisherName != '' ORDER BY a.publisherName")
+    List<String> findDistinctPublisherNames();
 
     /**
      * 번역이 안된 기사 조회 (translatedTitle 또는 translatedContent가 null인 기사)
