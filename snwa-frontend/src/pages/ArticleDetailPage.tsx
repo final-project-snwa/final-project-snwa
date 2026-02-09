@@ -191,8 +191,8 @@ export default function ArticleDetailPage() {
             if (res.ok) {
                 const data = await res.json();
                 // userReaction이 빈 문자열이면 null로 처리
-                const userReactionValue = data.userReaction && data.userReaction !== '' 
-                    ? (data.userReaction as ReactionType) 
+                const userReactionValue = data.userReaction && data.userReaction !== ''
+                    ? (data.userReaction as ReactionType)
                     : null;
                 setReactions({
                     likeCount: data.likeCount ?? 0,
@@ -208,6 +208,32 @@ export default function ArticleDetailPage() {
             console.error('반응 등록 실패:', err);
         } finally {
             setReactionLoading(false);
+        }
+    };
+
+    /** 기사 정보 다시 가져오기 (코인 사용 후 번역본 업데이트용) */
+    const refetchArticle = async () => {
+        if (!id) return;
+        const headers: Record<string, string> = {};
+        const auth = getAuthHeader();
+        if (auth) Object.assign(headers, auth);
+        try {
+            const res = await fetch(`/api/articles/${id}?recordView=false`, { headers });
+            if (!res.ok) return;
+            const data: ApiArticleDetail = await res.json();
+            setArticle(mapDetailToArticle(data));
+            setHasUsedCoin(data.hasUsedCoin ?? false);
+            setIsBookmarked(data.isBookmarked ?? false);
+            setArticleSummary(data.summary ?? null);
+            setReactions({
+                likeCount: data.likeCount ?? 0,
+                dislikeCount: data.dislikeCount ?? 0,
+                sadCount: data.sadCount ?? 0,
+                angryCount: data.angryCount ?? 0,
+                userReaction: data.userReaction ?? null,
+            });
+        } catch (e) {
+            console.error('기사 정보 다시 가져오기 실패:', e);
         }
     };
 
@@ -232,7 +258,9 @@ export default function ArticleDetailPage() {
                 alert(err.message ?? '코인 사용에 실패했습니다. 잔액을 확인해 주세요.');
                 return;
             }
-            setHasUsedCoin(true);
+            // 코인 사용 성공 후 기사 정보 다시 가져오기
+            await refetchArticle();
+            setShowOriginal(false); // 번역본을 기본으로 표시
         } catch (e) {
             console.error(e);
             alert('코인 사용에 실패했습니다.');
@@ -434,45 +462,38 @@ export default function ArticleDetailPage() {
                             <span>·</span>
                             <span>조회 {article.clickCount ?? 0}</span>
                         </div>
-                        {/* 코인 미사용: 요약만 표시 + 1 코인 사용하기 버튼 */}
-                        {!hasUsedCoin ? (
-                            <>
-                                {articleSummary && (
-                                    <div className="prose prose-gray max-w-none mb-6">
-                                        <p className="text-gray-700 leading-relaxed whitespace-pre-line">{articleSummary}</p>
-                                    </div>
-                                )}
-                                <div className="rounded-lg border border-gray-200 bg-white p-6 text-center">
-                                    <p className="text-sm text-gray-500 mb-4">원문을 보려면 코인을 사용해야 합니다.</p>
+                        {/* 원문 또는 번역본 표시 */}
+                        <div className="prose prose-gray max-w-none mb-6">
+                            {/* 번역하기 버튼 또는 원문/번역본 토글 버튼 - 본문 영역 위쪽 */}
+                            <div className="flex justify-end mb-6">
+                                {!hasUsedCoin ? (
                                     <button
                                         type="button"
-                                        onClick={handleUseCoin}
+                                        onClick={() => {
+                                            if (confirm('코인 1개를 사용해서 번역본을 열람합니다.')) {
+                                                handleUseCoin();
+                                            }
+                                        }}
                                         disabled={useCoinLoading}
-                                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-60 disabled:cursor-not-allowed transition-colors whitespace-nowrap shadow-sm mr-4"
                                     >
-                                        {useCoinLoading ? '처리 중...' : '코인 사용하기'}
+                                        {useCoinLoading ? '처리 중...' : '번역하기'}
                                     </button>
-                                </div>
-                            </>
-                        ) : (
-                            <>
-                                <div className="flex justify-end mt-6 mb-6">
+                                ) : (
                                     <button
                                         onClick={() => setShowOriginal(!showOriginal)}
-                                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors whitespace-nowrap shadow-sm mr-4"
                                     >
                                         {showOriginal ? '번역 보기' : '원문 보기'}
                                     </button>
-                                </div>
-                                <div className="prose prose-gray max-w-none">
-                                    {showOriginal ? (
-                                        <div className="text-gray-700 leading-relaxed whitespace-pre-line">{article.originalContent}</div>
-                                    ) : (
-                                        <div className="text-gray-900 leading-relaxed whitespace-pre-line">{article.translatedContent}</div>
-                                    )}
-                                </div>
-                            </>
-                        )}
+                                )}
+                            </div>
+                            {hasUsedCoin && !showOriginal ? (
+                                <div className="text-gray-900 leading-relaxed whitespace-pre-line">{article.translatedContent}</div>
+                            ) : (
+                                <div className="text-gray-700 leading-relaxed whitespace-pre-line">{article.originalContent}</div>
+                            )}
+                        </div>
 
                         {/* 감정 반응 버튼 + 북마크 */}
                         <div className="mt-8 pt-6 border-t border-gray-200">
@@ -502,7 +523,7 @@ export default function ArticleDetailPage() {
                                                 {emoji}
                                             </span>
                                             <span>{label}</span>
-                                            <span 
+                                            <span
                                                 className={`
                                                     ml-0.5 min-w-[1.25rem] text-center font-semibold
                                                     transition-all duration-300
@@ -581,7 +602,7 @@ export default function ArticleDetailPage() {
                                             )}
                                             <span className="text-xs text-gray-500">{formatDate(c.createdAt)}</span>
                                         </div>
-                                        {(c.isMine ?? c.mine) && (
+                                        {c.isMine && (
                                             <button
                                                 type="button"
                                                 onClick={() => handleDeleteComment(c.commentId)}
