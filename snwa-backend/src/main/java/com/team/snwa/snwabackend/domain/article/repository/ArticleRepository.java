@@ -180,4 +180,10 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
                     "AND a.deletedAt IS NULL " +
                     "AND NOT EXISTS (SELECT 1 FROM ArticleTag at WHERE at.article.id = a.id)")
     Page<Article> findArticlesNeedingKeywordExtraction(Pageable pageable);
+
+    @Query("SELECT a.originalUrl FROM Article a WHERE a.originalUrl IN :urls")
+    List<String> findExistingUrls(@Param("urls") List<String> urls);
+
+    List<Article> findByOriginalUrlIn(List<String> originalUrls);
+
 }
