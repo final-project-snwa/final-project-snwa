@@ -2,6 +2,7 @@ package com.team.snwa.snwabackend.domain.notification.service;
 
 import com.team.snwa.snwabackend.domain.article.entity.Article;
 import com.team.snwa.snwabackend.domain.notification.dto.request.NotificationSettingRequest;
+import com.team.snwa.snwabackend.domain.notification.dto.response.NotificationResponse;
 import com.team.snwa.snwabackend.domain.notification.dto.response.NotificationSettingResponse;
 import com.team.snwa.snwabackend.domain.notification.entity.Notification;
 import com.team.snwa.snwabackend.domain.notification.entity.NotificationSetting;
@@ -21,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class NotificationService {
 
+    private final SseEmitterService sseEmitterService;
     private final NotificationRepository notificationRepository;
     private final NotificationSettingRepository notificationSettingRepository;
 
@@ -41,6 +43,12 @@ public class NotificationService {
                     // 알림 설정이 없는 경우에도 알림 생성 (기본값: 알림 허용)
                     Notification notification = Notification.create(user, article, message);
                     notificationRepository.save(notification);
+
+                    //실시간 알림 push
+                    sseEmitterService.send(
+                            user.getId(),
+                            NotificationResponse.from(notification)
+                    );
                 });
     }
 
