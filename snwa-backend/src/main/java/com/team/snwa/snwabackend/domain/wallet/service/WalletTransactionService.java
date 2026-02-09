@@ -88,13 +88,8 @@ public class WalletTransactionService {
         return coinTransactionService.save(tx);
     }
 
-    // 3. 로그인 시 출석 보상 지급 (하루 1번 , 1코인)
-    @Transactional
-    public void giveAttendanceReward(User user) {
-        giveAttendanceRewardByUserId(user.getId());
-    }
 
-    // 3-1. 로그인 시 출석 보상 지급 (userId 기반 - 새 트랜잭션용)
+    // 3. 로그인 시 출석 보상 지급
     @Transactional
     public boolean giveAttendanceRewardByUserId(Long userId) {
 
@@ -183,7 +178,7 @@ public class WalletTransactionService {
 
 
 
-    @Transactional(readOnly = true)
+    @Transactional
     public void assertNotUsedCharge(Long userId, String paymentKey) {
 
         // 1) 해당 결제로 충전된 기록이 있는지 확인

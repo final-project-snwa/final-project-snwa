@@ -37,6 +37,17 @@ interface ProfileData {
     createdAt?: string;
 }
 
+type CoinTransaction = {
+    id: number;
+    type: 'SPEND' | 'CHARGE' | 'ATTENDANCE_REWARD' | 'REFUND';
+    status: 'SUCCESS' | 'FAIL';
+    amount: number;
+    balanceAfter: number;
+    externalRef?: string | null;
+    createdAt?: string;
+    createdDate?: string;
+};
+
 export default function MyPage() {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
@@ -44,6 +55,8 @@ export default function MyPage() {
     const [categoryClicks, setCategoryClicks] = useState<CategoryClick[]>([]);
     const [clicksLoading, setClicksLoading] = useState(false);
     const [profile, setProfile] = useState<ProfileData | null>(null);
+    const [coinHistory, setCoinHistory] = useState<CoinTransaction[]>([]);
+    const [coinHistoryLoading, setCoinHistoryLoading] = useState(false);
 
     useEffect(() => {
         if (!user) {
@@ -125,6 +138,18 @@ export default function MyPage() {
             .finally(() => setClicksLoading(false));
     }, [user]);
 
+    useEffect(() => {
+        const auth = getAuthHeader();
+        if (!auth || !user) return;
+        setCoinHistoryLoading(true);
+        fetch('/api/coins/history', { headers: { ...auth } })
+            .then((res) => (res.ok ? res.json() : Promise.reject()))
+            .then((data: CoinTransaction[]) => {
+                setCoinHistory(Array.isArray(data) ? data : []);
+            })
+            .catch(() => setCoinHistory([]))
+            .finally(() => setCoinHistoryLoading(false));
+    }, [user]);
 
 
     const handleLogout = () => {
@@ -282,6 +307,55 @@ export default function MyPage() {
                                 ))}
                             </ul>
                         </>
+                    )}
+                </div>
+
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+                    <h2 className="text-lg font-bold text-gray-900 mb-4">코인 사용 내역</h2>
+                    {coinHistoryLoading ? (
+                        <p className="text-sm text-gray-500">불러오는 중...</p>
+                    ) : coinHistory.length === 0 ? (
+                        <p className="text-sm text-gray-500">코인 내역이 없습니다.</p>
+                    ) : (
+                        <div className="space-y-3">
+                            {coinHistory.map((tx) => {
+                                const created = tx.createdAt ?? tx.createdDate;
+                                const normalizedCreated = created && /[zZ]|[+-]\d{2}:\d{2}$/.test(created)
+                                    ? created
+                                    : (created ? `${created}Z` : null);
+                                const createdLabel = normalizedCreated
+                                    ? new Date(normalizedCreated).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })
+                                    : '-';
+                                const typeLabel =
+                                    tx.type === 'SPEND'
+                                        ? '사용'
+                                        : tx.type === 'CHARGE'
+                                            ? '충전'
+                                            : tx.type === 'ATTENDANCE_REWARD'
+                                                ? '출석 보상'
+                                                : tx.type === 'REFUND'
+                                                    ? '회수'
+                                                    : tx.type;
+                                return (
+                                    <div
+                                        key={tx.id}
+                                        className="flex flex-col gap-2 rounded-lg border border-gray-200 p-4 sm:flex-row sm:items-center sm:justify-between"
+                                    >
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-medium text-gray-900">{typeLabel}</p>
+                                            <p className="text-xs text-gray-500">{createdLabel}</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className={`text-sm font-semibold ${tx.type === 'SPEND' || tx.type === 'REFUND' ? 'text-red-600' : 'text-green-600'}`}>
+                                                {tx.type === 'SPEND' || tx.type === 'REFUND' ? '-' : '+'}
+                                                {tx.amount}
+                                            </p>
+                                            <p className="text-xs text-gray-500">잔액 {tx.balanceAfter}</p>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
                     )}
                 </div>
 
