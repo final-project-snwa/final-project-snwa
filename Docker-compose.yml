@@ -48,6 +48,7 @@ services:
       - db-net
 
   snwa-backend-green:
+    profiles: ["deploy"]
     build: ./snwa-backend
     image: snwa-backend-server:green
     container_name: snwa-backend-server-green
