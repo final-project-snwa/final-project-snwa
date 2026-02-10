@@ -390,7 +390,7 @@ export default function MyPage() {
                                                 <Cell key={index} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                                             ))}
                                         </Pie>
-                                        <Tooltip formatter={(value: number | undefined) => `${value}회`} />
+                                        <Tooltip formatter={(value: number) => `${value}회`} />
                                         <Legend />
                                     </PieChart>
                                 </ResponsiveContainer>
