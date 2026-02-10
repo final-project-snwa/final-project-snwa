@@ -477,19 +477,31 @@ export default function ArticleDetailPage() {
                                         disabled={useCoinLoading}
                                         className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-60 disabled:cursor-not-allowed transition-colors whitespace-nowrap shadow-sm mr-4"
                                     >
-                                        {useCoinLoading ? '처리 중...' : '번역하기'}
+                                        {useCoinLoading ? '처리 중...' : '번역 · 요약하기'}
                                     </button>
                                 ) : (
                                     <button
                                         onClick={() => setShowOriginal(!showOriginal)}
                                         className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors whitespace-nowrap shadow-sm mr-4"
                                     >
-                                        {showOriginal ? '번역 보기' : '원문 보기'}
+                                        {showOriginal ? '번역 · 요약하기' : '원문 보기'}
                                     </button>
                                 )}
                             </div>
                             {hasUsedCoin && !showOriginal ? (
-                                <div className="text-gray-900 leading-relaxed whitespace-pre-line">{article.translatedContent}</div>
+                                <>
+                                    {articleSummary && (
+                                        <ul className="list-disc list-inside space-y-1 text-gray-700 mb-6 pl-1">
+                                            {articleSummary
+                                                .split('\n')
+                                                .filter((line) => line.trim())
+                                                .map((line, i) => (
+                                                    <li key={i}>{line.replace(/^\s*-\s*/, '')}</li>
+                                                ))}
+                                        </ul>
+                                    )}
+                                    <div className="text-gray-900 leading-relaxed whitespace-pre-line">{article.translatedContent}</div>
+                                </>
                             ) : (
                                 <div className="text-gray-700 leading-relaxed whitespace-pre-line">{article.originalContent}</div>
                             )}
