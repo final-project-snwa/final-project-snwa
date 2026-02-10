@@ -6,6 +6,7 @@ import com.team.snwa.snwabackend.domain.article.repository.ArticleRepository;
 import com.team.snwa.snwabackend.domain.article.repository.CategoryRepository;
 import com.team.snwa.snwabackend.domain.crawler.dto.CrawledArticleDto;
 import com.team.snwa.snwabackend.domain.crawler.dto.CrawlingJobRequestDto;
+import com.team.snwa.snwabackend.domain.crawler.dto.CrawlingJobResponseDto;
 import com.team.snwa.snwabackend.domain.crawler.dto.CrawlingJobUpdateDto;
 import com.team.snwa.snwabackend.domain.crawler.dto.CrawlingLogResponseDto;
 import com.team.snwa.snwabackend.domain.crawler.entity.ArticleCrawlingTracking;
@@ -285,9 +286,14 @@ public class CrawlerService {
     /**
      * 모든 크롤링 작업 목록을 조회함
      */
+    /**
+     * 모든 크롤링 작업 목록을 조회함
+     */
     @Transactional(readOnly = true)
-    public List<CrawlingJob> getAllJobs() {
-        return jobRepository.findAll();
+    public List<CrawlingJobResponseDto> getAllJobs() {
+        return jobRepository.findAll().stream()
+                .map(CrawlingJobResponseDto::from)
+                .collect(Collectors.toList());
     }
 
     /**
