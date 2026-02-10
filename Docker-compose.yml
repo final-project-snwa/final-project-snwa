@@ -35,6 +35,7 @@ services:
       APP_BASE_URL: http://localhost:70
       DEEPL_API_KEY: ${DEEPL_API_KEY}
       DEEPL_API_BASE_URL: ${DEEPL_API_BASE_URL}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
       MAIL_USERNAME: ${MAIL_USERNAME}
       MAIL_PASSWORD: ${MAIL_PASSWORD}
       MAIL_HOST: ${MAIL_HOST:-smtp.gmail.com}
@@ -67,6 +68,7 @@ services:
       APP_BASE_URL: http://localhost:70
       DEEPL_API_KEY: ${DEEPL_API_KEY}
       DEEPL_API_BASE_URL: ${DEEPL_API_BASE_URL}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
       MAIL_USERNAME: ${MAIL_USERNAME}
       MAIL_PASSWORD: ${MAIL_PASSWORD}
       MAIL_HOST: ${MAIL_HOST:-smtp.gmail.com}
