@@ -66,7 +66,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: backend-jar
-          path: ./snwa-backend/build/libs/*.jar
+          path: |
+            ./snwa-backend/build/libs/*.jar
+            !./snwa-backend/build/libs/*-plain.jar          
 
   # 2. 프론트엔드 빌드
   frontend-build:
