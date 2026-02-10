@@ -8,9 +8,9 @@ spring:
     password: ${SPRING_DATASOURCE_PASSWORD:root1234}
     # driver-class-name은 Spring Boot 3.x에서 자동 감지되므로 생략 가능
     hikari:
-      connection-timeout: 5000
-      maximum-pool-size: 5
-      minimum-idle: 1
+      connection-timeout: 30000
+      maximum-pool-size: 20
+      minimum-idle: 5
 
 
   jpa:
