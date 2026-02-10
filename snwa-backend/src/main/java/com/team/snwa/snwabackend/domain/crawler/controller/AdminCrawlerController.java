@@ -1,6 +1,7 @@
 package com.team.snwa.snwabackend.domain.crawler.controller;
 
 import com.team.snwa.snwabackend.domain.crawler.dto.CrawlingJobRequestDto;
+import com.team.snwa.snwabackend.domain.crawler.dto.CrawlingJobResponseDto;
 import com.team.snwa.snwabackend.domain.crawler.dto.CrawlingJobUpdateDto;
 import com.team.snwa.snwabackend.domain.crawler.dto.CrawlingLogResponseDto;
 import com.team.snwa.snwabackend.domain.crawler.dto.SystemStatusDto;
@@ -44,7 +45,7 @@ public class AdminCrawlerController {
      * @DateOfEdit 2026-01-27
      */
     @GetMapping("/jobs")
-    public ResponseEntity<List<CrawlingJob>> getAllJobs() {
+    public ResponseEntity<List<CrawlingJobResponseDto>> getAllJobs() {
         return ResponseEntity.ok(crawlerService.getAllJobs());
     }
 

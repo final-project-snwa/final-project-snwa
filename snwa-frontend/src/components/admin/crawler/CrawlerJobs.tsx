@@ -34,7 +34,8 @@ type EspnLeague = 'NBA' | 'EPL' | 'LALIGA' | 'BUNDESLIGA' | 'SERIEA' | 'LIGUE1' 
 
 type CrawlingJob = {
     id: number;
-    category?: { id: number; name: string };
+    categoryId: number;
+    categoryName: string;
     sourceName: SourceName;
     jobName: string;
     targetUrl: string;
