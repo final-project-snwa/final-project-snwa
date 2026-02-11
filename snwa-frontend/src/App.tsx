@@ -1,5 +1,6 @@
 import { createBrowserRouter, RouterProvider } from 'react-router';
 import { AuthProvider } from './contexts/AuthContext';
+import { AttendanceRewardModal } from './components/AttendanceRewardModal';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
@@ -97,6 +98,7 @@ export default function App() {
     return (
         <AuthProvider>
             <RouterProvider router={router} />
+            <AttendanceRewardModal />
         </AuthProvider>
     );
 }

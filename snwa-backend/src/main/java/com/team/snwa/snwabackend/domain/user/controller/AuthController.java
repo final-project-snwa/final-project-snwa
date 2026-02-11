@@ -5,6 +5,7 @@ import com.team.snwa.snwabackend.domain.user.dto.request.SignupRequestDto;
 import com.team.snwa.snwabackend.domain.user.dto.request.ForgotPasswordRequestDto;
 import com.team.snwa.snwabackend.domain.user.dto.request.ResetPasswordRequestDto;
 import com.team.snwa.snwabackend.domain.user.dto.response.AuthResponseDto;
+import com.team.snwa.snwabackend.domain.user.dto.response.LoginResult;
 import com.team.snwa.snwabackend.domain.user.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -24,19 +25,19 @@ public class AuthController {
     public ResponseEntity<AuthResponseDto> signup(@Valid @RequestBody SignupRequestDto request) {
         authService.signup(request);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(new AuthResponseDto(null, "회원가입이 완료되었습니다. 이메일을 확인하여 인증을 완료해주세요."));
+                .body(new AuthResponseDto(null, "회원가입이 완료되었습니다. 이메일을 확인하여 인증을 완료해주세요.", null));
     }
 
     @PostMapping("/login")
     public ResponseEntity<AuthResponseDto> login(@Valid @RequestBody LoginRequestDto request) {
-        String token = authService.login(request);
-        return ResponseEntity.ok(new AuthResponseDto(token, "로그인 성공"));
+        var result = authService.login(request);
+        return ResponseEntity.ok(new AuthResponseDto(result.token(), "로그인 성공", result.attendanceRewardGiven()));
     }
 
     @GetMapping("/verify-email")
     public ResponseEntity<AuthResponseDto> verifyEmail(@RequestParam String token) {
         authService.verifyEmail(token);
-        return ResponseEntity.ok(new AuthResponseDto(null, "이메일 인증이 완료되었습니다."));
+        return ResponseEntity.ok(new AuthResponseDto(null, "이메일 인증이 완료되었습니다.", null));
     }
 
     @PostMapping("/logout")
@@ -44,18 +45,18 @@ public class AuthController {
         // Authorization 헤더에서 토큰 추출 (Bearer 제거)
         String token = authHeader.replace("Bearer ", "");
         authService.logout(token);
-        return ResponseEntity.ok(new AuthResponseDto(null, "로그아웃 성공"));
+        return ResponseEntity.ok(new AuthResponseDto(null, "로그아웃 성공", null));
     }
 
     @PostMapping("/forgot-password")
     public ResponseEntity<AuthResponseDto> forgotPassword(@Valid @RequestBody ForgotPasswordRequestDto request) {
         authService.requestPasswordReset(request);
-        return ResponseEntity.ok(new AuthResponseDto(null, "비밀번호 재설정 링크가 이메일로 발송되었습니다."));
+        return ResponseEntity.ok(new AuthResponseDto(null, "비밀번호 재설정 링크가 이메일로 발송되었습니다.", null));
     }
 
     @PostMapping("/reset-password")
     public ResponseEntity<AuthResponseDto> resetPassword(@Valid @RequestBody ResetPasswordRequestDto request) {
         authService.resetPassword(request);
-        return ResponseEntity.ok(new AuthResponseDto(null, "비밀번호가 성공적으로 재설정되었습니다."));
+        return ResponseEntity.ok(new AuthResponseDto(null, "비밀번호가 성공적으로 재설정되었습니다.", null));
     }
 }

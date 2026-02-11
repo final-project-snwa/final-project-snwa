@@ -109,6 +109,24 @@
       height: 0;
     }
   }
+
+  /* 출석 보상 모달 코인 아이콘 애니메이션 (2회 반복) */
+  --animate-coin-pop: coin-pop 0.5s ease-in-out 2;
+
+  @keyframes coin-pop {
+    0%, 100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    50% {
+      transform: scale(1.2);
+      opacity: 0.95;
+    }
+  }
+}
+
+.animate-coin-pop {
+  animation: coin-pop 0.5s ease-in-out 2;
 }
 
 @utility container {

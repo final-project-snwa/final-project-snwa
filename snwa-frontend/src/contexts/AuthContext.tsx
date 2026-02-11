@@ -12,12 +12,16 @@ interface AuthContextType {
   signup: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
   updatePreferences: (sports: string[]) => void;
+  /** 당일 첫 로그인 시 출석 코인 지급됐을 때 true. 모달 닫으면 clearAttendanceRewardFlag() 호출 */
+  attendanceRewardJustGiven: boolean;
+  clearAttendanceRewardFlag: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [attendanceRewardJustGiven, setAttendanceRewardJustGiven] = useState(false);
 
   // Load user from sessionStorage on mount (탭/창 닫으면 로그아웃됨)
   useEffect(() => {
@@ -48,7 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       const contentType = response.headers.get('content-type');
-      let data: { token?: string } = {};
+      let data: { token?: string; attendanceRewardGiven?: boolean } = {};
       if (contentType && contentType.includes('application/json')) {
         const text = await response.text();
         if (text) data = JSON.parse(text);
@@ -60,6 +64,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const userData: User = { email, preferredSports: [] };
       sessionStorage.setItem('snwa_user', JSON.stringify(userData));
       setUser(userData);
+      if (data.attendanceRewardGiven === true) {
+        setAttendanceRewardJustGiven(true);
+      }
       return true;
     } catch {
       return false;
@@ -81,9 +88,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     setUser(null);
+    setAttendanceRewardJustGiven(false);
     sessionStorage.removeItem('snwa_user');
     sessionStorage.removeItem('snwa_token');
   };
+
+  const clearAttendanceRewardFlag = () => setAttendanceRewardJustGiven(false);
 
   const updatePreferences = (sports: string[]) => {
     if (user) {
@@ -94,7 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, signup, logout, updatePreferences }}>
+    <AuthContext.Provider value={{ user, login, signup, logout, updatePreferences, attendanceRewardJustGiven, clearAttendanceRewardFlag }}>
       {children}
     </AuthContext.Provider>
   );
