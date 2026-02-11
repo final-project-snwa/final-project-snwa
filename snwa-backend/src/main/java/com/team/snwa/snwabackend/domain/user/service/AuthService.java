@@ -2,11 +2,13 @@ package com.team.snwa.snwabackend.domain.user.service;
 
 import com.team.snwa.snwabackend.domain.user.dto.request.SignupRequestDto;
 import com.team.snwa.snwabackend.domain.user.dto.request.LoginRequestDto;
+import com.team.snwa.snwabackend.domain.user.dto.response.LoginResult;
 import com.team.snwa.snwabackend.domain.user.dto.request.ForgotPasswordRequestDto;
 import com.team.snwa.snwabackend.domain.user.dto.request.ResetPasswordRequestDto;
 import com.team.snwa.snwabackend.domain.user.entity.EmailVerificationToken;
 import com.team.snwa.snwabackend.domain.user.entity.PasswordResetToken;
 import com.team.snwa.snwabackend.domain.user.entity.User;
+import com.team.snwa.snwabackend.domain.user.entity.enums.UserRole;
 import com.team.snwa.snwabackend.domain.user.entity.enums.UserStatus;
 import com.team.snwa.snwabackend.domain.user.repository.EmailVerificationTokenRepository;
 import com.team.snwa.snwabackend.domain.user.repository.PasswordResetTokenRepository;
@@ -83,7 +85,7 @@ public class AuthService {
     }
 
     @Transactional
-    public String login(LoginRequestDto request) {
+    public LoginResult login(LoginRequestDto request) {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
@@ -106,18 +108,21 @@ public class AuthService {
         String token = jwtUtil.generateToken(user.getEmail());
 
         // 출석 보상은 별도 트랜잭션에서 실행 (실패해도 로그인에는 영향 없음)
+        boolean rewarded = false;
         try {
-            self.giveAttendanceRewardInNewTransaction(user.getId());
+            rewarded = self.giveAttendanceRewardInNewTransaction(user.getId());
         } catch (Exception e) {
             log.warn("출석 보상 지급 실패 (userId={}, 무시): {}", user.getId(), e.getMessage());
         }
+        // 관리자 로그인 시에는 안내 모달을 띄우지 않음 (프론트에 false 전달)
+        boolean attendanceRewardGiven = rewarded && user.getRole() != UserRole.ADMIN;
 
-        return token;
+        return new LoginResult(token, attendanceRewardGiven);
     }
 
-    /** 출석 보상을 새 트랜잭션에서 실행. 예외가 나도 로그인 트랜잭션은 롤백되지 않음 */
+    /** 출석 보상을 새 트랜잭션에서 실행. 예외가 나도 로그인 트랜잭션은 롤백되지 않음. 지급 여부 반환 */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void giveAttendanceRewardInNewTransaction(Long userId) {
+    public boolean giveAttendanceRewardInNewTransaction(Long userId) {
         try {
             boolean rewarded = walletTransactionService.giveAttendanceRewardByUserId(userId);
             if (rewarded) {
@@ -125,8 +130,10 @@ public class AuthService {
             } else {
                 log.info("출석 보상 이미 지급됨 (userId={}, 오늘 재로그인)", userId);
             }
+            return rewarded;
         } catch (Exception e) {
             log.warn("출석 보상 지급 실패 (userId={}): {}", userId, e.getMessage());
+            return false;
         }
     }
 
