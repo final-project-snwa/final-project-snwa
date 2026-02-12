@@ -461,6 +461,17 @@ export default function ArticleDetailPage() {
                             <span>{formatDate(article.publishedAt)}</span>
                             <span>·</span>
                             <span>조회 {article.clickCount ?? 0}</span>
+                            <span>·</span>
+                            <span className="inline-flex items-center gap-2">
+                                <span className="text-gray-500">구매</span>
+                                <span
+                                    className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                                        hasUsedCoin ? 'bg-green-600 text-white' : 'bg-gray-500 text-white'
+                                    }`}
+                                >
+                                    {hasUsedCoin ? '완료' : '미구매'}
+                                </span>
+                            </span>
                         </div>
                         {/* 원문 또는 번역본 표시 */}
                         <div className="prose prose-gray max-w-none mb-6">
