@@ -4,6 +4,7 @@ import { ArrowLeft, Bookmark } from 'lucide-react';
 import Header from '../components/Header';
 import ArticleCard from '../components/ArticleCard';
 import { formatDate, Article } from '../data/mockArticles';
+import { useExpToast } from '../contexts/ExpToastContext';
 type ReactionType = 'LIKE' | 'DISLIKE' | 'SAD' | 'ANGRY';
 
 type ApiArticleDetail = {
@@ -61,6 +62,11 @@ type ApiComment = {
     isMine?: boolean;
     createdAt: string;
     updatedAt?: string;
+    expGrantInfo?: {
+        expGained: number;
+        levelUp: boolean;
+        newLevel: number;
+    };
 };
 
 const API_CATEGORY_TO_DISPLAY: Record<string, 'Football' | 'Soccer' | 'Basketball' | 'Baseball' | 'Esports'> = {
@@ -119,6 +125,7 @@ const REACTION_CONFIG: { type: ReactionType; emoji: string; label: string }[] = 
 export default function ArticleDetailPage() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
+    const expToast = useExpToast();
     const [article, setArticle] = useState<Article | null>(null);
     const [relatedArticles, setRelatedArticles] = useState<Article[]>([]);
     const [showOriginal, setShowOriginal] = useState(false);
@@ -166,7 +173,7 @@ export default function ArticleDetailPage() {
     const handleReaction = async (reactionType: ReactionType) => {
         const auth = getAuthHeader();
         if (!auth) {
-            alert('로그인이 필요합니다..');
+            alert('로그인이 필요합니다.');
             navigate('/login');
             return;
         }
@@ -257,6 +264,15 @@ export default function ArticleDetailPage() {
                 alert(err.message ?? '코인 사용에 실패했습니다. 잔액을 확인해 주세요.');
                 return;
             }
+            const coinData = await res.json();
+            // exp 획득 알림 표시
+            if (coinData?.expGrantInfo && expToast) {
+                expToast.showExpToast({
+                    expGained: coinData.expGrantInfo.expGained,
+                    levelUp: coinData.expGrantInfo.levelUp ?? false,
+                    newLevel: coinData.expGrantInfo.newLevel ?? 1,
+                });
+            }
             // 코인 사용 성공 후 기사 정보 다시 가져오기
             await refetchArticle();
             setShowOriginal(false); // 번역본을 기본으로 표시
@@ -335,6 +351,15 @@ export default function ArticleDetailPage() {
                 body: JSON.stringify({ content: commentContent.trim() }),
             });
             if (res.ok) {
+                const commentData = await res.json();
+                // exp 획득 알림 표시
+                if (commentData?.expGrantInfo && expToast) {
+                    expToast.showExpToast({
+                        expGained: commentData.expGrantInfo.expGained,
+                        levelUp: commentData.expGrantInfo.levelUp ?? false,
+                        newLevel: commentData.expGrantInfo.newLevel ?? 1,
+                    });
+                }
                 setCommentContent('');
                 fetchComments(0, false);
             } else {
@@ -524,9 +549,9 @@ export default function ArticleDetailPage() {
                                                 border transform transition-all duration-200
                                                 ${isAnimating ? 'scale-110' : 'scale-100'}
                                                 ${isSelected
-                                                ? 'bg-blue-50 border-blue-300 text-blue-700 shadow-md ring-2 ring-blue-200'
-                                                : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100 hover:border-gray-300 hover:scale-105'
-                                            }
+                                                    ? 'bg-blue-50 border-blue-300 text-blue-700 shadow-md ring-2 ring-blue-200'
+                                                    : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100 hover:border-gray-300 hover:scale-105'
+                                                }
                                                 ${reactionLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer active:scale-95'}
                                             `}
                                         >
@@ -556,9 +581,9 @@ export default function ArticleDetailPage() {
                                         inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-full
                                         border transform transition-all duration-200
                                         ${isBookmarked
-                                        ? 'bg-amber-50 border-amber-300 text-amber-700 shadow-md ring-2 ring-amber-200 fill-amber-600'
-                                        : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100 hover:border-gray-300 hover:scale-105'
-                                    }
+                                            ? 'bg-amber-50 border-amber-300 text-amber-700 shadow-md ring-2 ring-amber-200 fill-amber-600'
+                                            : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100 hover:border-gray-300 hover:scale-105'
+                                        }
                                         ${bookmarkLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer active:scale-95'}
                                     `}
                                 >
