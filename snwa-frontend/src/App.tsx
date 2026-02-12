@@ -1,6 +1,7 @@
 import { createBrowserRouter, RouterProvider } from 'react-router';
 import { AuthProvider } from './contexts/AuthContext';
-import { AttendanceRewardModal } from './components/AttendanceRewardModal';
+import { ExpToastProvider } from './contexts/ExpToastContext';
+import { AuthModals } from './components/AuthModals';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
@@ -15,6 +16,7 @@ import AuthTestPage from './pages/AuthTestPage';
 import ProfilePage from './pages/ProfilePage';
 import InterestSettingsPage from './pages/InterestSettingsPage';
 import NotificationsPage from './pages/NotificationsPage';
+import LeaderboardPage from './pages/LeaderboardPage';
 
 // ✅ 추가: 결제 테스트 페이지들
 import PayPage from './pages/PayPage';
@@ -67,6 +69,10 @@ const router = createBrowserRouter([
         element: <NotificationsPage />,
     },
     {
+        path: '/leaderboard',
+        element: <LeaderboardPage />,
+    },
+    {
         path: '/coins',
         element: <CoinPurchasePage />,
     },
@@ -97,8 +103,10 @@ const router = createBrowserRouter([
 export default function App() {
     return (
         <AuthProvider>
-            <RouterProvider router={router} />
-            <AttendanceRewardModal />
+            <ExpToastProvider>
+                <RouterProvider router={router} />
+                <AuthModals />
+            </ExpToastProvider>
         </AuthProvider>
     );
 }
