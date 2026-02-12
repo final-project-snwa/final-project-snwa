@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router';
 import { useAuth } from '../contexts/AuthContext';
-import { User, LogOut, Settings, Coins, Bell } from 'lucide-react';
+import { User, LogOut, Settings, Coins, Bell, Trophy } from 'lucide-react';
+import { LevelBadge } from './LevelBadge';
 import { useState, useRef, useEffect } from 'react';
 
 interface HeaderProps {
@@ -15,6 +16,7 @@ export default function Header({ showCategories = false, selectedCategory, onCat
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [userLevel, setUserLevel] = useState<number | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
 
   const categories = ['All', 'Football', 'Basketball', 'Baseball', 'Esports'];
@@ -33,6 +35,7 @@ export default function Header({ showCategories = false, selectedCategory, onCat
   useEffect(() => {
     if (!user) {
       setUnreadCount(0);
+      setUserLevel(null);
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
         eventSourceRef.current = null;
@@ -42,6 +45,14 @@ export default function Header({ showCategories = false, selectedCategory, onCat
 
     const token = sessionStorage.getItem('snwa_token');
     if (!token) return;
+
+    fetch('/api/exp/me', { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && typeof data.level === 'number') setUserLevel(data.level);
+        else setUserLevel(null);
+      })
+      .catch(() => setUserLevel(null));
 
     fetch('/api/notifications/unread/count', {
       headers: { Authorization: `Bearer ${token}` },
@@ -132,6 +143,9 @@ export default function Header({ showCategories = false, selectedCategory, onCat
                     <div className="w-8 h-8 rounded-full bg-gray-900 flex items-center justify-center">
                       <User className="w-4 h-4 text-white" />
                     </div>
+                    {userLevel != null && (
+                      <LevelBadge level={userLevel} className="hidden sm:inline-block" />
+                    )}
                     <span className="text-sm text-gray-700 hidden sm:inline">
                       {user.nickname || user.email.split('@')[0]}
                     </span>
@@ -141,6 +155,14 @@ export default function Header({ showCategories = false, selectedCategory, onCat
                     <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1">
                       {user.email !== 'admin@snwa.com' && (
                         <>
+                          <Link
+                            to="/leaderboard"
+                            onClick={() => setShowDropdown(false)}
+                            className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                          >
+                            <Trophy className="w-4 h-4" />
+                            랭킹
+                          </Link>
                           <Link
                             to="/notifications"
                             onClick={() => setShowDropdown(false)}
@@ -168,14 +190,24 @@ export default function Header({ showCategories = false, selectedCategory, onCat
                         </>
                       )}
                       {user.email === 'admin@snwa.com' && (
-                        <Link
-                          to="/admin"
-                          onClick={() => setShowDropdown(false)}
-                          className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                        >
-                          <Settings className="w-4 h-4" />
-                          관리자 페이지
-                        </Link>
+                        <>
+                          <Link
+                            to="/leaderboard"
+                            onClick={() => setShowDropdown(false)}
+                            className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                          >
+                            <Trophy className="w-4 h-4" />
+                            랭킹
+                          </Link>
+                          <Link
+                            to="/admin"
+                            onClick={() => setShowDropdown(false)}
+                            className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                          >
+                            <Settings className="w-4 h-4" />
+                            관리자 페이지
+                          </Link>
+                        </>
                       )}
                       <button
                         onClick={handleLogout}

@@ -64,6 +64,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/**").permitAll() // 테스트용
                         //.requestMatchers("/api/orders/**","/api/coins/**","/api/payments/**").permitAll() //결제테스트용
                                 .requestMatchers(HttpMethod.GET, "/api/articles", "/api/articles/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/exp/leaderboard").permitAll()
                         .anyRequest().authenticated()  // 나머지는 인증 필요
                 );
         
