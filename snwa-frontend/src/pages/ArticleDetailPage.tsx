@@ -4,7 +4,6 @@ import { ArrowLeft, Bookmark } from 'lucide-react';
 import Header from '../components/Header';
 import ArticleCard from '../components/ArticleCard';
 import { formatDate, Article } from '../data/mockArticles';
-
 type ReactionType = 'LIKE' | 'DISLIKE' | 'SAD' | 'ANGRY';
 
 type ApiArticleDetail = {
@@ -167,7 +166,7 @@ export default function ArticleDetailPage() {
     const handleReaction = async (reactionType: ReactionType) => {
         const auth = getAuthHeader();
         if (!auth) {
-            alert('로그인이 필요합니다.');
+            alert('로그인이 필요합니다..');
             navigate('/login');
             return;
         }
@@ -461,17 +460,6 @@ export default function ArticleDetailPage() {
                             <span>{formatDate(article.publishedAt)}</span>
                             <span>·</span>
                             <span>조회 {article.clickCount ?? 0}</span>
-                            <span>·</span>
-                            <span className="inline-flex items-center gap-2">
-                                <span className="text-gray-500">구매</span>
-                                <span
-                                    className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                                        hasUsedCoin ? 'bg-green-600 text-white' : 'bg-gray-500 text-white'
-                                    }`}
-                                >
-                                    {hasUsedCoin ? '완료' : '미구매'}
-                                </span>
-                            </span>
                         </div>
                         {/* 원문 또는 번역본 표시 */}
                         <div className="prose prose-gray max-w-none mb-6">
@@ -536,9 +524,9 @@ export default function ArticleDetailPage() {
                                                 border transform transition-all duration-200
                                                 ${isAnimating ? 'scale-110' : 'scale-100'}
                                                 ${isSelected
-                                                    ? 'bg-blue-50 border-blue-300 text-blue-700 shadow-md ring-2 ring-blue-200'
-                                                    : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100 hover:border-gray-300 hover:scale-105'
-                                                }
+                                                ? 'bg-blue-50 border-blue-300 text-blue-700 shadow-md ring-2 ring-blue-200'
+                                                : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100 hover:border-gray-300 hover:scale-105'
+                                            }
                                                 ${reactionLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer active:scale-95'}
                                             `}
                                         >
@@ -568,9 +556,9 @@ export default function ArticleDetailPage() {
                                         inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-full
                                         border transform transition-all duration-200
                                         ${isBookmarked
-                                            ? 'bg-amber-50 border-amber-300 text-amber-700 shadow-md ring-2 ring-amber-200 fill-amber-600'
-                                            : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100 hover:border-gray-300 hover:scale-105'
-                                        }
+                                        ? 'bg-amber-50 border-amber-300 text-amber-700 shadow-md ring-2 ring-amber-200 fill-amber-600'
+                                        : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100 hover:border-gray-300 hover:scale-105'
+                                    }
                                         ${bookmarkLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer active:scale-95'}
                                     `}
                                 >
