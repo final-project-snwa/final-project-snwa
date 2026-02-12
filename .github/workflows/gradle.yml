@@ -138,46 +138,11 @@ jobs:
             echo "NEW=$NEW (Port:$NEW_PORT), OLD=$OLD"
           
             # 1. 새 컨테이너 빌드 및 실행
-            if [ "$NEW" = "green" ]; then
-              echo "Building green service with --profile deploy..."
-              docker compose --profile deploy build snwa-backend-$NEW
-              echo "Starting green service with --profile deploy..."
-              docker compose --profile deploy up -d snwa-backend-$NEW
-            else
-              docker compose build snwa-backend-$NEW
-              docker compose up -d snwa-backend-$NEW
-            fi
-            
-            # 컨테이너 실행 확인
-            sleep 3
-            if docker ps --format '{{.Names}}' | grep -q "snwa-backend-server-$NEW"; then
-              echo "✅ Container snwa-backend-server-$NEW is running"
-            else
-              echo "⚠️ Container snwa-backend-server-$NEW is not running"
-              docker ps -a --format "table {{.Names}}\t{{.Status}}" | grep "snwa-backend" || true
-            fi
+            docker compose build snwa-backend-$NEW
+            docker compose up -d snwa-backend-$NEW
           
-            # 2. 신규 컨테이너가 뜰 때까지 대기 및 Health Check
-            echo "Waiting for new container to be healthy..."
-            for i in {1..30}; do
-              # 컨테이너가 실행 중인지 확인
-              if docker ps --format '{{.Names}}' | grep -q "snwa-backend-server-$NEW"; then
-                # 컨테이너 내부에서 health check 시도
-                if docker exec snwa-backend-server-$NEW curl -f http://localhost:$NEW_PORT/actuator/health > /dev/null 2>&1 || \
-                   docker exec snwa-backend-server-$NEW curl -f http://localhost:$NEW_PORT/api/health > /dev/null 2>&1 || \
-                   curl -f http://snwa-backend-$NEW:$NEW_PORT/actuator/health > /dev/null 2>&1 || \
-                   curl -f http://snwa-backend-$NEW:$NEW_PORT/api/health > /dev/null 2>&1; then
-                  echo "New container is healthy!"
-                  break
-                fi
-              fi
-              if [ $i -eq 30 ]; then
-                echo "Warning: Health check timeout, but continuing..."
-                echo "Container status:"
-                docker ps -a --format "table {{.Names}}\t{{.Status}}" | grep "snwa-backend-$NEW" || true
-              fi
-              sleep 2
-            done
+            # 2. 신규 컨테이너가 뜰 때까지 잠시 대기 (Health Check 대용)
+            sleep 20
           
             # 3. [핵심] Nginx가 바라보는 변수 파일 수정
             echo "set \$service_url http://snwa-backend-$NEW:$NEW_PORT;" | sudo tee /home/ec2-user/final-project-snwa/nginx/service-url.inc
@@ -187,10 +152,4 @@ jobs:
           
             # 5. 이전 컨테이너 종료
             docker compose stop snwa-backend-$OLD || true
-            
-            # 6. 프론트엔드 컨테이너 재빌드 및 재시작 (코드 변경 시)
-            echo "=== 프론트엔드 재빌드 ==="
-            docker compose build snwa-frontend
-            docker compose up -d snwa-frontend
-            echo "✅ 프론트엔드 배포 완료"
           EOF
