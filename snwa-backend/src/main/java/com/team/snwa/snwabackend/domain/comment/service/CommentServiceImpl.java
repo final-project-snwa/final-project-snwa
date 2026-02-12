@@ -6,6 +6,11 @@ import com.team.snwa.snwabackend.domain.comment.dto.request.CommentRequestDto;
 import com.team.snwa.snwabackend.domain.comment.dto.response.CommentResponseDto;
 import com.team.snwa.snwabackend.domain.comment.entity.Comment;
 import com.team.snwa.snwabackend.domain.comment.repository.CommentRepository;
+import com.team.snwa.snwabackend.domain.exp.dto.ExpGrantInfoDto;
+import com.team.snwa.snwabackend.domain.exp.entity.UserExp;
+import com.team.snwa.snwabackend.domain.exp.repository.UserExpRepository;
+import com.team.snwa.snwabackend.domain.exp.service.ExpGrantService;
+import com.team.snwa.snwabackend.domain.exp.util.LevelCalculator;
 import com.team.snwa.snwabackend.domain.user.entity.User;
 import com.team.snwa.snwabackend.global.exception.CustomException;
 import com.team.snwa.snwabackend.global.exception.ErrorCode;
@@ -14,6 +19,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 
 /**
@@ -31,6 +41,9 @@ public class CommentServiceImpl implements CommentService {
 
     private final CommentRepository commentRepository;
     private final ArticleRepository articleRepository;
+    private final ExpGrantService expGrantService;
+    private final UserExpRepository userExpRepository;
+    private final LevelCalculator levelCalculator;
 
     /**
      * 특정 기사에 새로운 댓글을 작성함
@@ -55,7 +68,26 @@ public class CommentServiceImpl implements CommentService {
                 .build();
 
         commentRepository.save(comment);
-        return CommentResponseDto.from(comment);
+        var expGrantInfo = expGrantService.grantCommentCreate(user.getId(), comment.getId());
+        int authorLevel = getAuthorLevel(user.getId());
+        CommentResponseDto dto = CommentResponseDto.from(comment, user.getId(), authorLevel);
+        if (expGrantInfo != null) {
+            dto = CommentResponseDto.builder()
+                    .commentId(dto.getCommentId())
+                    .content(dto.getContent())
+                    .userId(dto.getUserId())
+                    .nickname(dto.getNickname())
+                    .authorLevel(authorLevel)
+                    .profileImageUrl(dto.getProfileImageUrl())
+                    .isAdmin(dto.isAdmin())
+                    .isMine(dto.isMine())
+                    .createdAt(dto.getCreatedAt())
+                    .updatedAt(dto.getUpdatedAt())
+                    .expGrantInfo(new ExpGrantInfoDto(
+                            expGrantInfo.expGained(), expGrantInfo.levelUp(), expGrantInfo.newLevel()))
+                    .build();
+        }
+        return dto;
     }
 
     /**
@@ -73,8 +105,13 @@ public class CommentServiceImpl implements CommentService {
             throw new CustomException(ErrorCode.ARTICLE_NOT_FOUND);
         }
 
-        return commentRepository.findByArticleId(articleId, pageable)
-                .map(c -> CommentResponseDto.from(c, currentUserId));
+        Page<Comment> commentPage = commentRepository.findByArticleId(articleId, pageable);
+        Set<Long> userIds = commentPage.getContent().stream()
+                .map(c -> c.getUser().getId())
+                .collect(Collectors.toSet());
+        Map<Long, Integer> levelMap = getAuthorLevelMap(userIds);
+
+        return commentPage.map(c -> CommentResponseDto.from(c, currentUserId, levelMap.getOrDefault(c.getUser().getId(), 1)));
     }
 
     /**
@@ -97,7 +134,8 @@ public class CommentServiceImpl implements CommentService {
         validateAuthor(comment, user);
 
         comment.updateContent(requestDto.getContent());
-        return CommentResponseDto.from(comment);
+        int authorLevel = getAuthorLevel(comment.getUser().getId());
+        return CommentResponseDto.from(comment, user.getId(), authorLevel);
     }
 
     /**
@@ -134,5 +172,18 @@ public class CommentServiceImpl implements CommentService {
         if (!comment.getUser().getId().equals(user.getId())) {
             throw new IllegalArgumentException("작성자만 수정/삭제할 수 있습니다.");
         }
+    }
+
+    private Map<Long, Integer> getAuthorLevelMap(Set<Long> userIds) {
+        if (userIds.isEmpty()) return Map.of();
+        List<UserExp> userExps = userExpRepository.findByUserIdIn(userIds);
+        return userExps.stream()
+                .collect(Collectors.toMap(UserExp::getUserId, ue -> levelCalculator.calculateLevel(ue.getTotalExp())));
+    }
+
+    private int getAuthorLevel(Long userId) {
+        return userExpRepository.findByUserId(userId)
+                .map(ue -> levelCalculator.calculateLevel(ue.getTotalExp()))
+                .orElse(1);
     }
 }

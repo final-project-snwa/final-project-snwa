@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Activity, Cpu, Server, Play, Square, RefreshCcw } from 'lucide-react';
+import { Activity, Cpu, Server, Play, Square } from 'lucide-react';
 import { toast } from 'sonner';
 
 type SystemStatus = {

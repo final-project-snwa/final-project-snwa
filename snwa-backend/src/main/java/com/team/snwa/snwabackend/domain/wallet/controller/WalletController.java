@@ -4,8 +4,11 @@ import com.team.snwa.snwabackend.domain.user.entity.User;
 import com.team.snwa.snwabackend.domain.user.repository.UserRepository;
 import com.team.snwa.snwabackend.domain.wallet.dto.request.CoinChargeRequest;
 import com.team.snwa.snwabackend.domain.wallet.dto.request.CoinSpendRequest;
+import com.team.snwa.snwabackend.domain.exp.dto.ExpGrantInfoDto;
+import com.team.snwa.snwabackend.domain.exp.service.ExpGrantService;
 import com.team.snwa.snwabackend.domain.wallet.dto.response.BalanceResponse;
 import com.team.snwa.snwabackend.domain.wallet.dto.response.CoinTransactionResponse;
+import com.team.snwa.snwabackend.domain.wallet.dto.response.CoinUseResponse;
 import com.team.snwa.snwabackend.domain.wallet.service.CoinTransactionService;
 import com.team.snwa.snwabackend.domain.wallet.service.WalletTransactionService;
 import com.team.snwa.snwabackend.global.exception.CustomException;
@@ -24,6 +27,7 @@ public class WalletController {
     private final WalletTransactionService walletTransactionService;
     private final CoinTransactionService coinTransactionService;
     private final UserRepository userRepository;
+    private final ExpGrantService expGrantService;
 
     /**
      * 코인 잔액 조회
@@ -65,20 +69,26 @@ public class WalletController {
      * 코인 사용
      * Method: POST
      * Url: /api/coins/use
+     * - 코인 1개당 경험치 20 지급
      */
     @PostMapping("/use")
-    public CoinTransactionResponse useCoin(
+    public CoinUseResponse useCoin(
             @AuthenticationPrincipal String email,
             @Valid @RequestBody CoinSpendRequest request
     ) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-        return CoinTransactionResponse.from(
-                walletTransactionService.spend(
-                        user,
-                        request.amount(),
-                        request.externalRef()
-                )
+        var tx = walletTransactionService.spend(
+                user,
+                request.amount(),
+                request.externalRef()
+        );
+        var expGrantInfo = expGrantService.grantCoinSpend(
+                user.getId(), request.amount(), request.externalRef());
+        return new CoinUseResponse(
+                CoinTransactionResponse.from(tx),
+                expGrantInfo != null ? new ExpGrantInfoDto(
+                        expGrantInfo.expGained(), expGrantInfo.levelUp(), expGrantInfo.newLevel()) : null
         );
     }
 
