@@ -1,10 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router';
 import { ArrowLeft, Bookmark } from 'lucide-react';
-import { useExpToast } from '../contexts/ExpToastContext';
 import Header from '../components/Header';
 import ArticleCard from '../components/ArticleCard';
-import { LevelBadge } from '../components/LevelBadge';
 import { formatDate, Article } from '../data/mockArticles';
 
 type ReactionType = 'LIKE' | 'DISLIKE' | 'SAD' | 'ANGRY';
@@ -60,7 +58,6 @@ type ApiComment = {
     content: string;
     userId: number;
     nickname: string;
-    authorLevel?: number;
     isAdmin: boolean;
     isMine?: boolean;
     createdAt: string;
@@ -123,7 +120,6 @@ const REACTION_CONFIG: { type: ReactionType; emoji: string; label: string }[] = 
 export default function ArticleDetailPage() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const expToast = useExpToast();
     const [article, setArticle] = useState<Article | null>(null);
     const [relatedArticles, setRelatedArticles] = useState<Article[]>([]);
     const [showOriginal, setShowOriginal] = useState(false);
@@ -153,9 +149,6 @@ export default function ArticleDetailPage() {
     const [commentsLoading, setCommentsLoading] = useState(false);
     const [commentContent, setCommentContent] = useState('');
     const [commentSubmitting, setCommentSubmitting] = useState(false);
-    const [hasMoreComments, setHasMoreComments] = useState(true);
-    const [commentPage, setCommentPage] = useState(0);
-    const [totalCommentCount, setTotalCommentCount] = useState(0);
 
     // 반응 타입별 카운트 가져오기
     const getReactionCount = (type: ReactionType): number => {
@@ -265,10 +258,6 @@ export default function ArticleDetailPage() {
                 alert(err.message ?? '코인 사용에 실패했습니다. 잔액을 확인해 주세요.');
                 return;
             }
-            const data = await res.json().catch(() => ({}));
-            if (data?.expGrantInfo && expToast) {
-                expToast.showExpToast(data.expGrantInfo);
-            }
             // 코인 사용 성공 후 기사 정보 다시 가져오기
             await refetchArticle();
             setShowOriginal(false); // 번역본을 기본으로 표시
@@ -323,22 +312,11 @@ export default function ArticleDetailPage() {
             const data = await res.json();
             const list = data?.content ?? [];
             setComments((prev) => (append ? [...prev, ...list] : list));
-            setHasMoreComments(!(data?.last ?? true));
-            setCommentPage(page);
-            if (!append || page === 0) {
-                setTotalCommentCount(data?.totalElements ?? list.length);
-            }
         } catch {
             setComments([]);
-            setHasMoreComments(false);
         } finally {
             setCommentsLoading(false);
         }
-    };
-
-    /** 댓글 더 보기 */
-    const loadMoreComments = () => {
-        fetchComments(commentPage + 1, true);
     };
 
     /** 댓글 작성 */
@@ -358,12 +336,7 @@ export default function ArticleDetailPage() {
                 body: JSON.stringify({ content: commentContent.trim() }),
             });
             if (res.ok) {
-                const data = await res.json().catch(() => ({}));
-                if (data?.expGrantInfo && expToast) {
-                    expToast.showExpToast(data.expGrantInfo);
-                }
                 setCommentContent('');
-                setTotalCommentCount((prev) => prev + 1);
                 fetchComments(0, false);
             } else {
                 const err = await res.json().catch(() => ({}));
@@ -389,7 +362,6 @@ export default function ArticleDetailPage() {
             });
             if (res.ok) {
                 setComments((prev) => prev.filter((c) => c.commentId !== commentId));
-                setTotalCommentCount((prev) => Math.max(0, prev - 1));
             }
         } catch {
             alert('삭제에 실패했습니다.');
@@ -612,9 +584,7 @@ export default function ArticleDetailPage() {
 
                 {/* 댓글 섹션 */}
                 <section className="mt-12">
-                    <h2 className="text-xl font-bold text-gray-900 mb-4">
-                        댓글 ({totalCommentCount > 0 ? totalCommentCount : comments.length})
-                    </h2>
+                    <h2 className="text-xl font-bold text-gray-900 mb-4">댓글 ({comments.length})</h2>
 
                     {/* 댓글 작성 폼 */}
                     <div className="mb-6">
@@ -642,51 +612,33 @@ export default function ArticleDetailPage() {
                     ) : comments.length === 0 ? (
                         <p className="text-sm text-gray-500 py-4">아직 댓글이 없습니다.</p>
                     ) : (
-                        <>
-                            <ul className="space-y-4">
-                                {comments.map((c) => (
-                                    <li key={c.commentId} className="flex flex-col gap-1 p-4 bg-gray-50 rounded-lg border border-gray-100">
-                                        <div className="flex items-center justify-between gap-2">
-                                            <div className="flex items-center gap-2 flex-wrap">
-                                                <span className="font-medium text-gray-900">
-                                                    {c.nickname ?? '알 수 없음'}
-                                                </span>
-                                                {c.authorLevel != null && c.authorLevel > 0 && (
-                                                    <LevelBadge level={c.authorLevel} />
-                                                )}
-                                                {c.isAdmin && (
-                                                    <span className="text-xs font-semibold text-gray-900">관리자</span>
-                                                )}
-                                                <span className="text-xs text-gray-500">{formatDate(c.createdAt)}</span>
-                                            </div>
-                                            {c.isMine && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleDeleteComment(c.commentId)}
-                                                    className="text-xs text-gray-500 hover:text-red-600"
-                                                >
-                                                    삭제
-                                                </button>
+                        <ul className="space-y-4">
+                            {comments.map((c) => (
+                                <li key={c.commentId} className="flex flex-col gap-1 p-4 bg-gray-50 rounded-lg border border-gray-100">
+                                    <div className="flex items-center justify-between gap-2">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <span className="font-medium text-gray-900">
+                                                {c.nickname ?? '알 수 없음'}
+                                            </span>
+                                            {c.isAdmin && (
+                                                <span className="text-xs font-semibold text-gray-900">관리자</span>
                                             )}
+                                            <span className="text-xs text-gray-500">{formatDate(c.createdAt)}</span>
                                         </div>
-                                        <p className="text-gray-700 whitespace-pre-wrap">{c.content}</p>
-                                    </li>
-                                ))}
-                            </ul>
-                            {hasMoreComments && comments.length > 0 && !commentsLoading && (
-                                <button
-                                    type="button"
-                                    onClick={loadMoreComments}
-                                    disabled={commentsLoading}
-                                    className="mt-4 w-full py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-50"
-                                >
-                                    댓글 더 보기
-                                </button>
-                            )}
-                            {hasMoreComments && commentsLoading && comments.length > 10 && (
-                                <p className="mt-4 text-center text-sm text-gray-500">댓글 불러오는 중...</p>
-                            )}
-                        </>
+                                        {c.isMine && (
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDeleteComment(c.commentId)}
+                                                className="text-xs text-gray-500 hover:text-red-600"
+                                            >
+                                                삭제
+                                            </button>
+                                        )}
+                                    </div>
+                                    <p className="text-gray-700 whitespace-pre-wrap">{c.content}</p>
+                                </li>
+                            ))}
+                        </ul>
                     )}
                 </section>
 
