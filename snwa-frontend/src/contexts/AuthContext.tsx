@@ -6,6 +6,12 @@ interface User {
   preferredSports: string[];
 }
 
+export interface ExpGrantInfo {
+  expGained: number;
+  levelUp: boolean;
+  newLevel: number;
+}
+
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<boolean>;
@@ -15,6 +21,9 @@ interface AuthContextType {
   /** 당일 첫 로그인 시 출석 코인 지급됐을 때 true. 모달 닫으면 clearAttendanceRewardFlag() 호출 */
   attendanceRewardJustGiven: boolean;
   clearAttendanceRewardFlag: () => void;
+  /** 출석 경험치 지급 정보 (토스트 표시용) */
+  expGrantInfo: ExpGrantInfo | null;
+  clearExpGrantInfo: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -22,6 +31,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [attendanceRewardJustGiven, setAttendanceRewardJustGiven] = useState(false);
+  const [expGrantInfo, setExpGrantInfo] = useState<ExpGrantInfo | null>(null);
 
   // Load user from sessionStorage on mount (탭/창 닫으면 로그아웃됨)
   useEffect(() => {
@@ -52,7 +62,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       const contentType = response.headers.get('content-type');
-      let data: { token?: string; attendanceRewardGiven?: boolean } = {};
+      let data: {
+        token?: string;
+        attendanceRewardGiven?: boolean;
+        expGrantInfo?: { expGained: number; levelUp: boolean; newLevel: number };
+      } = {};
       if (contentType && contentType.includes('application/json')) {
         const text = await response.text();
         if (text) data = JSON.parse(text);
@@ -66,6 +80,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(userData);
       if (data.attendanceRewardGiven === true) {
         setAttendanceRewardJustGiven(true);
+      }
+      if (data.expGrantInfo) {
+        setExpGrantInfo(data.expGrantInfo);
       }
       return true;
     } catch {
@@ -89,11 +106,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     setUser(null);
     setAttendanceRewardJustGiven(false);
+    setExpGrantInfo(null);
     sessionStorage.removeItem('snwa_user');
     sessionStorage.removeItem('snwa_token');
   };
 
   const clearAttendanceRewardFlag = () => setAttendanceRewardJustGiven(false);
+  const clearExpGrantInfo = () => setExpGrantInfo(null);
 
   const updatePreferences = (sports: string[]) => {
     if (user) {
@@ -104,7 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, signup, logout, updatePreferences, attendanceRewardJustGiven, clearAttendanceRewardFlag }}>
+    <AuthContext.Provider value={{ user, login, signup, logout, updatePreferences, attendanceRewardJustGiven, clearAttendanceRewardFlag, expGrantInfo, clearExpGrantInfo }}>
       {children}
     </AuthContext.Provider>
   );
