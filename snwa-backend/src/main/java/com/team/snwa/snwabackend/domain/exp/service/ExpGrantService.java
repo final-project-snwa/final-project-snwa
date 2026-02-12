@@ -32,7 +32,7 @@ public class ExpGrantService {
     private static final int ATTENDANCE_STREAK_BONUS_MAX = 35;
     private static final int COMMENT_CREATE_EXP = 10;
     private static final int COMMENT_DAILY_LIMIT = 20;
-    private static final int COIN_SPEND_EXP_PER_COIN = 20;
+    private static final int COIN_SPEND_EXP_PER_COIN = 200;
 
     /**
      * 코인 사용 경험치 지급 (코인 1개당 20 EXP)
