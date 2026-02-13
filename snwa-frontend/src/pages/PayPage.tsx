@@ -1,268 +1,219 @@
-import { useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router";
+import { useEffect, useRef, useState } from "react";
+import { useLocation, useSearchParams } from "react-router";
 
-type Status = "loading" | "success" | "error";
+declare global {
+    interface Window {
+        TossPayments: any;
+    }
+}
 
-export default function PaySuccessPage() {
-    const [sp] = useSearchParams();
-    const navigate = useNavigate();
+type OrderCreateResponse = {
+    orderId: string;
+    orderName: string;
+    amount: number;
+};
 
-    const [status, setStatus] = useState<Status>("loading");
-    const [step, setStep] = useState("결제 정보를 확인하고 있습니다.");
-    const [err, setErr] = useState<string | null>(null);
+type PayLocationState =
+    | { policyId?: number; orderId?: string; orderName?: string; amount?: number }
+    | null;
+
+const toNumber = (v: string | null): number | null => {
+    if (v == null) return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+};
+
+export default function PayPage() {
+    const location = useLocation();
+    const [searchParams] = useSearchParams();
+
+    const [prepared, setPrepared] = useState<OrderCreateResponse | null>(null);
+    const [currentPolicyId, setCurrentPolicyId] = useState<number | null>(null);
+    const [prepareError, setPrepareError] = useState<string | null>(null);
+
+    const widgetRef = useRef<any>(null);
+    const initedRef = useRef(false);
+
+    const clientKey = import.meta.env.VITE_TOSS_CLIENT_KEY as string | undefined;
 
     useEffect(() => {
-        let alive = true;
+        const state = location.state as PayLocationState;
 
+        // ✅ 0) URL 쿼리스트링에서도 주문정보 받기
+        const qpPolicyId = toNumber(searchParams.get("policyId"));
+        const qpOrderId = searchParams.get("orderId");
+        const qpOrderName = searchParams.get("orderName");
+        const qpAmount = toNumber(searchParams.get("amount"));
+
+        // policyId 결정: state > query > default(1)
+        const policyId = state?.policyId ?? qpPolicyId ?? 1;
+        setCurrentPolicyId(policyId);
+
+        // ✅ 1) state로 주문정보를 넘겨받았으면 그대로 사용
+        if (state?.orderId && state?.orderName != null && state?.amount != null) {
+            const next = { orderId: state.orderId, orderName: state.orderName, amount: state.amount };
+            setPrepared(next);
+            initedRef.current = false; // prepared 바뀌면 위젯 다시 초기화 가능
+            return;
+        }
+
+        // ✅ 2) 쿼리스트링으로 주문정보가 있으면 그대로 사용
+        if (qpOrderId && qpOrderName != null && qpAmount != null) {
+            const next = { orderId: qpOrderId, orderName: qpOrderName, amount: qpAmount };
+            setPrepared(next);
+            initedRef.current = false;
+            return;
+        }
+        let cancelled = false;
         (async () => {
             try {
-                setStatus("loading");
-                setErr(null);
-
-                const paymentKey = sp.get("paymentKey");
-                const orderId = sp.get("orderId");
-                const amount = sp.get("amount");
-                const policyId = sp.get("policyId");
-
-                if (!paymentKey || !orderId || !amount) {
-                    throw new Error("successUrl 파라미터가 누락되었습니다. (paymentKey/orderId/amount)");
-                }
-
-                setStep("로그인 상태를 확인하고 있습니다.");
                 const token = sessionStorage.getItem("snwa_token");
                 if (!token) {
-                    throw new Error("로그인이 필요합니다. 다시 로그인해 주십시오.");
+                    setPrepareError("로그인이 필요합니다. 다시 로그인 후 시도해주세요.");
+                    return;
                 }
 
-                setStep("결제 승인을 요청하고 있습니다.");
-                const res = await fetch("/api/payments/confirm", {
+                const res = await fetch("/api/orders", {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
                         Authorization: `Bearer ${token}`,
                     },
-                    body: JSON.stringify({
-                        paymentKey,
-                        orderId,
-                        amount: Number(amount),
-                    }),
+                    body: JSON.stringify({ policyId }),
                 });
 
-                const body = await res.json().catch(() => null);
-
                 if (!res.ok) {
-                    const msg =
-                        body?.message ||
-                        body?.error ||
-                        body?.code ||
-                        (body ? JSON.stringify(body) : "") ||
-                        "결제 승인에 실패했습니다.";
-                    throw new Error(`${res.status} ${msg}`);
+                    const text = await res.text();
+                    console.error("order create failed", res.status, text);
+                    setPrepareError(`주문 생성 실패: ${res.status}`);
+                    return;
                 }
 
-                setStep("승인 처리 후 정리 작업을 진행하고 있습니다.");
-                if (policyId) {
-                    sessionStorage.removeItem(`pay_prepared_policy_${policyId}`);
-                }
+                const data: OrderCreateResponse = await res.json();
+                if (cancelled) return;
 
-                if (!alive) return;
-
-                setStatus("success");
-                setStep("결제가 완료되었습니다. 잠시 후 이동합니다.");
-
-                setTimeout(() => {
-                    navigate("/coins", { replace: true });
-                }, 600);
-            } catch (e: any) {
-                if (!alive) return;
-                setStatus("error");
-                setStep("결제 처리에 실패했습니다.");
-                setErr(e?.message ?? "알 수 없는 오류가 발생했습니다.");
+                setPrepared(data);
+                initedRef.current = false;
+            } catch (e) {
+                console.error("order create exception", e);
+                setPrepareError("주문 생성 중 오류가 발생했습니다.");
             }
         })();
 
         return () => {
-            alive = false;
+            cancelled = true;
         };
-    }, [sp, navigate]);
+    }, [location.state, searchParams]);
 
-    const onRetry = () => {
-        window.location.reload();
+    const initWidget = async () => {
+        if (!prepared) return;
+
+        if (!clientKey) {
+            setPrepareError("VITE_TOSS_CLIENT_KEY가 설정되지 않았습니다.");
+            return;
+        }
+        if (!window.TossPayments) {
+            setPrepareError("TossPayments 스크립트가 아직 로딩되지 않았습니다.");
+            return;
+        }
+
+        // ✅ 위젯 DOM 초기화
+        const pmEl = document.querySelector("#payment-method");
+        const agEl = document.querySelector("#agreement");
+        if (pmEl) (pmEl as HTMLElement).innerHTML = "";
+        if (agEl) (agEl as HTMLElement).innerHTML = "";
+
+        const tossPayments = window.TossPayments(clientKey);
+        const widgets = tossPayments.widgets({ customerKey: "ANONYMOUS" });
+
+        await widgets.setAmount({ currency: "KRW", value: prepared.amount });
+
+        await Promise.all([
+            widgets.renderPaymentMethods({ selector: "#payment-method", variantKey: "DEFAULT" }),
+            widgets.renderAgreement({ selector: "#agreement", variantKey: "AGREEMENT" }),
+        ]);
+
+        widgetRef.current = widgets;
     };
 
-    const goHome = () => navigate("/", { replace: true });
-    const goLogin = () => navigate("/login", { replace: true });
+    useEffect(() => {
+        if (!prepared) return;
+        if (initedRef.current) return;
+
+        initedRef.current = true;
+        initWidget().catch((e) => {
+            console.error("initWidget failed", e);
+            initedRef.current = false;
+        });
+    }, [prepared]);
+
+    const requestPay = async () => {
+        if (!prepared || !widgetRef.current) return;
+
+        try {
+            const origin = window.location.origin;
+            const successParams = currentPolicyId != null ? `?policyId=${currentPolicyId}` : "";
+            await widgetRef.current.requestPayment({
+                orderId: prepared.orderId,
+                orderName: prepared.orderName,
+                successUrl: `${origin}/pay/success${successParams}`,
+                failUrl: `${origin}/pay/fail`,
+            });
+        } catch (e) {
+            console.warn("결제창 닫힘/취소/실패", e);
+        }
+    };
 
     return (
-        <div style={styles.page}>
-            <div style={styles.card}>
-                <div style={styles.headerRow}>
-                    {status === "loading" && <Spinner />}
-                    {status !== "loading" && <StatusBadge status={status} />}
-                    <div>
-                        <h1 style={styles.title}>
-                            {status === "loading" && "결제 처리 중입니다"}
-                            {status === "success" && "결제가 완료되었습니다"}
-                            {status === "error" && "결제 처리에 실패했습니다"}
-                        </h1>
-                        <p style={styles.sub}>{step}</p>
+        <div className="min-h-screen bg-gray-50">
+            <main className="max-w-3xl mx-auto px-4 py-8">
+                <h1 className="text-2xl font-bold text-gray-900 mb-6">결제</h1>
+
+                {!prepared && !prepareError && (
+                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                        <p className="text-sm text-gray-500">주문 생성 중...</p>
                     </div>
-                </div>
-
-                <div style={styles.hr} />
-
-                {status === "loading" && (
-                    <ul style={styles.bullets}>
-                        <li>잠시만 기다려 주십시오.</li>
-                        <li>네트워크 상황에 따라 처리 시간이 소요될 수 있습니다.</li>
-                        <li>창을 닫지 말고 기다려 주시기 바랍니다.</li>
-                    </ul>
                 )}
-
-                {status === "success" && (
-                    <div style={styles.successBox}>
-                        결제가 정상적으로 완료되었습니다. 코인 페이지로 이동합니다.
+                {prepareError && (
+                    <div className="bg-white rounded-xl border border-red-200 shadow-sm p-6">
+                        <p className="text-sm text-red-600">{prepareError}</p>
                     </div>
                 )}
 
-                {status === "error" && (
-                    <div>
-                        <div style={styles.errorBox}>
-                            <div style={styles.errorTitle}>오류 내용</div>
-                            <pre style={styles.errorText}>{err}</pre>
+                {prepared && (
+                    <>
+                        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 mb-6">
+                            <h2 className="text-lg font-semibold text-gray-900 mb-4">주문서</h2>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <p className="text-xs text-gray-500">코인</p>
+                                    <p className="text-base font-semibold text-gray-900">{prepared.orderName}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-gray-500">결제금액</p>
+                                    <p className="text-base font-semibold text-gray-900">
+                                        {prepared.amount.toLocaleString()}원
+                                    </p>
+                                </div>
+                            </div>
                         </div>
 
-                        <div style={styles.buttonRow}>
-                            <button style={styles.btnPrimary} onClick={onRetry}>
-                                다시 시도
-                            </button>
-                            <button style={styles.btn} onClick={goHome}>
-                                홈으로 이동
-                            </button>
-                            <button style={styles.btn} onClick={goLogin}>
-                                로그인 페이지로 이동
+                        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                            <h2 className="text-lg font-semibold text-gray-900 mb-4">결제 수단</h2>
+                            <div id="payment-method" />
+                            <div id="agreement" className="mt-4" />
+
+                            <button
+                                type="button"
+                                className="mt-6 w-full rounded-lg bg-gray-900 px-4 py-3 text-sm font-semibold text-white hover:bg-gray-800 transition-colors"
+                                onClick={requestPay}
+                            >
+                                결제하기
                             </button>
                         </div>
-
-                        <p style={styles.help}>
-                            문제가 지속될 경우 결제 내역을 확인하시거나 고객센터로 문의해 주시기 바랍니다.
-                        </p>
-                    </div>
+                    </>
                 )}
-            </div>
+            </main>
         </div>
     );
 }
-
-function StatusBadge({ status }: { status: Status }) {
-    const text =
-        status === "success" ? "완료" : status === "error" ? "실패" : "진행";
-    return <div style={styles.badge}>{text}</div>;
-}
-
-function Spinner() {
-    return (
-        <div style={styles.spinnerWrap} aria-label="loading">
-            <div style={styles.spinner} />
-            <style>
-                {`
-          @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-          }
-        `}
-            </style>
-        </div>
-    );
-}
-
-const styles: Record<string, React.CSSProperties> = {
-    page: {
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 24,
-        background: "#f6f7f9",
-    },
-    card: {
-        width: "min(560px, 100%)",
-        background: "white",
-        borderRadius: 16,
-        padding: 20,
-        boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
-        border: "1px solid rgba(0,0,0,0.06)",
-    },
-    headerRow: { display: "flex", gap: 14, alignItems: "center" },
-    title: { margin: 0, fontSize: 22, lineHeight: 1.2 },
-    sub: { margin: "6px 0 0", color: "#555", fontSize: 14 },
-    hr: { height: 1, background: "rgba(0,0,0,0.08)", margin: "16px 0" },
-
-    bullets: { margin: 0, paddingLeft: 18, color: "#333", lineHeight: 1.6 },
-
-    successBox: {
-        padding: 12,
-        borderRadius: 12,
-        background: "#f0fff4",
-        border: "1px solid #c6f6d5",
-        color: "#22543d",
-        fontSize: 14,
-    },
-
-    errorBox: {
-        padding: 12,
-        borderRadius: 12,
-        background: "#fff5f5",
-        border: "1px solid #fed7d7",
-    },
-    errorTitle: { fontSize: 13, fontWeight: 700, marginBottom: 8, color: "#742a2a" },
-    errorText: {
-        margin: 0,
-        whiteSpace: "pre-wrap",
-        wordBreak: "break-word",
-        fontSize: 12,
-        color: "#742a2a",
-    },
-    buttonRow: { display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" },
-    btnPrimary: {
-        border: "none",
-        background: "#111827",
-        color: "white",
-        padding: "10px 12px",
-        borderRadius: 10,
-        cursor: "pointer",
-        fontWeight: 700,
-    },
-    btn: {
-        border: "1px solid rgba(0,0,0,0.15)",
-        background: "white",
-        color: "#111827",
-        padding: "10px 12px",
-        borderRadius: 10,
-        cursor: "pointer",
-        fontWeight: 600,
-    },
-    help: { marginTop: 10, color: "#555", fontSize: 13, lineHeight: 1.5 },
-
-    badge: {
-        width: 42,
-        height: 42,
-        borderRadius: 12,
-        display: "grid",
-        placeItems: "center",
-        fontSize: 12,
-        fontWeight: 800,
-        background: "rgba(0,0,0,0.06)",
-        color: "#111827",
-    },
-
-    spinnerWrap: { width: 42, height: 42, display: "grid", placeItems: "center" },
-    spinner: {
-        width: 28,
-        height: 28,
-        borderRadius: "50%",
-        border: "3px solid rgba(0,0,0,0.12)",
-        borderTop: "3px solid rgba(0,0,0,0.6)",
-        animation: "spin 0.9s linear infinite",
-    },
-};
