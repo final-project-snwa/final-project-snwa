@@ -4,5 +4,5 @@ import com.team.snwa.snwabackend.domain.translation.dto.request.CrawledArticleRe
 import com.team.snwa.snwabackend.domain.translation.dto.response.TranslatedArticleResponseDto;
 
 public interface TranslationClient {
-    TranslatedArticleResponseDto translate(CrawledArticleRequestDto request);
+    TranslatedArticleResponseDto translate(CrawledArticleRequestDto request, String targetLang);
 }

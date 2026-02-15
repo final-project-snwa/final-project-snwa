@@ -2,9 +2,11 @@ package com.team.snwa.snwabackend.domain.article.controller;
 
 import com.team.snwa.snwabackend.domain.article.dto.ArticleDetailResponseDto;
 import com.team.snwa.snwabackend.domain.article.dto.ArticleListResponseDto;
-import com.team.snwa.snwabackend.domain.article.entity.Category;
 import com.team.snwa.snwabackend.domain.article.dto.request.ArticleCreateRequestDto;
+import com.team.snwa.snwabackend.domain.article.entity.Category;
 import com.team.snwa.snwabackend.domain.article.service.ArticleService;
+import com.team.snwa.snwabackend.domain.translation.dto.response.TranslatedArticleResponseDto;
+import com.team.snwa.snwabackend.domain.translation.service.TranslationService;
 import com.team.snwa.snwabackend.domain.user.entity.User;
 import com.team.snwa.snwabackend.domain.user.repository.UserRepository;
 import jakarta.validation.Valid;
@@ -26,6 +28,7 @@ public class ArticleController {
 
     private final ArticleService articleService;
     private final UserRepository userRepository;
+    private final TranslationService translationService;
 
     /** Principal(이메일)이 있으면 User 조회, 없으면 null — 카테고리별 클릭(ClickLog)용 */
     private User resolveUser(Principal principal) {
@@ -169,5 +172,22 @@ public class ArticleController {
     public ResponseEntity<Void> deleteArticle(@PathVariable Long id) {
         articleService.deleteArticle(id);
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * 기사 번역 조회 (On-Demand)
+     * 프론트엔드에서 /api/articles/{id}/translation?lang=KO 형태로 호출
+     */
+    @GetMapping("/{id}/translation")
+    public ResponseEntity<TranslatedArticleResponseDto> getTranslatedArticle(
+            Principal principal,
+            @PathVariable Long id,
+            @RequestParam(required = false) String lang) {
+        User user = resolveUser(principal);
+        if (user == null) {
+            throw new RuntimeException("로그인이 필요합니다.");
+        }
+        TranslatedArticleResponseDto response = translationService.getTranslation(user.getId(), id, lang);
+        return ResponseEntity.ok(response);
     }
 }

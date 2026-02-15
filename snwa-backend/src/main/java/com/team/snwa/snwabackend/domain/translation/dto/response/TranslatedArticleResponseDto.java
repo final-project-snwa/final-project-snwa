@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Getter
 @Builder
 @NoArgsConstructor
@@ -17,4 +19,6 @@ public class TranslatedArticleResponseDto {
     private String authorName;
     private String publisherName;
     private String originalUrl;
+    private String summary;
+    private List<String> tags;
 }

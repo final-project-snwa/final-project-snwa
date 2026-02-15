@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router';
-import { ArrowLeft, Bookmark } from 'lucide-react';
+import { ArrowLeft, Bookmark, ChevronDown } from 'lucide-react';
 import Header from '../components/Header';
 import ArticleCard from '../components/ArticleCard';
 import { formatDate, Article } from '../data/mockArticles';
@@ -23,13 +23,12 @@ type ApiArticleDetail = {
     updatedDate: string;
     isBookmarked: boolean;
     clickCount: number;
-    /** 해당 기사에 코인을 사용했는지 (true면 번역 본문 공개) */
-    hasUsedCoin: boolean;
     likeCount: number;
     dislikeCount: number;
     sadCount: number;
     angryCount: number;
     userReaction: ReactionType | null;
+    purchasedTranslationLanguages?: string[];
 };
 
 type ReactionCounts = {
@@ -77,6 +76,19 @@ function getAuthHeader(): Record<string, string> | null {
     return { Authorization: `Bearer ${token}` };
 }
 
+function checkIsAdmin(): boolean {
+    const token = sessionStorage.getItem('snwa_token');
+    if (!token) return false;
+    try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+
+        // payload 구조에따라 'auth' 또는 'role' 필드 확인 (프로젝트마다 다름, 보통 'auth': 'ROLE_ADMIN' 등)
+        return payload.auth === 'ROLE_ADMIN' || payload.role === 'ROLE_ADMIN';
+    } catch (e) {
+        return false;
+    }
+}
+
 function mapDetailToArticle(d: ApiArticleDetail): Article {
     const createdStr = d.createdDate?.replace('Z', '') ?? new Date().toISOString().slice(0, 19);
     return {
@@ -90,6 +102,8 @@ function mapDetailToArticle(d: ApiArticleDetail): Article {
         translatedContent: d.translatedContent ?? '',
         originalContent: d.content ?? '',
         clickCount: d.clickCount ?? 0,
+        summary: d.summary ?? undefined,
+        purchasedTranslationLanguages: d.purchasedTranslationLanguages ?? [],
     };
 }
 
@@ -117,18 +131,29 @@ const REACTION_CONFIG: { type: ReactionType; emoji: string; label: string }[] = 
     { type: 'ANGRY', emoji: '😠', label: '화나요' },
 ];
 
+// 언어 옵션
+const LANGUAGE_OPTIONS = [
+    { value: 'KO', label: '한국어' },
+    { value: 'EN', label: 'English' },
+    { value: 'JA', label: '日本語' },
+    { value: 'ZH', label: '中文' },
+] as const;
+
 export default function ArticleDetailPage() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const [article, setArticle] = useState<Article | null>(null);
     const [relatedArticles, setRelatedArticles] = useState<Article[]>([]);
-    const [showOriginal, setShowOriginal] = useState(false);
+    const [showOriginal, setShowOriginal] = useState(true);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    /** API에서 내려준 코인 사용 여부 (false면 summary만 표시, true면 translatedContent 표시) */
-    const [hasUsedCoin, setHasUsedCoin] = useState(false);
-    const [articleSummary, setArticleSummary] = useState<string | null>(null);
-    const [useCoinLoading, setUseCoinLoading] = useState(false);
+
+    // [변경] 언어 선택 상태 (Dropdown용)
+    const [targetLang, setTargetLang] = useState<'KO' | 'EN' | 'JA' | 'ZH'>('KO');
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    const [translateLoading, setTranslateLoading] = useState(false);
 
     // 감정 반응 상태
     const [reactions, setReactions] = useState<ReactionCounts>({
@@ -163,6 +188,19 @@ export default function ArticleDetailPage() {
     // 애니메이션 상태 (클릭된 버튼)
     const [animatingType, setAnimatingType] = useState<ReactionType | null>(null);
 
+    // 드롭다운 외부 클릭 감지
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setIsDropdownOpen(false);
+            }
+        }
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, []);
+
     // 반응 클릭 핸들러
     const handleReaction = async (reactionType: ReactionType) => {
         const auth = getAuthHeader();
@@ -190,7 +228,6 @@ export default function ArticleDetailPage() {
 
             if (res.ok) {
                 const data = await res.json();
-                // userReaction이 빈 문자열이면 null로 처리
                 const userReactionValue = data.userReaction && data.userReaction !== ''
                     ? (data.userReaction as ReactionType)
                     : null;
@@ -211,61 +248,53 @@ export default function ArticleDetailPage() {
         }
     };
 
-    /** 기사 정보 다시 가져오기 (코인 사용 후 번역본 업데이트용) */
-    const refetchArticle = async () => {
+    /** 번역 요청 핸들러 */
+    const handleTranslate = async () => {
         if (!id) return;
-        const headers: Record<string, string> = {};
-        const auth = getAuthHeader();
-        if (auth) Object.assign(headers, auth);
-        try {
-            const res = await fetch(`/api/articles/${id}?recordView=false`, { headers });
-            if (!res.ok) return;
-            const data: ApiArticleDetail = await res.json();
-            setArticle(mapDetailToArticle(data));
-            setHasUsedCoin(data.hasUsedCoin ?? false);
-            setIsBookmarked(data.isBookmarked ?? false);
-            setArticleSummary(data.summary ?? null);
-            setReactions({
-                likeCount: data.likeCount ?? 0,
-                dislikeCount: data.dislikeCount ?? 0,
-                sadCount: data.sadCount ?? 0,
-                angryCount: data.angryCount ?? 0,
-                userReaction: data.userReaction ?? null,
-            });
-        } catch (e) {
-            console.error('기사 정보 다시 가져오기 실패:', e);
-        }
-    };
 
-    /** 코인 사용하기: 기사 전체 번역 본문 열기 */
-    const handleUseCoin = async () => {
         const auth = getAuthHeader();
         if (!auth) {
             alert('로그인이 필요합니다.');
             navigate('/login');
             return;
         }
-        if (!id || useCoinLoading) return;
-        setUseCoinLoading(true);
-        try {
-            const res = await fetch('/api/coins/use', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', ...auth },
-                body: JSON.stringify({ amount: 1, externalRef: `ARTICLE_${id}` }),
-            });
-            if (!res.ok) {
-                const err = await res.json().catch(() => ({}));
-                alert(err.message ?? '코인 사용에 실패했습니다. 잔액을 확인해 주세요.');
+
+        const purchasedLangs = article?.purchasedTranslationLanguages ?? [];
+        const alreadyPurchased = purchasedLangs.includes(targetLang);
+        const isAdmin = checkIsAdmin();
+
+        if (!alreadyPurchased && !isAdmin) {
+            const langName = LANGUAGE_OPTIONS.find(o => o.value === targetLang)?.label || targetLang;
+            if (!confirm(`${langName} 번역-요약하기 버튼을 누르면 코인 1개를 사용해서 번역본을 열람합니다.\n(이미 구매한 경우 차감되지 않습니다)\n계속하시겠습니까?`)) {
                 return;
             }
-            // 코인 사용 성공 후 기사 정보 다시 가져오기
-            await refetchArticle();
-            setShowOriginal(false); // 번역본을 기본으로 표시
+        }
+
+        setTranslateLoading(true);
+        try {
+            const res = await fetch(`/api/articles/${id}/translation?lang=${targetLang}`, {
+                headers: auth,
+            });
+            if (!res.ok) throw new Error('번역을 불러오는데 실패했습니다.');
+
+            const data = await res.json();
+
+            setArticle(prev => prev ? {
+                ...prev,
+                translatedTitle: data.translatedTitle,
+                translatedContent: data.translatedContent,
+                summary: data.summary,
+                purchasedTranslationLanguages: prev.purchasedTranslationLanguages?.includes(targetLang)
+                    ? prev.purchasedTranslationLanguages
+                    : [...(prev.purchasedTranslationLanguages ?? []), targetLang],
+            } : null);
+
+            setShowOriginal(false);
         } catch (e) {
             console.error(e);
-            alert('코인 사용에 실패했습니다.');
+            alert('번역을 가져오는데 실패했습니다.');
         } finally {
-            setUseCoinLoading(false);
+            setTranslateLoading(false);
         }
     };
 
@@ -387,9 +416,7 @@ export default function ArticleDetailPage() {
             })
             .then((data: ApiArticleDetail) => {
                 setArticle(mapDetailToArticle(data));
-                setHasUsedCoin(data.hasUsedCoin ?? false);
                 setIsBookmarked(data.isBookmarked ?? false);
-                setArticleSummary(data.summary ?? null);
                 setReactions({
                     likeCount: data.likeCount ?? 0,
                     dislikeCount: data.dislikeCount ?? 0,
@@ -462,43 +489,69 @@ export default function ArticleDetailPage() {
                             <span>·</span>
                             <span>조회 {article.clickCount ?? 0}</span>
                         </div>
-                        {/* 원문 또는 번역본 표시 */}
-                        <div className="prose prose-gray max-w-none mb-6">
-                            {/* 번역하기 버튼 또는 원문/번역본 토글 버튼 - 본문 영역 위쪽 */}
-                            <div className="flex justify-end mb-6">
-                                {!hasUsedCoin ? (
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            if (confirm('코인 1개를 사용해서 번역본을 열람합니다.')) {
-                                                handleUseCoin();
-                                            }
-                                        }}
-                                        disabled={useCoinLoading}
-                                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-60 disabled:cursor-not-allowed transition-colors whitespace-nowrap shadow-sm mr-4"
-                                    >
-                                        {useCoinLoading ? '처리 중...' : '번역 · 요약하기'}
-                                    </button>
-                                ) : (
-                                    <button
-                                        onClick={() => setShowOriginal(!showOriginal)}
-                                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors whitespace-nowrap shadow-sm mr-4"
-                                    >
-                                        {showOriginal ? '번역 · 요약하기' : '원문 보기'}
-                                    </button>
+
+                        {/* 번역 기능 컨트롤러 (드롭다운 UI) */}
+                        <div className="flex items-center gap-2 mt-4 mb-6 relative">
+                            {/* 언어 선택 드롭다운 */}
+                            <div className="relative" ref={dropdownRef}>
+                                <button
+                                    onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                                    className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors shadow-sm min-w-[120px] justify-between"
+                                >
+                                    {LANGUAGE_OPTIONS.find(opt => opt.value === targetLang)?.label}
+                                    <ChevronDown className={`w-4 h-4 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+                                </button>
+
+                                {isDropdownOpen && (
+                                    <div className="absolute top-full left-0 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden z-10 py-1">
+                                        {LANGUAGE_OPTIONS.map((option) => (
+                                            <button
+                                                key={option.value}
+                                                onClick={() => {
+                                                    setTargetLang(option.value);
+                                                    setIsDropdownOpen(false);
+                                                }}
+                                                className={`w-full text-left px-4 py-2 text-sm hover:bg-blue-50 hover:text-blue-600 transition-colors ${targetLang === option.value ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-700'
+                                                    }`}
+                                            >
+                                                {option.label}
+                                            </button>
+                                        ))}
+                                    </div>
                                 )}
                             </div>
-                            {hasUsedCoin && !showOriginal ? (
+
+                            {/* 번역 실행 버튼 */}
+                            <button
+                                onClick={handleTranslate}
+                                disabled={translateLoading}
+                                className="px-5 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md active:scale-95"
+                            >
+                                {translateLoading ? '번역 중...' : '번역 · 요약하기'}
+                            </button>
+
+                            {/* 원문 보기 버튼 (토글) */}
+                            {!showOriginal ? (
+                                <button
+                                    onClick={() => setShowOriginal(true)}
+                                    className="ml-auto px-4 py-2 text-sm font-medium text-gray-500 bg-gray-100 rounded-lg hover:text-gray-700 hover:bg-gray-200 transition-colors"
+                                >
+                                    원문 보기
+                                </button>
+                            ) : (
+                                <span className="ml-auto text-sm text-gray-400">원문 보는 중</span>
+                            )}
+                        </div>
+
+                        {/* 원문 또는 번역본 표시 */}
+                        <div className="prose prose-gray max-w-none mb-6">
+                            {!showOriginal ? (
                                 <>
-                                    {articleSummary && (
-                                        <ul className="list-disc list-inside space-y-1 text-gray-700 mb-6 pl-1">
-                                            {articleSummary
-                                                .split('\n')
-                                                .filter((line) => line.trim())
-                                                .map((line, i) => (
-                                                    <li key={i}>{line.replace(/^\s*-\s*/, '')}</li>
-                                                ))}
-                                        </ul>
+                                    {article.summary && (
+                                        <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                                            <h3 className="text-sm font-semibold text-gray-600 mb-2">요약</h3>
+                                            <div className="text-gray-900 leading-relaxed whitespace-pre-line">{article.summary}</div>
+                                        </div>
                                     )}
                                     <div className="text-gray-900 leading-relaxed whitespace-pre-line">{article.translatedContent}</div>
                                 </>

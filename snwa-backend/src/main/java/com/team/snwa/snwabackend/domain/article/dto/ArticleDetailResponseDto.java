@@ -7,6 +7,7 @@ import lombok.Builder;
 import lombok.Getter;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Getter
 @Builder
@@ -37,15 +38,22 @@ public class ArticleDetailResponseDto {
     /** 해당 기사에 유저가 코인을 사용했는지 여부 (admin이면 true) */
     private boolean hasUsedCoin;
 
+    /** 이 기사에서 구매한 번역 언어 코드 목록 (KO, JA, EN, ZH 등) - 이미 구매한 언어 재열람 시 확인창 생략용 */
+    private List<String> purchasedTranslationLanguages;
+
     public static ArticleDetailResponseDto from(Article article) {
-        return from(article, false, article.getClickCount(), null, false);
+        return from(article, false, article.getClickCount(), null, false, null);
     }
 
     public static ArticleDetailResponseDto from(Article article, boolean isBookmarked, Long displayedClickCount, ReactionCountResponseDto reactionCounts) {
-        return from(article, isBookmarked, displayedClickCount, reactionCounts, false);
+        return from(article, isBookmarked, displayedClickCount, reactionCounts, false, null);
     }
 
     public static ArticleDetailResponseDto from(Article article, boolean isBookmarked, Long displayedClickCount, ReactionCountResponseDto reactionCounts, boolean hasUsedCoin) {
+        return from(article, isBookmarked, displayedClickCount, reactionCounts, hasUsedCoin, null);
+    }
+
+    public static ArticleDetailResponseDto from(Article article, boolean isBookmarked, Long displayedClickCount, ReactionCountResponseDto reactionCounts, boolean hasUsedCoin, List<String> purchasedTranslationLanguages) {
         ArticleDetailResponseDtoBuilder builder = ArticleDetailResponseDto.builder()
                 .id(article.getId())
                 .title(article.getTitle())
@@ -64,7 +72,8 @@ public class ArticleDetailResponseDto {
                 .updatedDate(article.getUpdatedDate())
                 .isBookmarked(isBookmarked)
                 .clickCount(displayedClickCount != null ? displayedClickCount : 0L)
-                .hasUsedCoin(hasUsedCoin);
+                .hasUsedCoin(hasUsedCoin)
+                .purchasedTranslationLanguages(purchasedTranslationLanguages != null ? purchasedTranslationLanguages : List.of());
 
         // 반응 정보 추가
         if (reactionCounts != null) {

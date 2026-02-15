@@ -19,10 +19,8 @@ import com.team.snwa.snwabackend.domain.crawler.repository.ArticleCrawlingTracki
 import com.team.snwa.snwabackend.domain.crawler.repository.CrawlingJobRepository;
 import com.team.snwa.snwabackend.domain.crawler.repository.CrawlingLogRepository;
 import com.team.snwa.snwabackend.domain.crawler.strategy.CrawlingStrategy;
-import com.team.snwa.snwabackend.domain.translation.scheduler.KeywordsTagScheduler;
-import com.team.snwa.snwabackend.domain.translation.scheduler.SummaryScheduler;
-import com.team.snwa.snwabackend.domain.translation.scheduler.TranslationScheduler;
 import com.team.snwa.snwabackend.global.annotation.LogExecutionTime;
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -56,12 +54,10 @@ public class CrawlerService {
     private final List<CrawlingStrategy> crawlingStrategies;
     private final CrawlingJobRepository jobRepository;
     private final CrawlingLogRepository logRepository;
+    private final EntityManager entityManager;
     private final ArticleRepository articleRepository;
     private final ArticleCrawlingTrackingRepository trackingRepository;
     private final CategoryRepository categoryRepository;
-    private final TranslationScheduler translationScheduler;
-    private final SummaryScheduler summaryScheduler;
-    private final KeywordsTagScheduler keywordsTagScheduler;
 
     private static final String ESPN_BASE_URL = "http://site.api.espn.com/apis/site/v2/sports/";
 
@@ -173,39 +169,9 @@ public class CrawlerService {
             // 성공 상태 업데이트 (후속 작업이 필요한 기사 수 기준)
             crawlingLog.updateSuccess(pendingActionCount);
 
-            // 크롤링 완료 후 번역/요약 스케줄러 실행 (트랜잭션 커밋 후 실행)
             if (pendingActionCount > 0) {
                 log.info("크롤링 완료: {}개 기사 처리 예정 (신규/미완료 포함)", pendingActionCount);
-
-                TransactionSynchronizationManager.registerSynchronization(
-                        new TransactionSynchronizationAdapter() {
-                            @Override
-                            public void afterCommit() {
-                                try {
-                                    // 번역 처리
-                                    log.info("번역 스케줄러 실행");
-                                    translationScheduler.process();
-
-                                    Thread.sleep(1000); // 1초 대기
-
-                                    // 요약 처리
-                                    log.info("요약 스케줄러 실행");
-                                    summaryScheduler.process();
-
-                                    Thread.sleep(1000); // 1초 대기
-
-                                    // 키워드 태그 추출 처리
-                                    log.info("키워드 태그 추출 스케줄러 실행");
-                                    keywordsTagScheduler.process();
-
-                                    log.info("✅ 모든 후속 작업 완료");
-                                } catch (Exception e) {
-                                    log.error("후속 작업 중 오류 발생", e);
-                                }
-                            }
-                        });
             }
-
         } catch (Exception e) {
             log.error("크롤링 작업 실패: JobId=" + jobId, e);
             // 실패 상태 업데이트
@@ -330,6 +296,7 @@ public class CrawlerService {
 
         logRepository.deleteByCrawlingJobId(jobId);
         trackingRepository.deleteByJobId(jobId);
+        entityManager.flush();
         jobRepository.deleteById(jobId);
 
         log.info("Job ID {} 및 관련 로그/추적 데이터 삭제 완료", jobId);

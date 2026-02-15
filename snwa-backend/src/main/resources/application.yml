@@ -3,7 +3,7 @@ spring:
     name: snwa-backend
 
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/snwa}
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/snwa?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Seoul}
     username: ${SPRING_DATASOURCE_USERNAME:root}
     password: ${SPRING_DATASOURCE_PASSWORD:root1234}
     # driver-class-name은 Spring Boot 3.x에서 자동 감지되므로 생략 가능

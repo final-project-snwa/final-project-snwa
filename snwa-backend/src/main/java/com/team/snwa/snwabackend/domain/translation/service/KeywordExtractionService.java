@@ -20,7 +20,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -38,16 +37,16 @@ public class KeywordExtractionService {
     private static final Pattern KEYWORD_PATTERN = Pattern.compile("([^,()]+)\\(([^)]+)\\)");
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void extractKeywords(Long articleId) {
-        log.info("기사 키워드 추출 시작: articleId={}", articleId);
+    public void extractKeywords(Long articleId, String targetLang) {
+        log.info("기사 키워드 추출 시작: articleId={}, lang={}", articleId, targetLang);
 
         // DB에서 Article 조회
         Article article = articleRepository.findById(articleId)
                 .orElseThrow(() -> new RuntimeException("기사를 찾을 수 없습니다: " + articleId));
 
         // 이미 태그가 하나라도 있으면 추출 안 함
-        if (articleTagRepository.existsByArticleId(articleId)) {
-            log.info("이미 태그가 존재하여 키워드 추출을 건너뜁니다: articleId={}", articleId);
+        if (articleTagRepository.existsByArticleIdAndLanguage(articleId, targetLang)) {
+            log.info("이미 해당 언어({})의 태그가 존재하여 키워드 추출을 건너뜁니다: articleId={}", targetLang, articleId);
             return;
         }
 
@@ -56,18 +55,9 @@ public class KeywordExtractionService {
             throw new RuntimeException("번역된 내용이 없습니다. 먼저 번역을 진행해주세요.");
         }
 
-        // 프롬프트 로드 및 호출
-        String promptTemplate = loadPromptTemplate();
-        String prompt = promptTemplate.replace("{translatedContent}", article.getTranslatedContent());
-
-        // Gemini로 키워드 추출 요청
-        ChatClient chatClient = chatClientBuilder.build();
-        String keywordsResponse = chatClient.prompt(prompt)
-                .call()
-                .content();
-
         // 키워드 파싱 - Map<키워드, 타입>
-        Map<String, InterestType> typedKeywords = parseTypedKeywords(keywordsResponse);
+        Map<String, InterestType> typedKeywords = extractKeywordsFromContent(article.getTranslatedContent(),
+                targetLang);
         List<String> keywordList = new ArrayList<>(typedKeywords.keySet());
 
         // ArticleTag 엔티티 생성 및 저장
@@ -76,6 +66,7 @@ public class KeywordExtractionService {
                 ArticleTag articleTag = ArticleTag.builder()
                         .article(article)
                         .tagName(keyword)
+                        .language(targetLang)
                         .build();
                 articleTagRepository.save(articleTag);
             }
@@ -87,10 +78,26 @@ public class KeywordExtractionService {
         eventPublisher.publishEvent(
                 new ArticleReadyForNotificationEvent(
                         article.getId(),
-                        typedKeywords
-                )
-        );
+                        typedKeywords));
+    }
 
+    public List<String> extractKeywordsToList(String translatedContent, String targetLang) {
+        Map<String, InterestType> typedKeywords = extractKeywordsFromContent(translatedContent, targetLang);
+        return new ArrayList<>(typedKeywords.keySet());
+    }
+
+    private Map<String, InterestType> extractKeywordsFromContent(String translatedContent, String targetLang) {
+        String promptTemplate = loadPromptTemplate();
+
+        // 언어 이름 변환 (KO -> Korean)
+        String languageName = convertLangCodeToName(targetLang);
+
+        // 프롬프트 내 {language} 치환 추가
+        String prompt = promptTemplate.replace("{translatedContent}", translatedContent).replace("{language}",
+                languageName);
+        ChatClient chatClient = chatClientBuilder.build();
+        String keywordsResponse = chatClient.prompt(prompt).call().content();
+        return parseTypedKeywords(keywordsResponse);
     }
 
     /**
@@ -144,5 +151,20 @@ public class KeywordExtractionService {
             log.error("프롬프트 템플릿 로드 실패: {}", e.getMessage(), e);
             return "다음 기사 내용에서 중요한 키워드를 쉼표로 구분하여 추출해주세요.\n\n기사 내용:\n{translatedContent}";
         }
+    }
+
+    private String convertLangCodeToName(String langCode) {
+        if (langCode == null)
+            return "Korean";
+        return switch (langCode.toUpperCase()) {
+            case "KO" -> "Korean";
+            case "EN" -> "English";
+            case "JA" -> "Japanese";
+            case "ZH" -> "Chinese";
+            case "ES" -> "Spanish";
+            case "FR" -> "French";
+            case "DE" -> "German";
+            default -> "Korean";
+        };
     }
 }

@@ -34,8 +34,7 @@ public class TranslationScheduler {
 
         try {
             Page<Article> page = articleRepository.findArticlesNeedingTranslation(
-                    PageRequest.of(0, BATCH_SIZE)
-            );
+                    PageRequest.of(0, BATCH_SIZE));
             List<Article> articles = page.getContent();
 
             if (articles.isEmpty()) {

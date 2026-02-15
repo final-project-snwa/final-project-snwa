@@ -13,16 +13,16 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-public class    CoinTransactionService {
+public class CoinTransactionService {
 
     private final CoinTransactionRepository coinTransactionRepository;
 
-    //중복 트렌잭션 여부 판별
+    // 중복 트렌잭션 여부 판별
     public boolean isDuplicate(Long userId, String externalRef) {
         return coinTransactionRepository.existsByUserIdAndExternalRef(userId, externalRef);
     }
 
-    //출석 보상 지급 여부 판별
+    // 출석 보상 지급 여부 판별
     public boolean hasTodayAttendanceReward(Long userId) {
         ZoneId kst = ZoneId.of("Asia/Seoul");
         LocalDate today = LocalDate.now(kst);
@@ -33,28 +33,26 @@ public class    CoinTransactionService {
                 userId,
                 CoinTransactionType.ATTENDANCE_REWARD,
                 start,
-                end
-        );
+                end);
     }
 
-    //트랙잭션 저장
+    // 트랙잭션 저장
     public CoinTransaction save(CoinTransaction tx) {
         return coinTransactionRepository.save(tx);
     }
 
-    //내역 조회
+    // 내역 조회
     public List<CoinTransaction> getHistory(Long userId) {
         return coinTransactionRepository.findByUserIdOrderByCreatedDateDesc(userId);
     }
 
-    //해당 기사에 코인 사용 내역이 존재하는지 확인
+    // 해당 기사에 코인 사용 내역이 존재하는지 확인
     public boolean hasUsedCoinForArticle(Long userId, Long articleId) {
         String externalRef = "ARTICLE_" + articleId;
 
         return coinTransactionRepository.existsByUserIdAndTypeAndExternalRef(
                 userId,
                 CoinTransactionType.SPEND,
-                externalRef
-        );
+                externalRef);
     }
 }

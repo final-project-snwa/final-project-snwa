@@ -26,21 +26,44 @@ public class DeepLClient implements TranslationClient {
     }
 
     @Override
-    public TranslatedArticleResponseDto translate(CrawledArticleRequestDto request) {
+    public TranslatedArticleResponseDto translate(CrawledArticleRequestDto request, String targetLang) {
         try {
             Translator translator = getTranslator();
 
-            // 제목 번역
-            String translatedTitle = translateText(translator, request.getTitle());
+            // 1. 제목과 본문을 합쳐서 번역 (문맥 유지 및 일관성 향상, API 호출 횟수 절약)
+            String separator = "<||SMA_SEPARATOR||>";
+            String title = request.getTitle() != null ? request.getTitle() : "";
+            String content = request.getContent() != null ? request.getContent() : "";
 
-            // 본문 번역
-            String translatedContent = translateText(translator, request.getContent());
+            // 구분자 앞뒤에 줄바꿈을 넣어 문맥 분리 효과도 줌
+            String combinedText = title + "\n" + separator + "\n" + content;
+            // 전체 번역 요청
+            String translatedCombined = translateText(translator, combinedText, targetLang);
+            String translatedTitle = "";
+            String translatedContent = "";
+
+            if (translatedCombined != null) {
+                // 2. 특수 구분자를 기준으로 다시 분리
+                // 정규식 특수문자([]) 이스케이프 처리 필요
+                String[] parts = translatedCombined.split("<\\|\\|SMA_SEPARATOR\\|\\|>", 2);
+
+                if (parts.length >= 2) {
+                    translatedTitle = parts[0].trim();
+                    translatedContent = parts[1].trim();
+                } else {
+                    // 혹시라도 구분자가 변형되었을 경우를 대비해 기존 줄바꿈 로직도 유지하거나,
+                    // 로그를 남기고 전체를 본문에 넣는 식의 처리가 필요할 수 있음
+                    // 여기서는 일단 제목에 다 들어간 것으로 보임
+                    translatedTitle = translatedCombined;
+                    translatedContent = "";
+                }
+            }
 
             return TranslatedArticleResponseDto.builder()
-                    .title(request.getTitle())  //원문 제목
-                    .content(request.getContent())  //원문 내용
+                    .title(request.getTitle()) // 원문 제목
+                    .content(request.getContent()) // 원문 내용
                     .translatedTitle(translatedTitle) // 번역된 제목
-                    .translatedContent(translatedContent)  // 번역된 내용
+                    .translatedContent(translatedContent) // 번역된 내용
                     .authorName(request.getAuthorName())
                     .publisherName(request.getPublisherName())
                     .originalUrl(request.getOriginalUrl())
@@ -51,14 +74,15 @@ public class DeepLClient implements TranslationClient {
         }
     }
 
-    private String translateText(Translator translator, String text) {
+    private String translateText(Translator translator, String text, String targetLang) {
         if (text == null || text.trim().isEmpty()) {
             return text;
         }
 
         try {
-            // sourceLang을 null로 설정하면 자동 감지
-            TextResult result = translator.translateText(text, null, "KO");
+            // targetLang을 null로 설정하면 자동 감지(KO를 기본값으로 사용)
+            String lang = (targetLang == null || targetLang.isBlank()) ? "KO" : targetLang;
+            TextResult result = translator.translateText(text, null, lang);
             return result.getText();
         } catch (Exception e) {
             log.error("텍스트 번역 실패: {}", e.getMessage(), e);
