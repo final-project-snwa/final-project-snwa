@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../contexts/AuthContext';
 import Header from '../components/Header';
-import { User, Camera, Lock, LogOut, AlertTriangle, Check, X, Calendar, Shield, Mail, Phone, Hash } from 'lucide-react';
+import { User, Camera, Lock, LogOut, AlertTriangle, Check,  Calendar, Shield, Mail, Hash } from 'lucide-react';
 
 interface UserProfile {
     id: number;

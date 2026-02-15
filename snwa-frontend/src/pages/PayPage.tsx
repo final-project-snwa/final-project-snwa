@@ -113,7 +113,7 @@ export default function PayPage() {
             return;
         }
         if (!window.TossPayments) {
-            setPrepareError("TossPayments 스크립트가 아직 로딩되지 않았어.");
+            setPrepareError("TossPayments 스크립트가 아직 로딩되지 않았습니다.");
             return;
         }
 

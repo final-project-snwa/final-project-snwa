@@ -116,3 +116,13 @@ app:
 # 토스 (Docker 등에서 키가 없어도 앱 기동 가능, 결제 API는 키 설정 후 사용)
 toss:
   secret-key: ${TOSS_SECRET_KEY:}
+
+# 경험치/레벨 시스템 (포인트 시스템)
+exp:
+  grant:
+    attendance-base: 20
+    attendance-streak-bonus-per-day: 5
+    attendance-streak-bonus-max: 35
+    comment-create: 10
+    comment-daily-limit: 20
+    coin-spend-per-coin: 20   # 코인 1개 사용 시 20 EXP

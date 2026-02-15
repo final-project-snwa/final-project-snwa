@@ -4,7 +4,7 @@ import { ArrowLeft, Bookmark, ChevronDown } from 'lucide-react';
 import Header from '../components/Header';
 import ArticleCard from '../components/ArticleCard';
 import { formatDate, Article } from '../data/mockArticles';
-
+import { useExpToast } from '../contexts/ExpToastContext';
 type ReactionType = 'LIKE' | 'DISLIKE' | 'SAD' | 'ANGRY';
 
 type ApiArticleDetail = {
@@ -61,6 +61,11 @@ type ApiComment = {
     isMine?: boolean;
     createdAt: string;
     updatedAt?: string;
+    expGrantInfo?: {
+        expGained: number;
+        levelUp: boolean;
+        newLevel: number;
+    };
 };
 
 const API_CATEGORY_TO_DISPLAY: Record<string, 'Football' | 'Soccer' | 'Basketball' | 'Baseball' | 'Esports'> = {
@@ -142,6 +147,7 @@ const LANGUAGE_OPTIONS = [
 export default function ArticleDetailPage() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
+    const expToast = useExpToast();
     const [article, setArticle] = useState<Article | null>(null);
     const [relatedArticles, setRelatedArticles] = useState<Article[]>([]);
     const [showOriginal, setShowOriginal] = useState(true);
@@ -279,17 +285,26 @@ export default function ArticleDetailPage() {
 
             const data = await res.json();
 
+            // exp 획득 알림 표시
+            if (data?.expGrantInfo && expToast) {
+                expToast.showExpToast({
+                    expGained: data.expGrantInfo.expGained,
+                    levelUp: data.expGrantInfo.levelUp ?? false,
+                    newLevel: data.expGrantInfo.newLevel ?? 1,
+                });
+            }
+
             setArticle(prev => prev ? {
                 ...prev,
-                translatedTitle: data.translatedTitle,
-                translatedContent: data.translatedContent,
-                summary: data.summary,
+                translatedTitle: data.translatedTitle || prev.translatedTitle,
+                translatedContent: data.translatedContent || prev.translatedContent,
+                summary: data.summary || prev.summary,
                 purchasedTranslationLanguages: prev.purchasedTranslationLanguages?.includes(targetLang)
                     ? prev.purchasedTranslationLanguages
                     : [...(prev.purchasedTranslationLanguages ?? []), targetLang],
             } : null);
 
-            setShowOriginal(false);
+            setShowOriginal(false); // 번역본을 기본으로 표시
         } catch (e) {
             console.error(e);
             alert('번역을 가져오는데 실패했습니다.');
@@ -365,6 +380,15 @@ export default function ArticleDetailPage() {
                 body: JSON.stringify({ content: commentContent.trim() }),
             });
             if (res.ok) {
+                const commentData = await res.json();
+                // exp 획득 알림 표시
+                if (commentData?.expGrantInfo && expToast) {
+                    expToast.showExpToast({
+                        expGained: commentData.expGrantInfo.expGained,
+                        levelUp: commentData.expGrantInfo.levelUp ?? false,
+                        newLevel: commentData.expGrantInfo.newLevel ?? 1,
+                    });
+                }
                 setCommentContent('');
                 fetchComments(0, false);
             } else {

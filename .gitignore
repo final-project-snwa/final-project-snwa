@@ -19,3 +19,7 @@ build/
 .env.*
 **/.env
 **/.env.*
+
+# Local Skills
+skills/
+.skills/

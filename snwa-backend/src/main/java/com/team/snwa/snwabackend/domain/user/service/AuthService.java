@@ -13,6 +13,8 @@ import com.team.snwa.snwabackend.domain.user.entity.enums.UserStatus;
 import com.team.snwa.snwabackend.domain.user.repository.EmailVerificationTokenRepository;
 import com.team.snwa.snwabackend.domain.user.repository.PasswordResetTokenRepository;
 import com.team.snwa.snwabackend.domain.user.repository.UserRepository;
+import com.team.snwa.snwabackend.domain.exp.dto.ExpGrantInfoDto;
+import com.team.snwa.snwabackend.domain.exp.service.ExpGrantService;
 import com.team.snwa.snwabackend.domain.wallet.service.WalletTransactionService;
 import com.team.snwa.snwabackend.global.exception.CustomException;
 import com.team.snwa.snwabackend.global.exception.ErrorCode;
@@ -40,6 +42,7 @@ public class AuthService {
     private final JwtUtil jwtUtil;
     private final EmailService emailService;
     private final WalletTransactionService walletTransactionService;
+    private final ExpGrantService expGrantService;
 
     @Lazy
     @Autowired
@@ -107,35 +110,44 @@ public class AuthService {
         // JWT 토큰 생성 (이메일을 subject로 사용) - 로그인 성공
         String token = jwtUtil.generateToken(user.getEmail());
 
-        // 출석 보상은 별도 트랜잭션에서 실행 (실패해도 로그인에는 영향 없음)
+        // 출석 보상 + 경험치 지급은 별도 트랜잭션에서 실행 (실패해도 로그인에는 영향 없음)
         boolean rewarded = false;
+        ExpGrantInfoDto expGrantInfo = null;
         try {
-            rewarded = self.giveAttendanceRewardInNewTransaction(user.getId());
+            var rewardResult = self.giveAttendanceRewardInNewTransaction(user.getId());
+            rewarded = rewardResult.rewarded();
+            expGrantInfo = rewardResult.expGrantInfo();
         } catch (Exception e) {
             log.warn("출석 보상 지급 실패 (userId={}, 무시): {}", user.getId(), e.getMessage());
         }
         // 관리자 로그인 시에는 안내 모달을 띄우지 않음 (프론트에 false 전달)
         boolean attendanceRewardGiven = rewarded && user.getRole() != UserRole.ADMIN;
 
-        return new LoginResult(token, attendanceRewardGiven);
+        return new LoginResult(token, attendanceRewardGiven, expGrantInfo);
     }
 
-    /** 출석 보상을 새 트랜잭션에서 실행. 예외가 나도 로그인 트랜잭션은 롤백되지 않음. 지급 여부 반환 */
+    /** 출석 보상 + 경험치를 새 트랜잭션에서 실행. 예외가 나도 로그인 트랜잭션은 롤백되지 않음. */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public boolean giveAttendanceRewardInNewTransaction(Long userId) {
+    public AttendanceRewardResult giveAttendanceRewardInNewTransaction(Long userId) {
         try {
             boolean rewarded = walletTransactionService.giveAttendanceRewardByUserId(userId);
+            var info = expGrantService.grantAttendance(userId);
+            ExpGrantInfoDto expGrantInfo = info != null
+                    ? new ExpGrantInfoDto(info.expGained(), info.levelUp(), info.newLevel())
+                    : null;
             if (rewarded) {
                 log.info("출석 보상 지급 완료 (userId={}, 1코인)", userId);
             } else {
                 log.info("출석 보상 이미 지급됨 (userId={}, 오늘 재로그인)", userId);
             }
-            return rewarded;
+            return new AttendanceRewardResult(rewarded, expGrantInfo);
         } catch (Exception e) {
             log.warn("출석 보상 지급 실패 (userId={}): {}", userId, e.getMessage());
-            return false;
+            return new AttendanceRewardResult(false, null);
         }
     }
+
+    public record AttendanceRewardResult(boolean rewarded, ExpGrantInfoDto expGrantInfo) {}
 
     @Transactional
     public void verifyEmail(String token) {

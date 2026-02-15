@@ -134,22 +134,22 @@ jobs:
               OLD=green
               NEW_PORT=8080
             fi
-            
+          
             echo "NEW=$NEW (Port:$NEW_PORT), OLD=$OLD"
-                  
+          
             # 1. 새 컨테이너 빌드 및 실행
             docker compose build snwa-backend-$NEW
             docker compose up -d snwa-backend-$NEW
-            
+          
             # 2. 신규 컨테이너가 뜰 때까지 잠시 대기 (Health Check 대용)
             sleep 20
-            
+          
             # 3. [핵심] Nginx가 바라보는 변수 파일 수정
             echo "set \$service_url http://snwa-backend-$NEW:$NEW_PORT;" | sudo tee /home/ec2-user/final-project-snwa/nginx/service-url.inc
-            
+          
             # 4. Nginx 설정 재로드
             docker exec snwa-nginx nginx -s reload
-            
+          
             # 5. 이전 컨테이너 종료
             docker compose stop snwa-backend-$OLD || true
           EOF
