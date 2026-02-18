@@ -7,6 +7,8 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 크롤링 수행 작업을 정의하는 설정 정보 엔티티
@@ -49,6 +51,9 @@ public class CrawlingJob extends BaseTimeEntity {
     public void updateLastRunAt() {
         this.lastRunAt = LocalDateTime.now();
     }
+
+    @OneToMany(mappedBy = "crawlingJob", cascade = CascadeType.REMOVE, orphanRemoval = true)
+    private List<CrawlingLog> logs = new ArrayList<>();
 
     /**
      * 크롤링 실행 주기를 변경함 (Dirty Checking용)

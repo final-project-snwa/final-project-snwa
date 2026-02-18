@@ -9,6 +9,9 @@ export interface Article {
   translatedContent: string;
   originalContent: string;
   clickCount?: number;
+  summary?: string;
+  /** 이미 구매한 번역 언어 코드 (KO, JA, EN, ZH) - 재열람 시 확인창 생략용 */
+  purchasedTranslationLanguages?: string[];
 }
 
 export const mockArticles: Article[] = [
@@ -189,8 +192,8 @@ export function getArticleById(id: string): Article | undefined {
 
 export function getRelatedArticles(currentArticle: Article): Article[] {
   return mockArticles
-    .filter(article => 
-      article.category === currentArticle.category && 
+    .filter(article =>
+      article.category === currentArticle.category &&
       article.id !== currentArticle.id
     )
     .slice(0, 3);
@@ -200,7 +203,7 @@ export function formatDate(dateString: string): string {
   const date = new Date(dateString);
   const now = new Date();
   const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
-  
+
   if (diffInHours < 1) {
     const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
     return `${diffInMinutes}분 전`;

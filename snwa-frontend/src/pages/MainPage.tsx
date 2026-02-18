@@ -180,8 +180,18 @@ export default function MainPage() {
             .then((data: CoinTransaction[]) => {
                 const ids = [...new Set(
                     (data ?? [])
-                        .filter((tx) => tx.type === 'SPEND' && tx.externalRef?.startsWith('ARTICLE_'))
-                        .map((tx) => tx.externalRef!.replace('ARTICLE_', ''))
+                        .filter((tx) => tx.type === 'SPEND')
+                        .map((tx) => {
+                            if (tx.externalRef?.startsWith('ARTICLE_')) {
+                                return tx.externalRef.replace('ARTICLE_', '');
+                            }
+                            if (tx.externalRef?.startsWith('TRANS_')) {
+                                // 형식: TRANS_{articleId}_{lang}_{timestamp}
+                                const parts = tx.externalRef.split('_');
+                                return parts[1]; // articleId 반환
+                            }
+                            return null;
+                        })
                         .filter(Boolean)
                 )];
                 if (ids.length === 0) {

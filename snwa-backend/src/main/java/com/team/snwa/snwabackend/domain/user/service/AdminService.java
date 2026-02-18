@@ -1,10 +1,12 @@
 package com.team.snwa.snwabackend.domain.user.service;
 
 import com.team.snwa.snwabackend.domain.article.dto.response.AdminArticleListResponse;
-import com.team.snwa.snwabackend.domain.article.dto.response.AdminArticleTranslationSummaryTagsResponse;
+import com.team.snwa.snwabackend.domain.article.dto.response.AdminArticleTranslationSummaryTagsResponseDto;
 import com.team.snwa.snwabackend.domain.article.entity.Article;
 import com.team.snwa.snwabackend.domain.comment.entity.Comment;
 import com.team.snwa.snwabackend.domain.comment.repository.CommentRepository;
+import com.team.snwa.snwabackend.domain.translation.entity.ArticleTranslation;
+import com.team.snwa.snwabackend.domain.translation.repository.ArticleTranslationRepository;    //
 import com.team.snwa.snwabackend.domain.user.dto.response.AdminUserCommentResponse;
 import com.team.snwa.snwabackend.domain.article.entity.ArticleTag;
 import com.team.snwa.snwabackend.domain.article.repository.ArticleRepository;
@@ -37,6 +39,7 @@ public class AdminService {
     private final PaymentService paymentService;
     private final S3Service s3Service;
     private final ArticleTagRepository articleTagRepository;
+    private final ArticleTranslationRepository articleTranslationRepository;
 
     /**
      * 관리자 권한 확인
@@ -209,7 +212,7 @@ public class AdminService {
     /**
      * 전체 글의 번역/요약/태그 상세 목록 조회 (관리자 전용)
      */
-    public List<AdminArticleTranslationSummaryTagsResponse> getAllArticleTranslations(User adminUser) {
+    public List<AdminArticleTranslationSummaryTagsResponseDto> getAllArticleTranslations(User adminUser) {
         // 관리자 권한 확인 (기존 메서드 활용)
         checkAdminRole(adminUser);
 
@@ -217,20 +220,28 @@ public class AdminService {
         List<Article> articles = articleRepository.findAllByDeletedAtIsNull(Sort.by("id").descending());
 
         return articles.stream().map(article -> {
-            // 해당 기사의 태그 이름들만 추출
-            List<String> tagNames = articleTagRepository.findAllByArticleId(article.getId())
-                    .stream()
-                    .map(ArticleTag::getTagName)
-                    .collect(Collectors.toList());
+            List<ArticleTranslation> translations = articleTranslationRepository.findAllByArticleId(article.getId());
+
+            List<AdminArticleTranslationSummaryTagsResponseDto.TranslationDetail> details = translations.stream().map(t -> {
+                List<String> tags = articleTagRepository.findAllByArticleId(article.getId())
+                        .stream()
+                        .filter(tag -> t.getLanguage().equals(tag.getLanguage())) // 언어 일치하는 것만
+                        .map(ArticleTag::getTagName)
+                        .collect(Collectors.toList());
+                return new AdminArticleTranslationSummaryTagsResponseDto.TranslationDetail(
+                        t.getLanguage(),
+                        t.getTranslatedTitle(),
+                        t.getTranslatedContent(),
+                        t.getSummary(),
+                        tags
+                );
+            }).collect(Collectors.toList());
 
             // 요청하신 5개 필드(ID, 번역제목, 번역내용, 요약, 태그) 반환
-            return new AdminArticleTranslationSummaryTagsResponse(
+            return new AdminArticleTranslationSummaryTagsResponseDto(
                     article.getId(),
-                    article.getTranslatedTitle(),
-                    article.getTranslatedContent(),
-                    article.getSummary(),
-                    tagNames
-            );
-        }).collect(Collectors.toList());
+                    details
+                );
+            }).collect(Collectors.toList());
     }
 }

@@ -1,7 +1,7 @@
 package com.team.snwa.snwabackend.domain.user.controller;
 
 import com.team.snwa.snwabackend.domain.article.dto.response.AdminArticleListResponse;
-import com.team.snwa.snwabackend.domain.article.dto.response.AdminArticleTranslationSummaryTagsResponse;
+import com.team.snwa.snwabackend.domain.article.dto.response.AdminArticleTranslationSummaryTagsResponseDto;
 import com.team.snwa.snwabackend.domain.payment.dto.response.PaymentHistoryResponse;
 import com.team.snwa.snwabackend.domain.user.dto.response.AdminUserCommentResponse;
 import com.team.snwa.snwabackend.domain.user.dto.request.AdminUserUpdateRequest;
@@ -141,9 +141,9 @@ public class AdminController {
      * GET /api/admin/articles/translations
      */
     @GetMapping("/articles/translations")
-    public ResponseEntity<List<AdminArticleTranslationSummaryTagsResponse>> getAllArticleTranslations(Principal principal) {
+    public ResponseEntity<List<AdminArticleTranslationSummaryTagsResponseDto>> getAllArticleTranslations(Principal principal) {
         User currentUser = getCurrentUser(principal);
-        List<AdminArticleTranslationSummaryTagsResponse> translations = adminService.getAllArticleTranslations(currentUser);
+        List<AdminArticleTranslationSummaryTagsResponseDto> translations = adminService.getAllArticleTranslations(currentUser);
         return ResponseEntity.ok(translations);
     }
 }

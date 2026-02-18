@@ -21,9 +21,13 @@ public class ArticleTag {
     @Column(name = "tag_name")
     private String tagName;
 
+    @Column(length = 10)
+    private String language;
+
     @Builder
-    public ArticleTag(Article article, String tagName) {
+    public ArticleTag(Article article, String tagName, String language) {
         this.article = article;
         this.tagName = tagName;
+        this.language = language;
     }
 }

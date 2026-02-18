@@ -8,5 +8,8 @@ import java.util.List;
 public interface ArticleTagRepository extends JpaRepository<ArticleTag, Long> {
 
     boolean existsByArticleId(Long articleId);
+
+    boolean existsByArticleIdAndLanguage(Long articleId, String language);
+
     List<ArticleTag> findAllByArticleId(Long articleId);
 }

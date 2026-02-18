@@ -51,7 +51,7 @@ public class KeywordsTagScheduler {
             for (Article article : articles) {
                 try {
                     log.debug("기사 키워드 추출 시작: articleId={}", article.getId());
-                    keywordExtractionService.extractKeywords(article.getId());
+                    keywordExtractionService.extractKeywords(article.getId(), "KO");
                     Thread.sleep(API_DELAY_MS);
                 } catch (Exception e) {
                     failCount++;

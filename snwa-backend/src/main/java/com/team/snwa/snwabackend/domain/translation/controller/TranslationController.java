@@ -36,4 +36,4 @@ public class TranslationController {
     }
 }
 
-//Postman 테스트용 컨트롤
+// Postman 테스트용 컨트롤
