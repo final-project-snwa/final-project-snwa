@@ -22,25 +22,19 @@ import lombok.NoArgsConstructor;
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class CoinChargePolicy {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // name은 운영에서 바뀔 수 있어서 보통은 유니크가 필수는 아닌데,
-    // 너희는 이미 UNIQUE(name)로 DB가 생성돼 있어서 그대로 맞춤.
     @Column(nullable = false, length = 255)
     private String name;
 
-    // ✅ 실제 DB 컬럼이 coin_amount라서 명시적으로 매핑
     @Column(name = "coin_amount", nullable = false)
     private Integer coinAmount;
 
-    // ✅ 결제 연동이 price 기반이면 유니크 필수
     @Column(nullable = false)
     private Integer price;
 
-    // boolean -> MySQL bit(1)로 이미 생성되어 있음
     @Column(nullable = false)
     private boolean active = true;
 
