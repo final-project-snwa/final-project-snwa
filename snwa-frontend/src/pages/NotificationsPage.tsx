@@ -32,7 +32,8 @@ function getAuthHeader(): Record<string, string> | null {
 
 function formatKst(dateString: string): string {
   if (!dateString) return '-';
-  const normalized = /[zZ]|[+-]\d{2}:\d{2}$/.test(dateString) ? dateString : `${dateString}Z`;
+  const base = dateString.includes('T') ? dateString : dateString.replace(' ', 'T');
+  const normalized = /[zZ]|[+-]\d{2}:\d{2}$/.test(base) ? base : `${base}+09:00`;
   return new Date(normalized).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
 }
 

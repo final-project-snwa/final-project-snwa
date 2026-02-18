@@ -61,6 +61,13 @@ export default function MyPage() {
     const [coinHistory, setCoinHistory] = useState<CoinTransaction[]>([]);
     const [coinHistoryLoading, setCoinHistoryLoading] = useState(false);
 
+    const formatKst = (dateString?: string | null) => {
+        if (!dateString) return '-';
+        const base = dateString.includes('T') ? dateString : dateString.replace(' ', 'T');
+        const normalized = /[zZ]|[+-]\d{2}:\d{2}$/.test(base) ? base : `${base}+09:00`;
+        return new Date(normalized).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
+    };
+
     useEffect(() => {
         if (!user) {
             navigate('/login');
@@ -416,12 +423,7 @@ export default function MyPage() {
                         <div className="space-y-3">
                             {coinHistory.map((tx) => {
                                 const created = tx.createdAt ?? tx.createdDate;
-                                const normalizedCreated = created && /[zZ]|[+-]\d{2}:\d{2}$/.test(created)
-                                    ? created
-                                    : (created ? `${created}Z` : null);
-                                const createdLabel = normalizedCreated
-                                    ? new Date(normalizedCreated).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })
-                                    : '-';
+                                const createdLabel = formatKst(created);
                                 const typeLabel =
                                     tx.type === 'SPEND'
                                         ? '사용'
