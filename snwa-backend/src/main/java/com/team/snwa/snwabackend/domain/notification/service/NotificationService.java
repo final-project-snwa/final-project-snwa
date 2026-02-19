@@ -60,14 +60,12 @@ public class NotificationService {
     // 알림 목록 조회
     @Transactional(readOnly = true)
     public Page<Notification> getMyNotifications(User user, Pageable pageable) {
-        validateNotificationEnabled(user);
         return notificationRepository
                 .findByUserOrderByCreatedDateDesc(user, pageable);
     }
 
     // 읽지 않은 알림 목록
     public Page<Notification> getUnreadNotifications(User user, Pageable pageable) {
-        validateNotificationEnabled(user);
         return notificationRepository
                 .findByUserAndIsReadFalseOrderByCreatedDateDesc(user, pageable);
     }
@@ -75,8 +73,6 @@ public class NotificationService {
     // 알림 읽음 처리
     @Transactional
     public void readNotification(Long notificationId, User user) {
-        validateNotificationEnabled(user);
-
         Notification notification = notificationRepository.findById(notificationId)
                 .orElseThrow(() -> new CustomException(ErrorCode.NOTIFICATION_NOT_FOUND));
 
@@ -88,19 +84,9 @@ public class NotificationService {
     // 모든 알림 읽음 처리
     @Transactional
     public void readAll(User user) {
-        validateNotificationEnabled(user);
-
         notificationRepository
                 .findByUserAndIsReadFalseOrderByCreatedDateDesc(user, Pageable.unpaged())
                 .forEach(Notification::markAsRead);
-    }
-
-    private void validateNotificationEnabled(User user) {
-        notificationSettingRepository.findByUser(user).ifPresent(setting -> {
-            if (!setting.isEnableNotification()) {
-                throw new CustomException(ErrorCode.NOTIFICATION_DISABLED);
-            }
-        });
     }
 
     private void validateOwner(Notification notification, User user) {
@@ -111,15 +97,12 @@ public class NotificationService {
 
     // 읽지 않은 알림 개수
     public long getUnreadCount(User user) {
-        validateNotificationEnabled(user);
         return notificationRepository.countByUserAndIsReadFalse(user);
     }
 
     // 알림 삭제
     @Transactional
     public void delete(Long notificationId, User user) {
-        validateNotificationEnabled(user);
-
         Notification notification = notificationRepository.findById(notificationId)
                 .orElseThrow(() -> new CustomException(ErrorCode.NOTIFICATION_NOT_FOUND));
 

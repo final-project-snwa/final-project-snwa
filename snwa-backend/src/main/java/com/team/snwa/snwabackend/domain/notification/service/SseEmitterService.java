@@ -20,7 +20,14 @@ public class SseEmitterService {
 
     public SseEmitter connect(Long userId) {
         SseEmitter emitter = new SseEmitter(TIMEOUT);
-        emitters.put(userId, emitter);
+        SseEmitter previous = emitters.put(userId, emitter);
+        if (previous != null) {
+            try {
+                previous.complete();
+            } catch (Exception e) {
+                log.debug("이전 SSE emitter 종료 실패 userId={}", userId, e);
+            }
+        }
 
         emitter.onCompletion(() -> emitters.remove(userId));
         emitter.onTimeout(() -> emitters.remove(userId));
