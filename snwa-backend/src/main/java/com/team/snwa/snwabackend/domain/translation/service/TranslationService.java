@@ -225,6 +225,10 @@ public class TranslationService {
                 log.warn("번역된 내용이 비어있어 요약을 생략합니다. articleId={}", articleId);
             }
         } catch (Exception e) {
+            if (e instanceof com.team.snwa.snwabackend.global.exception.CustomException &&
+                    ((com.team.snwa.snwabackend.global.exception.CustomException) e).getErrorCode() == com.team.snwa.snwabackend.global.exception.ErrorCode.AI_API_QUOTA_EXCEEDED) {
+                throw e;
+            }
             log.error("요약 생성 실패: {}", e.getMessage());
         }
 
@@ -247,6 +251,10 @@ public class TranslationService {
                 }
             }
         } catch (Exception e) {
+            if (e instanceof com.team.snwa.snwabackend.global.exception.CustomException &&
+                    ((com.team.snwa.snwabackend.global.exception.CustomException) e).getErrorCode() == com.team.snwa.snwabackend.global.exception.ErrorCode.AI_API_QUOTA_EXCEEDED) {
+                throw e;
+            }
             log.error("키워드 추출 실패: {}", e.getMessage());
         }
 

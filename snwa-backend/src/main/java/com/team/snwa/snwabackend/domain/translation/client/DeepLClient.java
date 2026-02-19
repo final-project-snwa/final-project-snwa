@@ -70,7 +70,12 @@ public class DeepLClient implements TranslationClient {
                     .build();
         } catch (Exception e) {
             log.error("번역 중 오류 발생: {}", e.getMessage(), e);
-            throw new RuntimeException("번역 실패: " + e.getMessage(), e);
+            if (e.getMessage().contains("Quota exceeded") || e.getMessage().contains("456")) {
+                throw new com.team.snwa.snwabackend.global.exception.CustomException(
+                        com.team.snwa.snwabackend.global.exception.ErrorCode.TRANSLATION_API_QUOTA_EXCEEDED);
+            }
+            throw new com.team.snwa.snwabackend.global.exception.CustomException(
+                    com.team.snwa.snwabackend.global.exception.ErrorCode.TRANSLATION_API_ERROR);
         }
     }
 
