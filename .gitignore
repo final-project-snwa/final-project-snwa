@@ -20,6 +20,14 @@ build/
 **/.env
 **/.env.*
 
-# Local Skills
-skills/
-.skills/
+# NotebookLM Automation Artifacts
+project_context.md
+new_notebook_url.txt
+latest_notebook_url.txt
+collect_context.py
+inspect_output*.txt
+.skills/**/__pycache__/
+.skills/notebooklm/data/
+.skills/notebooklm/browser_state/
+*.log
+

@@ -61,6 +61,9 @@ public class User extends BaseTimeEntity {
     @Column(length = 20)
     private String phoneNumber;
 
+    @Column(length = 255)
+    private String discordWebhookUrl;
+
     // 소프트 삭제를 위한 필드
     @Column(nullable = true)
     private LocalDateTime deletedAt;
@@ -86,6 +89,18 @@ public class User extends BaseTimeEntity {
     // 프로필 이미지 수정(변경) 메서드
     public void updateImageUrl(String imageUrl) {
         this.profileImageUrl = imageUrl;
+    }
+
+    /**
+     * 디스코드 웹후크 URL을 업데이트함
+     *
+     * @param webhookUrl 변경할 웹후크 URL
+     * @author 허준형
+     * @DateOfCreated 2026-02-19
+     * @DateOfEdit 2026-02-19
+     */
+    public void updateDiscordWebhook(String webhookUrl) {
+        this.discordWebhookUrl = webhookUrl;
     }
 
     // 패스워드 재설정 메서드
