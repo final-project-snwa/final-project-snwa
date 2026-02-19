@@ -22,13 +22,22 @@ public record NotificationResponse(
         String articleTitle
 ) {
     public static NotificationResponse from(Notification notification) {
+        String articleTitle = null;
+        if (notification.getArticle() != null) {
+            String translatedTitle = notification.getArticle().getTranslatedTitle();
+            if (translatedTitle != null && !translatedTitle.isBlank()) {
+                articleTitle = translatedTitle;
+            } else {
+                articleTitle = notification.getArticle().getTitle();
+            }
+        }
         return new NotificationResponse(
                 notification.getId(),
                 notification.getMessage(),
                 notification.isRead(),
                 notification.getCreatedDate(),
                 notification.getArticle() != null ? notification.getArticle().getId() : null,
-                notification.getArticle() != null ? notification.getArticle().getTitle() : null
+                articleTitle
         );
     }
 }
