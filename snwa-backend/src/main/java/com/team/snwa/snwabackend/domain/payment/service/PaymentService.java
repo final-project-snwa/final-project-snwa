@@ -91,7 +91,7 @@ public class PaymentService {
             throw new CustomException(ErrorCode.TOSS_ORDER_ID_MISMATCH);
         }
         if (!req.amount().equals(tossRes.totalAmount())) {
-            throw new CustomException(ErrorCode.TOSS_AMOUNT_MISMATCH);
+            throw new CustomException(ErrorCode.PAYMENT_AMOUNT_MISMATCH);
         }
 
         String raw = safeJson(tossRes);

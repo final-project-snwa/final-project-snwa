@@ -185,7 +185,7 @@ public class WalletTransactionService {
         CoinTransaction chargeTx = coinTransactionRepository
                 .findByUserIdAndExternalRef(userId, paymentKey)
                 .orElseThrow(() ->
-                        new CustomException(ErrorCode.PAYMENT_CHARGE_NOT_FOUND)
+                        new CustomException(ErrorCode.PAYMENT_NOT_FOUND)
                 );
 
         // 2) 충전 이후 사용(SPEND)이 있었는지 검사
