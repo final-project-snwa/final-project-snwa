@@ -68,11 +68,10 @@ type ApiComment = {
     };
 };
 
-const API_CATEGORY_TO_DISPLAY: Record<string, 'Football' | 'Soccer' | 'Basketball' | 'Baseball' | 'Esports'> = {
+const API_CATEGORY_TO_DISPLAY: Record<string, 'Soccer' | 'Basketball' | 'Baseball'> = {
     BASKETBALL: 'Basketball',
     SOCCER: 'Soccer',
     BASEBALL: 'Baseball',
-    FOOTBALL: 'Football',
 };
 
 function getAuthHeader(): Record<string, string> | null {
@@ -116,7 +115,7 @@ function mapListItemToArticle(item: ApiArticleListItem): Article {
     const createdStr = item.createdDate?.replace('Z', '') ?? new Date().toISOString().slice(0, 19);
     return {
         id: String(item.id),
-        category: API_CATEGORY_TO_DISPLAY[item.categoryName] ?? 'Football',
+        category: API_CATEGORY_TO_DISPLAY[item.categoryName] ?? 'Soccer',
         translatedTitle: item.translatedTitle ?? item.title,
         originalTitle: item.title,
         source: item.publisherName ?? item.authorName ?? '',

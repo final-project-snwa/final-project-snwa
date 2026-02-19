@@ -15,11 +15,10 @@ function getAuthHeader(): Record<string, string> | null {
     return { Authorization: `Bearer ${token}` };
 }
 
-const API_CATEGORY_MAP: Record<string, 'Football' | 'Soccer' | 'Basketball' | 'Baseball' | 'Esports'> = {
+const API_CATEGORY_MAP: Record<string, 'Soccer' | 'Basketball' | 'Baseball'> = {
     BASKETBALL: 'Basketball',
     SOCCER: 'Soccer',
     BASEBALL: 'Baseball',
-    FOOTBALL: 'Football',
 };
 
 // 원형 그래프 색상 설정
@@ -102,7 +101,7 @@ export default function MyPage() {
                         const createdStr = data.createdDate?.replace('Z', '') || '';
                         return {
                             id: String(data.id),
-                            category: API_CATEGORY_MAP[data.categoryName] ?? 'Football',
+                            category: API_CATEGORY_MAP[data.categoryName] ?? 'Soccer',
                             translatedTitle: data.translatedTitle ?? data.title,
                             originalTitle: data.title,
                             source: data.publisherName || data.authorName || '',
@@ -142,7 +141,7 @@ export default function MyPage() {
                     clickCount?: number | null;
                 }) => ({
                     id: String(d.id),
-                    category: API_CATEGORY_MAP[d.categoryName] ?? 'Football',
+                    category: API_CATEGORY_MAP[d.categoryName] ?? 'Soccer',
                     translatedTitle: d.translatedTitle ?? d.title,
                     originalTitle: d.title,
                     source: d.publisherName || d.authorName || '',
