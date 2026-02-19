@@ -6,8 +6,7 @@ import lombok.Getter;
 public enum CategoryName {
     BASKETBALL(1),
     SOCCER(2),
-    BASEBALL(3),
-    FOOTBALL(4);
+    BASEBALL(3);
 
     private final int id;
 

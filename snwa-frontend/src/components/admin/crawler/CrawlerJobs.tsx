@@ -262,9 +262,22 @@ export default function CrawlerJobs() {
                             {(formData.sourceName === 'ESPN' || formData.sourceName === 'SKY_SPORTS') && (
                                 <div className="grid grid-cols-4 items-center gap-4">
                                     <Label htmlFor="league" className="text-right">리그</Label>
-                                    <Select 
-                                        value={formData.league || ''} 
-                                        onValueChange={(v) => setFormData({...formData, league: v as EspnLeague, jobName: v, targetUrl: ''})}
+                                    <Select
+                                        value={formData.league || ''}
+                                        onValueChange={(v: string) => {
+                                            const league = v as EspnLeague;
+                                            let catId = 2; // 기본: Soccer
+                                            if (league === 'NBA') catId = 1;      // Basketball
+                                            else if (league === 'MLB') catId = 3; // Baseball
+
+                                            setFormData({
+                                                ...formData,
+                                                league: league,
+                                                jobName: league,
+                                                targetUrl: '',
+                                                categoryId: catId
+                                            });
+                                        }}
                                     >
                                         <SelectTrigger className="col-span-3">
                                             <SelectValue placeholder="리그 선택" />
