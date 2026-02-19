@@ -33,11 +33,10 @@ type ApiArticleListResponse = {
     size: number;
 };
 
-const API_CATEGORY_TO_DISPLAY: Record<string, 'Football' | 'Soccer' | 'Basketball' | 'Baseball' | 'Esports'> = {
+const API_CATEGORY_TO_DISPLAY: Record<string, 'Soccer' | 'Basketball' | 'Baseball'> = {
     BASKETBALL: 'Basketball',
     SOCCER: 'Soccer',
     BASEBALL: 'Baseball',
-    FOOTBALL: 'Football',
 };
 
 type ApiCategory = { id: number; categoryName: string };
@@ -52,7 +51,7 @@ function mapListItemToArticle(item: ApiArticleListItem): Article {
     const createdStr = item.createdDate?.replace('Z', '') ?? new Date().toISOString().slice(0, 19);
     return {
         id: String(item.id),
-        category: API_CATEGORY_TO_DISPLAY[item.categoryName] ?? 'Football',
+        category: API_CATEGORY_TO_DISPLAY[item.categoryName] ?? 'Soccer',
         translatedTitle: item.translatedTitle ?? item.title,
         originalTitle: item.title,
         source: item.publisherName ?? item.authorName ?? '',
@@ -154,7 +153,11 @@ export default function MainPage() {
             fetch('/api/articles/publishers', { headers }).then((r) => (r.ok ? r.json() : [])),
         ])
             .then(([catList, pubList]) => {
-                setCategories(Array.isArray(catList) ? catList : []);
+                const orderedList = Array.isArray(catList) ? catList.sort((a, b) => {
+                    const order: Record<string, number> = { SOCCER: 1, BASKETBALL: 2, BASEBALL: 3 };
+                    return (order[a.categoryName] || 99) - (order[b.categoryName] || 99);
+                }) : [];
+                setCategories(orderedList);
                 setPublishers(Array.isArray(pubList) ? pubList : []);
             })
             .catch(() => {});

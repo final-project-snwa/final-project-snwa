@@ -1,6 +1,6 @@
 export interface Article {
   id: string;
-  category: 'Football' | 'Soccer' | 'Basketball' | 'Baseball' | 'Esports';
+  category: 'Soccer' | 'Basketball' | 'Baseball' | 'Esports';
   translatedTitle: string;
   originalTitle: string;
   source: string;
@@ -17,7 +17,7 @@ export interface Article {
 export const mockArticles: Article[] = [
   {
     id: '1',
-    category: 'Football',
+    category: 'Soccer',
     translatedTitle: '맨체스터 시티, 챔피언스리그 결승 진출 확정',
     originalTitle: 'Manchester City Secures Champions League Final Spot',
     source: 'ESPN',
@@ -125,7 +125,7 @@ At the ceremony, Faker said: "This victory is even more meaningful because we ac
   },
   {
     id: '5',
-    category: 'Football',
+    category: 'Soccer',
     translatedTitle: '호날두, 사우디 리그에서 통산 500호 골 달성',
     originalTitle: 'Ronaldo Reaches 500 Career Goals in Saudi League',
     source: 'Sky Sports',

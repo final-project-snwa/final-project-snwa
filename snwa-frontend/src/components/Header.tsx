@@ -19,7 +19,7 @@ export default function Header({ showCategories = false, selectedCategory, onCat
   const [userLevel, setUserLevel] = useState<number | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
 
-  const categories = ['All', 'Football', 'Basketball', 'Baseball', 'Esports'];
+  const categories = ['All', 'Basketball', 'Baseball', 'Soccer'];
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
