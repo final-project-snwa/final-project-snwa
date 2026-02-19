@@ -11,8 +11,8 @@
 #RUN chmod +x gradlew
 #RUN ./gradlew bootJar
 #RUN rm -f build/libs/*.jar && ./gradlew bootJar
-#
-## .jar 실행
+
+# .jar 실행
 #FROM eclipse-temurin:21-jre
 #WORKDIR /app
 #ARG JAR_FILE=build/libs/snwa-backend-0.0.1-SNAPSHOT.jar

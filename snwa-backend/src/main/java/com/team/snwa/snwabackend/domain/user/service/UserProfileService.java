@@ -40,6 +40,17 @@ public class UserProfileService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * 사용자 프로필 정보를 수정함
+     * 닉네임, 소개유, 전화번호, 프로필 이미지, 디스코드 웹후크 URL을 업데이트함
+     *
+     * @param userId  수정할 사용자의 ID
+     * @param request 수정할 프로필 정보 (닉네임, 소개글, 전화번호, 이미지 URL, 웹후크 URL)
+     * @return 수정된 사용자 프로필 정보
+     * @author 허준형
+     * @DateOfCreated 2026-01-26
+     * @DateOfEdit 2026-02-19
+     */
     @Transactional
     public UserProfileResponse updateProfile(Long userId, UserProfileUpdateRequest request) {
         User user = userRepository.findById(userId)
@@ -57,6 +68,7 @@ public class UserProfileService {
 
         user.updateProfile(newNickname, newIntro, newPhone);
 
+
         if (request.profileImageUrl() != null) {
             // 기존 이미지가 있고, 새 이미지와 다르다면 S3에서 삭제
             String oldImageUrl = user.getProfileImageUrl();
@@ -64,6 +76,11 @@ public class UserProfileService {
                 s3Service.deleteObject(oldImageUrl);
             }
             user.updateImageUrl(request.profileImageUrl());
+        }
+
+        // 디스코드 웹후크 업데이트
+        if (request.discordWebhookUrl() != null) {
+            user.updateDiscordWebhook(request.discordWebhookUrl());
         }
 
         return UserProfileResponse.from(user, List.of());
