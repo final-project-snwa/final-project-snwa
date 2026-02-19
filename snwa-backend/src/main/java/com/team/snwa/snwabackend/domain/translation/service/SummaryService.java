@@ -70,7 +70,18 @@ public class SummaryService {
                 .replace("{targetLanguage}", langName)
                 .replace("{translatedContent}", translatedContent);
         ChatClient chatClient = chatClientBuilder.build();
-        return chatClient.prompt(prompt).call().content();
+        try {
+            return chatClient.prompt(prompt).call().content();
+        } catch (Exception e) {
+            log.error("AI 요약 생성 중 오류 발생: {}", e.getMessage(), e);
+            // Gemini 할당량 초과(429, Resource exhausted) 확인
+            if (e.getMessage().contains("429") || e.getMessage().contains("Resource exhausted")) {
+                throw new com.team.snwa.snwabackend.global.exception.CustomException(
+                        com.team.snwa.snwabackend.global.exception.ErrorCode.AI_API_QUOTA_EXCEEDED);
+            }
+            throw new com.team.snwa.snwabackend.global.exception.CustomException(
+                    com.team.snwa.snwabackend.global.exception.ErrorCode.AI_API_ERROR);
+        }
     }
 
     private String toLanguageName(String targetLang) {

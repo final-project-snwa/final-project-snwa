@@ -5,6 +5,7 @@ import Header from '../components/Header';
 import ArticleCard from '../components/ArticleCard';
 import { formatDate, Article } from '../data/mockArticles';
 import { useExpToast } from '../contexts/ExpToastContext';
+import LoadingBar from '../components/ui/LoadingBar';
 type ReactionType = 'LIKE' | 'DISLIKE' | 'SAD' | 'ANGRY';
 
 type ApiArticleDetail = {
@@ -160,6 +161,8 @@ export default function ArticleDetailPage() {
 
     const [translateLoading, setTranslateLoading] = useState(false);
 
+    const [progress, setProgress] = useState(0);
+
     // 감정 반응 상태
     const [reactions, setReactions] = useState<ReactionCounts>({
         likeCount: 0,
@@ -270,17 +273,40 @@ export default function ArticleDetailPage() {
 
         if (!alreadyPurchased && !isAdmin) {
             const langName = LANGUAGE_OPTIONS.find(o => o.value === targetLang)?.label || targetLang;
-            if (!confirm(`${langName} 번역-요약하기 버튼을 누르면 코인 1개를 사용해서 번역본을 열람합니다.\n(이미 구매한 경우 차감되지 않습니다)\n계속하시겠습니까?`)) {
+            if (!confirm(`[${langName}] 번역본을 확인하시겠습니까?\n\n🪙 1코인이 사용됩니다.\n(이미 구매한 경우 무료)`)) {
                 return;
             }
         }
 
         setTranslateLoading(true);
+        // [추가] 가짜 로딩 애니메이션 (0.1초마다 조금씩 증가, 최대 90%까지만)
+        const interval = setInterval(() => {
+            setProgress((prev) => {
+                if (prev >= 90) return prev; // 90%에서 멈춤 (완료될 때까지 대기)
+                return prev + Math.random() * 0.4 + 0.33; //약 17초
+            });
+        }, 100);
+
         try {
             const res = await fetch(`/api/articles/${id}/translation?lang=${targetLang}`, {
                 headers: auth,
             });
-            if (!res.ok) throw new Error('번역을 불러오는데 실패했습니다.');
+            if (!res.ok) {
+                const errorData = await res.json();
+
+                // 코인 잔액 부족 시 커스텀 메시지
+                if (errorData.message === "코인 잔액이 부족합니다.") {
+                    alert("현재 코인 0개. 코인을 충전해주세요.");
+                } else {
+                    // 그 외 에러는 백엔드 메시지 그대로 보여주기
+                    throw new Error(errorData.message || '번역을 불러오는데 실패했습니다.');
+                }
+
+                // 로딩 종료 및 타이머 정리
+                clearInterval(interval);
+                setTranslateLoading(false);
+                return;
+            }
 
             const data = await res.json();
 
@@ -293,21 +319,28 @@ export default function ArticleDetailPage() {
                 });
             }
 
-            setArticle(prev => prev ? {
-                ...prev,
-                translatedTitle: data.translatedTitle || prev.translatedTitle,
-                translatedContent: data.translatedContent || prev.translatedContent,
-                summary: data.summary || prev.summary,
-                purchasedTranslationLanguages: prev.purchasedTranslationLanguages?.includes(targetLang)
-                    ? prev.purchasedTranslationLanguages
-                    : [...(prev.purchasedTranslationLanguages ?? []), targetLang],
-            } : null);
+            clearInterval(interval);
+            setProgress(100);
 
-            setShowOriginal(false); // 번역본을 기본으로 표시
-        } catch (e) {
+            setTimeout(() => {
+                setArticle(prev => prev ? {
+                    ...prev,
+                    translatedTitle: data.translatedTitle || prev.translatedTitle,
+                    translatedContent: data.translatedContent || prev.translatedContent,
+                    summary: data.summary || prev.summary,
+                    purchasedTranslationLanguages: prev.purchasedTranslationLanguages?.includes(targetLang)
+                        ? prev.purchasedTranslationLanguages
+                        : [...(prev.purchasedTranslationLanguages ?? []), targetLang],
+                } : null);
+
+                setShowOriginal(false); // 번역본을 기본으로 표시
+                setTranslateLoading(false);
+            }, 500);
+        } catch (e: any) {
+            clearInterval(interval);
             console.error(e);
-            alert('번역을 가져오는데 실패했습니다.');
-        } finally {
+            // 에러 메시지가 있으면 보여주고, 없으면 기본 메시지
+            alert(e.message || '번역을 가져오는데 실패했습니다.');
             setTranslateLoading(false);
         }
     };
@@ -567,21 +600,27 @@ export default function ArticleDetailPage() {
                         </div>
 
                         {/* 원문 또는 번역본 표시 */}
-                        <div className="prose prose-gray max-w-none mb-6">
-                            {!showOriginal ? (
-                                <>
-                                    {article.summary && (
-                                        <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                                            <h3 className="text-sm font-semibold text-gray-600 mb-2">요약</h3>
-                                            <div className="text-gray-900 leading-relaxed whitespace-pre-line">{article.summary}</div>
-                                        </div>
-                                    )}
-                                    <div className="text-gray-900 leading-relaxed whitespace-pre-line">{article.translatedContent}</div>
-                                </>
-                            ) : (
-                                <div className="text-gray-700 leading-relaxed whitespace-pre-line">{article.originalContent}</div>
-                            )}
-                        </div>
+                        {translateLoading ? (
+                            <div className="w-full flex items-center justify-center min-h-[300px] mb-6">
+                                <LoadingBar value={progress} />
+                            </div>
+                        ) : (
+                            <div className="prose prose-gray max-w-none mb-6">
+                                {!showOriginal ? (
+                                    <>
+                                        {article.summary && (
+                                            <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                                                <h3 className="text-sm font-semibold text-gray-600 mb-2">요약</h3>
+                                                <div className="text-gray-900 leading-relaxed whitespace-pre-line">{article.summary}</div>
+                                            </div>
+                                        )}
+                                        <div className="text-gray-900 leading-relaxed whitespace-pre-line">{article.translatedContent}</div>
+                                    </>
+                                ) : (
+                                    <div className="text-gray-700 leading-relaxed whitespace-pre-line">{article.originalContent}</div>
+                                )}
+                            </div>
+                        )}
 
                         {/* 감정 반응 버튼 + 북마크 */}
                         <div className="mt-8 pt-6 border-t border-gray-200">
