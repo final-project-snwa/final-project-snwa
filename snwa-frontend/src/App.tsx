@@ -12,7 +12,6 @@ import ArticleDetailPage from './pages/ArticleDetailPage';
 import MyPage from './pages/MyPage';
 import CoinPurchasePage from './pages/CoinPurchasePage';
 import AdminPage from './pages/AdminPage';
-import AuthTestPage from './pages/AuthTestPage';
 import ProfilePage from './pages/ProfilePage';
 import InterestSettingsPage from './pages/InterestSettingsPage';
 import NotificationsPage from './pages/NotificationsPage';
@@ -80,11 +79,6 @@ const router = createBrowserRouter([
         path: '/admin',
         element: <AdminPage />,
     },
-    {
-        path: '/auth-test',
-        element: <AuthTestPage />,
-    },
-
     // ✅ 추가: 결제 라우트 3개
     {
         path: '/pay',

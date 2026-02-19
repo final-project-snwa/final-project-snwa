@@ -1,8 +1,10 @@
 package com.team.snwa.snwabackend.domain.interest.service;
 
+import com.team.snwa.snwabackend.domain.article.repository.ArticleTagRepository;
 import com.team.snwa.snwabackend.domain.interest.dto.response.InterestTargetResponse;
 import com.team.snwa.snwabackend.domain.interest.dto.response.SubscriptionResponse;
 import com.team.snwa.snwabackend.domain.interest.entity.InterestTarget;
+import com.team.snwa.snwabackend.domain.interest.entity.InterestType;
 import com.team.snwa.snwabackend.domain.interest.entity.UserSubscription;
 import com.team.snwa.snwabackend.domain.interest.repository.InterestTargetRepository;
 import com.team.snwa.snwabackend.domain.interest.repository.UserSubscriptionRepository;
@@ -12,7 +14,6 @@ import com.team.snwa.snwabackend.global.exception.CustomException;
 import com.team.snwa.snwabackend.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import com.team.snwa.snwabackend.domain.interest.entity.InterestType;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
@@ -24,13 +25,31 @@ import java.util.stream.Collectors;
 public class InterestService {
 
         private final InterestTargetRepository interestTargetRepository;
+        private final ArticleTagRepository articleTagRepository;
         private final UserSubscriptionRepository userSubscriptionRepository;
         private final UserRepository userRepository;
 
+        /**
+         * article_tag 테이블 기준으로 태그명 검색 후, 해당 태그에 대한 InterestTarget 목록 반환.
+         * interest_target에 없으면 OTHER 타입으로 생성 후 반환.
+         */
+        @Transactional
         public List<InterestTargetResponse> searchTargets(String keyword) {
-                return interestTargetRepository.findByNameContaining(keyword).stream()
-                                .map(InterestTargetResponse::from)
-                                .collect(Collectors.toList());
+                List<String> tagNames = articleTagRepository.findDistinctTagNamesContaining(keyword);
+                List<InterestTargetResponse> result = new ArrayList<>();
+                for (String tagName : tagNames) {
+                        InterestTarget target = interestTargetRepository.findByTagKey(tagName)
+                                        .orElseGet(() -> {
+                                                InterestTarget newTarget = InterestTarget.builder()
+                                                                .type(InterestType.OTHER)
+                                                                .name(tagName)
+                                                                .tagKey(tagName)
+                                                                .build();
+                                                return interestTargetRepository.save(newTarget);
+                                        });
+                        result.add(InterestTargetResponse.from(target));
+                }
+                return result;
         }
 
         @Transactional

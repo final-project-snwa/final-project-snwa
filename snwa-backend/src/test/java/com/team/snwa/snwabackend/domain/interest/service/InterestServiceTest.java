@@ -1,5 +1,6 @@
 package com.team.snwa.snwabackend.domain.interest.service;
 
+import com.team.snwa.snwabackend.domain.article.repository.ArticleTagRepository;
 import com.team.snwa.snwabackend.domain.interest.dto.response.InterestTargetResponse;
 import com.team.snwa.snwabackend.domain.interest.dto.response.SubscriptionResponse;
 import com.team.snwa.snwabackend.domain.interest.entity.InterestTarget;
@@ -34,22 +35,25 @@ class InterestServiceTest {
     @Mock
     private InterestTargetRepository interestTargetRepository;
     @Mock
+    private ArticleTagRepository articleTagRepository;
+    @Mock
     private UserSubscriptionRepository userSubscriptionRepository;
     @Mock
     private UserRepository userRepository;
 
     @Test
-    @DisplayName("Search targets by keyword")
+    @DisplayName("Search targets by keyword (article_tag 기준)")
     void searchTargets() {
-        // given
+        // given: article_tag에서 검색된 태그명
         String keyword = "손흥민";
+        given(articleTagRepository.findDistinctTagNamesContaining(keyword)).willReturn(List.of("손흥민"));
         InterestTarget target = InterestTarget.builder()
                 .type(InterestType.PLAYER)
                 .name("손흥민")
                 .tagKey("손흥민")
                 .build();
         org.springframework.test.util.ReflectionTestUtils.setField(target, "id", 1L);
-        given(interestTargetRepository.findByNameContaining(keyword)).willReturn(List.of(target));
+        given(interestTargetRepository.findByTagKey("손흥민")).willReturn(Optional.of(target));
 
         // when
         List<InterestTargetResponse> result = interestService.searchTargets(keyword);
