@@ -1,8 +1,7 @@
-package com.team.snwa.snwabackend.domain.order;
+package com.team.snwa.snwabackend.domain.order.service;
 
 import com.team.snwa.snwabackend.domain.order.dto.request.OrderCreateRequest;
 import com.team.snwa.snwabackend.domain.order.repository.OrderRepository;
-import com.team.snwa.snwabackend.domain.order.service.OrderService;
 import com.team.snwa.snwabackend.domain.wallet.entity.CoinChargePolicy;
 import com.team.snwa.snwabackend.domain.wallet.repository.CoinChargePolicyRepository;
 import com.team.snwa.snwabackend.global.exception.CustomException;

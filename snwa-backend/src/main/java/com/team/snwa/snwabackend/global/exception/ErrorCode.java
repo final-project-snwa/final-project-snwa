@@ -45,7 +45,6 @@ public enum ErrorCode {
     PAYMENT_ALREADY_CANCELED(HttpStatus.CONFLICT, "이미 전체 취소된 결제입니다."),
 
     TOSS_ORDER_ID_MISMATCH(HttpStatus.BAD_REQUEST, "토스 주문 ID가 일치하지 않습니다."),
-    TOSS_AMOUNT_MISMATCH(HttpStatus.BAD_REQUEST, "토스 결제 금액이 일치하지 않습니다."),
 
     PAYMENT_KEY_DUPLICATED(HttpStatus.CONFLICT, "이미 처리된 결제 키입니다."),
     PAYMENT_INCONSISTENT_STATE(HttpStatus.CONFLICT, "결제 상태가 일관되지 않습니다."),
@@ -59,7 +58,6 @@ public enum ErrorCode {
 
     TOSS_CANCEL_FAILED(HttpStatus.BAD_GATEWAY, "토스 결제 취소 요청에 실패했습니다."),
 
-    PAYMENT_CHARGE_NOT_FOUND(HttpStatus.NOT_FOUND, "결제 정보를 찾을 수 없습니다."),
     CANNOT_CANCEL_USED_COIN_PAYMENT(HttpStatus.CONFLICT, "이미 사용된 코인이 포함된 결제는 취소할 수 없습니다."),
 
     POLICY_NOT_FOUND(HttpStatus.NOT_FOUND, "결제 정책을 찾을 수 없습니다."),
@@ -69,9 +67,8 @@ public enum ErrorCode {
     POLICY_INVALID_COIN_AMOUNT(HttpStatus.BAD_REQUEST, "유효하지 않은 코인 충전 수량입니다."),
     POLICY_INVALID_NAME(HttpStatus.BAD_REQUEST, "유효하지 않은 결제 상품 이름입니다."),
 
-    ORDER_NOT_FOUND(HttpStatus.BAD_REQUEST, "주문을 찾을 수 없습니다."),
     WALLET_REFUND_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "토스 취소는 완료됐지만 내부 환불 처리(코인 회수)에 실패했습니다. 고객센터로 문의해주세요."),
-    WALLET_CHARGE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "토스 취소는 완료됐지만 내부 환불 처리(코인 회수)에 실패했습니다. 고객센터로 문의해주세요."),
+    WALLET_CHARGE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "토스 승인 후 코인 지급에 실패했습니다. 고객센터로 문의해주세요."),
 
     //알림 관련 에러 코드
     NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 알림입니다."),
