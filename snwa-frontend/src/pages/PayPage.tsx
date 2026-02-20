@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useSearchParams } from "react-router";
 
 declare global {
@@ -23,6 +23,14 @@ const toNumber = (v: string | null): number | null => {
     return Number.isFinite(n) ? n : null;
 };
 
+const safeDecode = (s: string) => {
+    try {
+        return decodeURIComponent(s.replace(/\+/g, "%20"));
+    } catch {
+        return s;
+    }
+};
+
 export default function PayPage() {
     const location = useLocation();
     const [searchParams] = useSearchParams();
@@ -30,46 +38,65 @@ export default function PayPage() {
     const [prepared, setPrepared] = useState<OrderCreateResponse | null>(null);
     const [currentPolicyId, setCurrentPolicyId] = useState<number | null>(null);
     const [prepareError, setPrepareError] = useState<string | null>(null);
+    const [isPreparing, setIsPreparing] = useState(false);
+    const [isPaying, setIsPaying] = useState(false);
 
     const widgetRef = useRef<any>(null);
     const initedRef = useRef(false);
 
     const clientKey = import.meta.env.VITE_TOSS_CLIENT_KEY as string | undefined;
 
-    useEffect(() => {
-        const state = location.state as PayLocationState;
-
-        // ✅ 0) URL 쿼리스트링에서도 주문정보 받기
+    // state/query에서 넘어온 값 정리(가능하면 URL decode도)
+    const qp = useMemo(() => {
         const qpPolicyId = toNumber(searchParams.get("policyId"));
         const qpOrderId = searchParams.get("orderId");
         const qpOrderName = searchParams.get("orderName");
         const qpAmount = toNumber(searchParams.get("amount"));
 
-        // policyId 결정: state > query > default(1)
-        const policyId = state?.policyId ?? qpPolicyId ?? 1;
+        return {
+            qpPolicyId,
+            qpOrderId: qpOrderId ? safeDecode(qpOrderId) : null,
+            qpOrderName: qpOrderName ? safeDecode(qpOrderName) : null,
+            qpAmount,
+        };
+    }, [searchParams]);
+
+    useEffect(() => {
+        const state = location.state as PayLocationState;
+
+        // ✅ 에러/상태 초기화
+        setPrepareError(null);
+        setIsPreparing(false);
+
+        // ✅ policyId 결정: state > query > default(1)
+        const policyId = state?.policyId ?? qp.qpPolicyId ?? 1;
         setCurrentPolicyId(policyId);
 
         // ✅ 1) state로 주문정보를 넘겨받았으면 그대로 사용
         if (state?.orderId && state?.orderName != null && state?.amount != null) {
             const next = { orderId: state.orderId, orderName: state.orderName, amount: state.amount };
             setPrepared(next);
-            initedRef.current = false; // prepared 바뀌면 위젯 다시 초기화 가능
+            initedRef.current = false;
             return;
         }
 
         // ✅ 2) 쿼리스트링으로 주문정보가 있으면 그대로 사용
-        if (qpOrderId && qpOrderName != null && qpAmount != null) {
-            const next = { orderId: qpOrderId, orderName: qpOrderName, amount: qpAmount };
+        if (qp.qpOrderId && qp.qpOrderName != null && qp.qpAmount != null) {
+            const next = { orderId: qp.qpOrderId, orderName: qp.qpOrderName, amount: qp.qpAmount };
             setPrepared(next);
             initedRef.current = false;
             return;
         }
+
+        // ✅ 3) 없으면 서버에 주문 생성 요청
         let cancelled = false;
         (async () => {
             try {
+                setIsPreparing(true);
+
                 const token = sessionStorage.getItem("snwa_token");
                 if (!token) {
-                    setPrepareError("로그인이 필요합니다. 다시 로그인 후 시도해주세요.");
+                    setPrepareError("로그인이 필요합니다. 다시 로그인 후 시도해 주십시오.");
                     return;
                 }
 
@@ -82,10 +109,21 @@ export default function PayPage() {
                     body: JSON.stringify({ policyId }),
                 });
 
+                // 실패 메시지
                 if (!res.ok) {
-                    const text = await res.text();
+                    let msg = `주문 생성에 실패했습니다. (${res.status})`;
+                    const text = await res.text().catch(() => "");
+                    // 백엔드가 JSON 형태로 내려주면 message 뽑기
+                    try {
+                        const j = text ? JSON.parse(text) : null;
+                        const m = j?.message || j?.error || j?.code;
+                        if (m) msg = `${msg}\n${String(m)}`;
+                    } catch {
+                        // plain text면 짧게 붙이기
+                        if (text) msg = `${msg}\n${text.slice(0, 300)}`;
+                    }
                     console.error("order create failed", res.status, text);
-                    setPrepareError(`주문 생성 실패: ${res.status}`);
+                    setPrepareError(msg);
                     return;
                 }
 
@@ -96,14 +134,17 @@ export default function PayPage() {
                 initedRef.current = false;
             } catch (e) {
                 console.error("order create exception", e);
-                setPrepareError("주문 생성 중 오류가 발생했습니다.");
+                setPrepareError("주문 생성 중 오류가 발생했습니다. 잠시 후 다시 시도해 주십시오.");
+            } finally {
+                if (!cancelled) setIsPreparing(false);
             }
         })();
 
         return () => {
             cancelled = true;
         };
-    }, [location.state, searchParams]);
+        // location.state는 객체 레퍼런스가 흔들릴 수 있어 qp로 안정화 + location.key를 트리거로 사용
+    }, [location.key, qp, location.state]);
 
     const initWidget = async () => {
         if (!prepared) return;
@@ -149,18 +190,26 @@ export default function PayPage() {
 
     const requestPay = async () => {
         if (!prepared || !widgetRef.current) return;
+        if (isPaying) return;
 
         try {
+            setIsPaying(true);
+
             const origin = window.location.origin;
             const successParams = currentPolicyId != null ? `?policyId=${currentPolicyId}` : "";
+            const failParams = currentPolicyId != null ? `?policyId=${currentPolicyId}` : "";
+
             await widgetRef.current.requestPayment({
                 orderId: prepared.orderId,
                 orderName: prepared.orderName,
                 successUrl: `${origin}/pay/success${successParams}`,
-                failUrl: `${origin}/pay/fail`,
+                failUrl: `${origin}/pay/fail${failParams}`,
             });
         } catch (e) {
+            // 결제창 닫힘/취소/실패는 토스 위젯에서 failUrl로 리다이렉트되지 않을 수 있음(사용자 닫기 등)
             console.warn("결제창 닫힘/취소/실패", e);
+        } finally {
+            setIsPaying(false);
         }
     };
 
@@ -171,12 +220,15 @@ export default function PayPage() {
 
                 {!prepared && !prepareError && (
                     <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-                        <p className="text-sm text-gray-500">주문 생성 중...</p>
+                        <p className="text-sm text-gray-500">
+                            {isPreparing ? "주문 생성 중..." : "주문 정보를 준비하고 있습니다..."}
+                        </p>
                     </div>
                 )}
+
                 {prepareError && (
                     <div className="bg-white rounded-xl border border-red-200 shadow-sm p-6">
-                        <p className="text-sm text-red-600">{prepareError}</p>
+                        <p className="text-sm text-red-600 whitespace-pre-wrap">{prepareError}</p>
                     </div>
                 )}
 
@@ -205,11 +257,19 @@ export default function PayPage() {
 
                             <button
                                 type="button"
-                                className="mt-6 w-full rounded-lg bg-gray-900 px-4 py-3 text-sm font-semibold text-white hover:bg-gray-800 transition-colors"
+                                disabled={isPaying}
+                                className={[
+                                    "mt-6 w-full rounded-lg px-4 py-3 text-sm font-semibold text-white transition-colors",
+                                    isPaying ? "bg-gray-400 cursor-not-allowed" : "bg-gray-900 hover:bg-gray-800",
+                                ].join(" ")}
                                 onClick={requestPay}
                             >
-                                결제하기
+                                {isPaying ? "결제창을 여는 중입니다..." : "결제하기"}
                             </button>
+
+                            <p className="mt-3 text-xs text-gray-500">
+                                결제창이 열리지 않으면 팝업 차단 설정을 확인해 주십시오.
+                            </p>
                         </div>
                     </>
                 )}
