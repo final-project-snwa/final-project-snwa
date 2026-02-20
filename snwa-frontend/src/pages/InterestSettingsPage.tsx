@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useNavigate, Link } from 'react-router';
+import { useNavigate, Link, useSearchParams } from 'react-router';
 import { useAuth } from '../contexts/AuthContext';
 import Header from '../components/Header';
 import { Search, Tag, Check, X, User, Trophy, Users, Award } from 'lucide-react';
@@ -47,13 +47,27 @@ export default function InterestSettingsPage() {
     const [loadingSubscriptions, setLoadingSubscriptions] = useState(true);
     const [togglingId, setTogglingId] = useState<number | null>(null);
 
+    // 전체 태그 상태
+    const [allTargets, setAllTargets] = useState<InterestTarget[]>([]);
+    const [loadingAllTargets, setLoadingAllTargets] = useState(true);
+
+    // URL 쿼리 파라미터 (기사 해시태그 클릭으로 이동 시)
+    const [searchParams] = useSearchParams();
+
     useEffect(() => {
         if (!user) {
             navigate('/login');
             return;
         }
         fetchSubscriptions();
-    }, [user, navigate]);
+        fetchAllTargets();
+
+        // URL 쿼리 파라미터로 검색어 자동 설정
+        const q = searchParams.get('q');
+        if (q) {
+            setSearchQuery(q);
+        }
+    }, [user, navigate, searchParams]);
 
     const fetchSubscriptions = async () => {
         const auth = getAuthHeader();
@@ -96,6 +110,24 @@ export default function InterestSettingsPage() {
             setSearching(false);
         }
     }, []);
+
+    const fetchAllTargets = async () => {
+        const auth = getAuthHeader();
+        if (!auth) return;
+
+        setLoadingAllTargets(true);
+        try {
+            const res = await fetch('/api/targets/all', { headers: auth });
+            if (res.ok) {
+                const data: InterestTarget[] = await res.json();
+                setAllTargets(data);
+            }
+        } catch (error) {
+            console.error('전체 태그 조회 실패:', error);
+        } finally {
+            setLoadingAllTargets(false);
+        }
+    };
 
     // 디바운스 검색
     useEffect(() => {
@@ -146,6 +178,14 @@ export default function InterestSettingsPage() {
     }, {} as Record<InterestType, Subscription[]>);
 
     const displayTypes: InterestType[] = ['PLAYER', 'SPORT', 'TEAM', 'LEAGUE'];
+
+    // 전체 태그를 타입별로 그룹화
+    const groupedAllTargets = allTargets.reduce((acc, target) => {
+        const type = target.type ?? 'OTHER';
+        if (!acc[type]) acc[type] = [];
+        acc[type].push(target);
+        return acc;
+    }, {} as Record<InterestType, InterestTarget[]>);
 
     if (!user) {
         return null;
@@ -260,6 +300,111 @@ export default function InterestSettingsPage() {
                                 )}
                             </div>
                         )}
+
+                        {/* 전체 태그 목록 */}
+                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                            <h2 className="text-lg font-bold text-gray-900 mb-4">
+                                전체 태그 목록
+                                {allTargets.length > 0 && (
+                                    <span className="ml-2 text-sm font-normal text-gray-500">
+                                        ({allTargets.length}개)
+                                    </span>
+                                )}
+                            </h2>
+
+                            {loadingAllTargets ? (
+                                <div className="space-y-3">
+                                    {[1, 2, 3].map((i) => (
+                                        <div key={i} className="h-10 bg-gray-100 rounded-lg animate-pulse"></div>
+                                    ))}
+                                </div>
+                            ) : allTargets.length === 0 ? (
+                                <div className="text-center py-8">
+                                    <Tag className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+                                    <p className="text-sm text-gray-500">등록된 태그가 없습니다</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-6">
+                                    {displayTypes.map((type) => {
+                                        const targets = groupedAllTargets[type];
+                                        if (!targets || targets.length === 0) return null;
+                                        const config = TYPE_CONFIG[type as Exclude<InterestType, 'OTHER'>];
+                                        return (
+                                            <div key={type}>
+                                                <div className="flex items-center gap-2 mb-3">
+                                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${config.color}`}>
+                                                        {config.icon}
+                                                        {config.label}
+                                                    </span>
+                                                    <span className="text-xs text-gray-400">{targets.length}개</span>
+                                                </div>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {targets.map((target) => {
+                                                        const subscribed = isSubscribed(target.id);
+                                                        const toggling = togglingId === target.id;
+                                                        return (
+                                                            <button
+                                                                key={target.id}
+                                                                onClick={() => toggleSubscription(target.id)}
+                                                                disabled={toggling}
+                                                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition-all ${subscribed
+                                                                        ? 'bg-gray-900 text-white border-gray-900 hover:bg-gray-800'
+                                                                        : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:border-gray-300'
+                                                                    }`}
+                                                            >
+                                                                {toggling ? (
+                                                                    <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                                                                ) : subscribed ? (
+                                                                    <Check className="w-3.5 h-3.5" />
+                                                                ) : null}
+                                                                {target.name}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+
+                                    {/* 기타 타입 */}
+                                    {(groupedAllTargets.OTHER?.length ?? 0) > 0 && (
+                                        <div>
+                                            <div className="flex items-center gap-2 mb-3">
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border bg-gray-100 text-gray-600 border-gray-200">
+                                                    <Tag className="w-3.5 h-3.5" />
+                                                    기타
+                                                </span>
+                                                <span className="text-xs text-gray-400">{groupedAllTargets.OTHER!.length}개</span>
+                                            </div>
+                                            <div className="flex flex-wrap gap-2">
+                                                {groupedAllTargets.OTHER!.map((target) => {
+                                                    const subscribed = isSubscribed(target.id);
+                                                    const toggling = togglingId === target.id;
+                                                    return (
+                                                        <button
+                                                            key={target.id}
+                                                            onClick={() => toggleSubscription(target.id)}
+                                                            disabled={toggling}
+                                                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition-all ${subscribed
+                                                                    ? 'bg-gray-900 text-white border-gray-900 hover:bg-gray-800'
+                                                                    : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:border-gray-300'
+                                                                }`}
+                                                        >
+                                                            {toggling ? (
+                                                                <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                                                            ) : subscribed ? (
+                                                                <Check className="w-3.5 h-3.5" />
+                                                            ) : null}
+                                                            {target.name}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
 
 
                     </div>
