@@ -90,23 +90,29 @@ public class TranslationService {
                         }
                     }
 
-                    // 태그가 비어있으면 채워넣기
-                    String tagsStr = t.getTags();
-                    List<String> tags = new ArrayList<>();
+                    // [수정] 태그 조회: ArticleTag 테이블에서 가져옴
+                    List<String> tags = articleTagRepository.findByArticleIdAndLanguage(articleId, targetLang)
+                            .stream()
+                            .map(ArticleTag::getTagName)
+                            .toList();
 
-                    if (tagsStr == null || tagsStr.isBlank()) {
+                    // 태그가 없으면 새로 추출 (보수 로직)
+                    if (tags.isEmpty()) {
                         try {
                             tags = keywordExtractionService.extractKeywordsToList(t.getTranslatedContent(), targetLang);
                             if (!tags.isEmpty()) {
-                                tagsStr = String.join(",", tags);
-                                t.updateTags(tagsStr);
-                                updated = true;
+                                // ArticleTag 테이블에 저장
+                                for (String tagName : tags) {
+                                    articleTagRepository.save(ArticleTag.builder()
+                                            .article(t.getArticle())
+                                            .tagName(tagName)
+                                            .language(targetLang)
+                                            .build());
+                                }
                             }
                         } catch (Exception e) {
                             log.error("태그기능 실패(Skipped): {}", e.getMessage());
                         }
-                    } else {
-                        tags = Arrays.asList(tagsStr.split(","));
                     }
 
                     if (updated) {
@@ -118,11 +124,11 @@ public class TranslationService {
                             .content(t.getArticle().getContent())
                             .translatedTitle(t.getTranslatedTitle())
                             .translatedContent(t.getTranslatedContent())
+                            .summary(summary)
+                            .tags(tags)
                             .authorName(t.getArticle().getAuthorName())
                             .publisherName(t.getArticle().getPublisherName())
                             .originalUrl(t.getArticle().getOriginalUrl())
-                            .summary(summary)
-                            .tags(tags)
                             .build();
                 })
                 .orElseGet(() -> {
@@ -152,35 +158,33 @@ public class TranslationService {
                     log.error("요약 생성 실패(Skipped): {}", e.getMessage());
                 }
             }
+
             // 1-2. 태그가 비어있으면 채워넣기 (보수 로직)
-            List<String> tags = new ArrayList<>();
-            if (t.getTags() != null && !t.getTags().isBlank()) {
-                tags = Arrays.asList(t.getTags().split(","));
-            } else {
+            // [수정] ArticleTag 테이블에서 조회
+            List<String> tags = articleTagRepository.findByArticleIdAndLanguage(articleId, targetLang)
+                    .stream()
+                    .map(ArticleTag::getTagName)
+                    .toList();
+
+            if (tags.isEmpty()) {
                 try {
                     // 태그가 없으면 새로 추출
                     tags = keywordExtractionService.extractKeywordsToList(t.getTranslatedContent(), targetLang);
                     if (!tags.isEmpty()) {
-                        String tagsStr = String.join(",", tags);
-                        t.updateTags(tagsStr);
-                        updated = true;
-
-                        // ArticleTag 테이블에도 저장 (중복 체크)
-                        if (!articleTagRepository.existsByArticleIdAndLanguage(articleId, targetLang)) {
-                            for (String tagName : tags) {
-                                articleTagRepository.save(ArticleTag.builder()
-                                        .article(t.getArticle())
-                                        .tagName(tagName)
-                                        .language(targetLang)
-                                        .build());
-                            }
+                        // ArticleTag 테이블에 저장
+                        for (String tagName : tags) {
+                            articleTagRepository.save(ArticleTag.builder()
+                                    .article(t.getArticle())
+                                    .tagName(tagName)
+                                    .language(targetLang)
+                                    .build());
                         }
-                        log.info("기존 번역본에 태그가 없어 새로 생성했습니다: articleId={}", articleId);
                     }
                 } catch (Exception e) {
-                    log.error("태그 생성 실패(Skipped): {}", e.getMessage());
+                    log.error("태그기능 실패(Skipped): {}", e.getMessage());
                 }
             }
+
             // 변경사항이 있으면 저장
             if (updated) {
                 articleTranslationRepository.save(t);
@@ -226,7 +230,8 @@ public class TranslationService {
             }
         } catch (Exception e) {
             if (e instanceof com.team.snwa.snwabackend.global.exception.CustomException &&
-                    ((com.team.snwa.snwabackend.global.exception.CustomException) e).getErrorCode() == com.team.snwa.snwabackend.global.exception.ErrorCode.AI_API_QUOTA_EXCEEDED) {
+                    ((com.team.snwa.snwabackend.global.exception.CustomException) e)
+                            .getErrorCode() == com.team.snwa.snwabackend.global.exception.ErrorCode.AI_API_QUOTA_EXCEEDED) {
                 throw e;
             }
             log.error("요약 생성 실패: {}", e.getMessage());
@@ -234,12 +239,9 @@ public class TranslationService {
 
         // 3. 키워드 추출
         List<String> tags = new ArrayList<>();
-        String tagsStr = null;
         try {
             tags = keywordExtractionService.extractKeywordsToList(translatedContent, targetLang);
             if (!tags.isEmpty()) {
-                tagsStr = String.join(",", tags);
-
                 if (!articleTagRepository.existsByArticleIdAndLanguage(articleId, targetLang)) {
                     for (String tagName : tags) {
                         articleTagRepository.save(ArticleTag.builder()
@@ -252,7 +254,8 @@ public class TranslationService {
             }
         } catch (Exception e) {
             if (e instanceof com.team.snwa.snwabackend.global.exception.CustomException &&
-                    ((com.team.snwa.snwabackend.global.exception.CustomException) e).getErrorCode() == com.team.snwa.snwabackend.global.exception.ErrorCode.AI_API_QUOTA_EXCEEDED) {
+                    ((com.team.snwa.snwabackend.global.exception.CustomException) e)
+                            .getErrorCode() == com.team.snwa.snwabackend.global.exception.ErrorCode.AI_API_QUOTA_EXCEEDED) {
                 throw e;
             }
             log.error("키워드 추출 실패: {}", e.getMessage());
@@ -265,7 +268,6 @@ public class TranslationService {
                 .translatedTitle(response.getTranslatedTitle())
                 .translatedContent(translatedContent)
                 .summary(summary)
-                .tags(tagsStr)
                 .build();
 
         articleTranslationRepository.save(translation);
