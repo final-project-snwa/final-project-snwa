@@ -31,3 +31,4 @@ inspect_output*.txt
 .skills/notebooklm/browser_state/
 *.log
 
+.skills/
