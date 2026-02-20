@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router';
-import { ArrowLeft, Bookmark, ChevronDown, Hash } from 'lucide-react';
+import { ArrowLeft, Bookmark, ChevronDown } from 'lucide-react';
 import Header from '../components/Header';
 import ArticleCard from '../components/ArticleCard';
 import { formatDate, Article } from '../data/mockArticles';
@@ -331,6 +331,7 @@ export default function ArticleDetailPage() {
                     translatedTitle: data.translatedTitle || prev.translatedTitle,
                     translatedContent: data.translatedContent || prev.translatedContent,
                     summary: data.summary || prev.summary,
+                    tags: data.tags && data.tags.length > 0 ? data.tags : prev.tags,
                     purchasedTranslationLanguages: prev.purchasedTranslationLanguages?.includes(targetLang)
                         ? prev.purchasedTranslationLanguages
                         : [...(prev.purchasedTranslationLanguages ?? []), targetLang],
@@ -633,16 +634,15 @@ export default function ArticleDetailPage() {
 
                         {/* 해시태그 */}
                         {article.tags && article.tags.length > 0 && (
-                            <div className="mt-6 pt-4 border-t border-gray-100">
-                                <div className="flex flex-wrap gap-2">
+                            <div className="mt-6 pt-5 border-t border-gray-200">
+                                <div className="flex flex-wrap gap-x-3 gap-y-2">
                                     {article.tags.map((tag, idx) => (
                                         <Link
                                             key={idx}
-                                            to={`/interests?q=${encodeURIComponent(tag)}`}
-                                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-gray-100 hover:bg-blue-50 hover:text-blue-600 text-sm text-gray-600 rounded-full transition-colors border border-gray-200 hover:border-blue-200"
+                                            to={`/?q=${encodeURIComponent(tag)}`}
+                                            className="text-sm text-blue-600 hover:text-blue-800 hover:underline transition-colors"
                                         >
-                                            <Hash className="w-3.5 h-3.5" />
-                                            {tag}
+                                            #{tag}
                                         </Link>
                                     ))}
                                 </div>
