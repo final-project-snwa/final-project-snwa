@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router';
 import { useAuth } from '../contexts/AuthContext';
 import Header from '../components/Header';
-import { Search, Tag, Check, X, User, Trophy, Users, Award, Hash } from 'lucide-react';
+import { Search, Tag, Check, X, User, Trophy, Users, Award } from 'lucide-react';
 
 type InterestType = 'PLAYER' | 'SPORT' | 'TEAM' | 'LEAGUE' | 'OTHER';
 
@@ -15,18 +15,16 @@ interface InterestTarget {
 
 interface Subscription {
     id: number;
-    interestTargetId: number;
-    interestTargetName: string;
-    interestTargetType: InterestType;
+    target: { id: number; type: InterestType; name: string; tagKey: string };
     isAlarmOn: boolean;
 }
 
-const TYPE_CONFIG: Record<InterestType, { label: string; icon: React.ReactNode; color: string }> = {
+/** 타입별 라벨 (OTHER 제외 - #기타 미표시) */
+const TYPE_CONFIG: Record<Exclude<InterestType, 'OTHER'>, { label: string; icon: React.ReactNode; color: string }> = {
     PLAYER: { label: '선수', icon: <User className="w-4 h-4" />, color: 'bg-blue-100 text-blue-700 border-blue-200' },
     SPORT: { label: '종목', icon: <Trophy className="w-4 h-4" />, color: 'bg-green-100 text-green-700 border-green-200' },
     TEAM: { label: '팀', icon: <Users className="w-4 h-4" />, color: 'bg-purple-100 text-purple-700 border-purple-200' },
     LEAGUE: { label: '리그', icon: <Award className="w-4 h-4" />, color: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
-    OTHER: { label: '기타', icon: <Hash className="w-4 h-4" />, color: 'bg-gray-100 text-gray-700 border-gray-200' },
 };
 
 function getAuthHeader(): Record<string, string> | null {
@@ -130,16 +128,24 @@ export default function InterestSettingsPage() {
     };
 
     const isSubscribed = (targetId: number): boolean => {
-        return subscriptions.some(sub => sub.interestTargetId === targetId);
+        return subscriptions.some(sub => sub.target.id === targetId);
     };
 
-    // 구독 목록을 타입별로 그룹화
+    /** 구독 취소만 수행 (이미 구독 중일 때만 호출) */
+    const unsubscribe = async (targetId: number) => {
+        if (!isSubscribed(targetId)) return;
+        await toggleSubscription(targetId);
+    };
+
+    // 구독 목록을 타입별로 그룹화 (#기타 섹션 없음: OTHER는 별도 플랫 리스트로)
     const groupedSubscriptions = subscriptions.reduce((acc, sub) => {
-        const type = sub.interestTargetType || 'OTHER';
+        const type = sub.target?.type ?? 'OTHER';
         if (!acc[type]) acc[type] = [];
         acc[type].push(sub);
         return acc;
     }, {} as Record<InterestType, Subscription[]>);
+
+    const displayTypes: InterestType[] = ['PLAYER', 'SPORT', 'TEAM', 'LEAGUE'];
 
     if (!user) {
         return null;
@@ -215,7 +221,6 @@ export default function InterestSettingsPage() {
                                 ) : (
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         {searchResults.map((target) => {
-                                            const config = TYPE_CONFIG[target.type] || TYPE_CONFIG.OTHER;
                                             const subscribed = isSubscribed(target.id);
                                             const toggling = togglingId === target.id;
 
@@ -227,13 +232,7 @@ export default function InterestSettingsPage() {
                                                         : 'border-gray-200 hover:border-gray-300'
                                                         }`}
                                                 >
-                                                    <div className="flex items-center gap-3">
-                                                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${config.color}`}>
-                                                            {config.icon}
-                                                            {config.label}
-                                                        </span>
-                                                        <span className="font-medium text-gray-900">{target.name}</span>
-                                                    </div>
+                                                    <span className="font-medium text-gray-900">{target.name}</span>
 
                                                     <button
                                                         onClick={() => toggleSubscription(target.id)}
@@ -292,12 +291,11 @@ export default function InterestSettingsPage() {
                                 </div>
                             ) : (
                                 <div className="space-y-4">
-                                    {(Object.keys(TYPE_CONFIG) as InterestType[]).map((type) => {
+                                    {/* 선수/종목/팀/리그만 타입 라벨로 표시 (#기타 없음) */}
+                                    {displayTypes.map((type) => {
                                         const subs = groupedSubscriptions[type];
                                         if (!subs || subs.length === 0) return null;
-
-                                        const config = TYPE_CONFIG[type];
-
+                                        const config = TYPE_CONFIG[type as Exclude<InterestType, 'OTHER'>];
                                         return (
                                             <div key={type}>
                                                 <div className="flex items-center gap-2 mb-2">
@@ -309,20 +307,52 @@ export default function InterestSettingsPage() {
                                                 </div>
                                                 <div className="flex flex-wrap gap-2">
                                                     {subs.map((sub) => (
-                                                        <button
+                                                        <span
                                                             key={sub.id}
-                                                            onClick={() => toggleSubscription(sub.interestTargetId)}
-                                                            disabled={togglingId === sub.interestTargetId}
-                                                            className="group inline-flex items-center gap-1 px-3 py-1.5 bg-gray-100 hover:bg-red-50 rounded-full text-sm text-gray-700 hover:text-red-600 transition-colors"
+                                                            className="group inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 rounded-full text-sm text-gray-700"
                                                         >
-                                                            {sub.interestTargetName}
-                                                            <X className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                                        </button>
+                                                            <span>{sub.target.name}</span>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => unsubscribe(sub.target.id)}
+                                                                disabled={togglingId === sub.target.id}
+                                                                className="inline-flex items-center gap-0.5 text-red-500 hover:text-red-600 hover:bg-red-50 rounded p-0.5 transition-colors"
+                                                                title="구독 취소"
+                                                            >
+                                                                <X className="w-3.5 h-3.5" />
+                                                                <span className="text-xs">구독 취소</span>
+                                                            </button>
+                                                        </span>
                                                     ))}
                                                 </div>
                                             </div>
                                         );
                                     })}
+                                    {/* 기타 타입은 라벨 없이 태그만 나열 */}
+                                    {(groupedSubscriptions.OTHER?.length ?? 0) > 0 && (
+                                        <div>
+                                            <div className="flex flex-wrap gap-2">
+                                                {groupedSubscriptions.OTHER!.map((sub) => (
+                                                    <span
+                                                        key={sub.id}
+                                                        className="group inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 rounded-full text-sm text-gray-700"
+                                                    >
+                                                        <span>{sub.target.name}</span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => unsubscribe(sub.target.id)}
+                                                            disabled={togglingId === sub.target.id}
+                                                            className="inline-flex items-center gap-0.5 text-red-500 hover:text-red-600 hover:bg-red-50 rounded p-0.5 transition-colors"
+                                                            title="구독 취소"
+                                                        >
+                                                            <X className="w-3.5 h-3.5" />
+                                                            <span className="text-xs">구독 취소</span>
+                                                        </button>
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>

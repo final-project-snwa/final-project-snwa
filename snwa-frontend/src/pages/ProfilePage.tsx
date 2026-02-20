@@ -11,6 +11,7 @@ interface UserProfile {
     introduction: string | null;
     phoneNumber: string | null;
     profileImageUrl: string | null;
+    discordWebhookUrl: string | null;
     status: string;
     role: string;
     createdDate: string;
@@ -38,6 +39,7 @@ export default function ProfilePage() {
     const [nickname, setNickname] = useState('');
     const [introduction, setIntroduction] = useState('');
     const [phoneNumber, setPhoneNumber] = useState('');
+    const [discordWebhookUrl, setDiscordWebhookUrl] = useState('');
     const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
 
     // 비밀번호 변경 상태
@@ -75,6 +77,7 @@ export default function ProfilePage() {
                 setNickname(data.nickname || '');
                 setIntroduction(data.introduction || '');
                 setPhoneNumber(data.phoneNumber || '');
+                setDiscordWebhookUrl(data.discordWebhookUrl || '');
                 setProfileImageUrl(data.profileImageUrl);
             }
         } catch (error) {
@@ -97,6 +100,7 @@ export default function ProfilePage() {
                     nickname: nickname || null,
                     introduction: introduction || null,
                     phoneNumber: phoneNumber || null,
+                    discordWebhookUrl: discordWebhookUrl || null,
                     profileImageUrl: profileImageUrl,
                 }),
             });
@@ -416,7 +420,7 @@ export default function ProfilePage() {
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">연락처</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">전화번호</label>
                             <input
                                 type="tel"
                                 value={phoneNumber}
@@ -424,6 +428,25 @@ export default function ProfilePage() {
                                 placeholder="010-0000-0000"
                                 className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-gray-900 focus:outline-none transition-colors"
                             />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                디스코드 웹후크 URL
+                                <span className="ml-2 text-xs text-gray-400 font-normal">(선택사항)</span>
+                            </label>
+                            <input
+                                type="url"
+                                value={discordWebhookUrl}
+                                onChange={(e) => setDiscordWebhookUrl(e.target.value)}
+                                placeholder="https://discord.com/api/webhooks/..."
+                                className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-gray-900 focus:outline-none transition-colors"
+                            />
+                            <p className="mt-1 text-xs text-gray-500">
+                                * 디스코드 채널 설정 &gt; 연동 &gt; 웹후크 만들기에서 URL을 복사하여 입력하세요.
+                                <br />
+                                * 관심사에 맞는 새 기사가 등록되면 해당 채널로 알림이 전송됩니다.
+                            </p>
                         </div>
                     </div>
 

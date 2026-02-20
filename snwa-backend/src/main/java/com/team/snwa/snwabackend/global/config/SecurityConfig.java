@@ -65,6 +65,8 @@ public class SecurityConfig {
                         //.requestMatchers("/api/orders/**","/api/coins/**","/api/payments/**").permitAll() //결제테스트용
                                 .requestMatchers(HttpMethod.GET, "/api/articles", "/api/articles/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/exp/leaderboard").permitAll()
+                        // 일부 클라이언트가 호출할 수 있는 크롤 경로(실제 실행은 /api/admin/crawler/jobs/{id}/run)
+                        .requestMatchers(HttpMethod.POST, "/api/articles/crawl", "/api/articles/crawl/**").permitAll()
                         .anyRequest().authenticated()  // 나머지는 인증 필요
                 );
         

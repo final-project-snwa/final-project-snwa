@@ -96,8 +96,19 @@ public class KeywordExtractionService {
         String prompt = promptTemplate.replace("{translatedContent}", translatedContent).replace("{language}",
                 languageName);
         ChatClient chatClient = chatClientBuilder.build();
-        String keywordsResponse = chatClient.prompt(prompt).call().content();
-        return parseTypedKeywords(keywordsResponse);
+        try {
+            String keywordsResponse = chatClient.prompt(prompt).call().content();
+            return parseTypedKeywords(keywordsResponse);
+        } catch (Exception e) {
+            log.error("AI 키워드 추출 중 오류 발생: {}", e.getMessage(), e);
+            // Gemini 할당량 초과(429, Resource exhausted) 확인
+            if (e.getMessage().contains("429") || e.getMessage().contains("Resource exhausted")) {
+                throw new com.team.snwa.snwabackend.global.exception.CustomException(
+                        com.team.snwa.snwabackend.global.exception.ErrorCode.AI_API_QUOTA_EXCEEDED);
+            }
+            throw new com.team.snwa.snwabackend.global.exception.CustomException(
+                    com.team.snwa.snwabackend.global.exception.ErrorCode.AI_API_ERROR);
+        }
     }
 
     /**

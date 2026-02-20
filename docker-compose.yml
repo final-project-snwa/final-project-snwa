@@ -2,7 +2,11 @@ services:
   mysql:
     image: mysql:8.0
     container_name: snwa-mysql
-    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci #DB안에서 일본어, 중국어가 깨져서 들어가는 현상 방지
+    command:  #DB안에서 한국어, 일본어, 중국어가 깨져서 들어가는 현상 방지
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --character-set-client-handshake=FALSE
+      - --init-connect='SET names utf8mb4'
     expose:
       - 3306
     environment:
@@ -33,8 +37,8 @@ services:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      APP_BASE_URL: ${APP_BASE_URL}
-      #APP_BASE_URL: http://localhost:70
+#      APP_BASE_URL: ${APP_BASE_URL}
+      APP_BASE_URL: http://localhost:70
       DEEPL_API_KEY: ${DEEPL_API_KEY}
       DEEPL_API_BASE_URL: ${DEEPL_API_BASE_URL}
       GEMINI_API_KEY: ${GEMINI_API_KEY}
@@ -67,8 +71,8 @@ services:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      APP_BASE_URL: ${APP_BASE_URL}
-      #APP_BASE_URL: http://localhost:70
+#      APP_BASE_URL: ${APP_BASE_URL}
+      APP_BASE_URL: http://localhost:70
       DEEPL_API_KEY: ${DEEPL_API_KEY}
       DEEPL_API_BASE_URL: ${DEEPL_API_BASE_URL}
       GEMINI_API_KEY: ${GEMINI_API_KEY}
