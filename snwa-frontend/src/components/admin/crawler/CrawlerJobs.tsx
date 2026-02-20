@@ -322,13 +322,23 @@ export default function CrawlerJobs() {
 
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label htmlFor="cron" className="text-right">Cron</Label>
-                                <Input 
-                                    id="cron" 
-                                    value={formData.cronExpression}
-                                    onChange={(e) => setFormData({...formData, cronExpression: e.target.value})}
-                                    className="col-span-3" 
-                                    placeholder="0 0 * * * *"
-                                />
+                                    <Select 
+                                        value={formData.cronExpression} 
+                                        onValueChange={(v) => setFormData({...formData, cronExpression: v})}
+                                    >
+                                        <SelectTrigger className="col-span-3">
+                                            <SelectValue placeholder="수집 주기 선택" />
+                                        </SelectTrigger>
+                                        <SelectContent className="bg-white">
+                                            <SelectItem value="0 * * * * *">1분마다</SelectItem>
+                                            <SelectItem value="0 */5 * * * *">5분마다</SelectItem>
+                                            <SelectItem value="0 */10 * * * *">10분마다</SelectItem>
+                                            <SelectItem value="0 */30 * * * *">30분마다</SelectItem>
+                                            <SelectItem value="0 0 * * * *">1시간마다</SelectItem>
+                                            <SelectItem value="0 0 */3 * * *">3시간마다</SelectItem>
+                                            <SelectItem value="0 0 */6 * * *">6시간마다</SelectItem>
+                                        </SelectContent>
+                                    </Select>
                             </div>
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label htmlFor="category" className="text-right">카테고리ID</Label>
