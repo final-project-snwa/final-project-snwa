@@ -1,8 +1,8 @@
 package com.team.snwa.snwabackend.domain.translation.service;
 
-import com.team.snwa.snwabackend.domain.article.entity.Article;
-import com.team.snwa.snwabackend.domain.article.repository.ArticleRepository;
 import com.team.snwa.snwabackend.domain.translation.dto.response.SummaryResponseDto;
+import com.team.snwa.snwabackend.domain.translation.entity.ArticleTranslation;
+import com.team.snwa.snwabackend.domain.translation.repository.ArticleTranslationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -18,42 +18,41 @@ import java.nio.charset.StandardCharsets;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class SummaryService {
 
     private final ChatClient.Builder chatClientBuilder;
-    private final ArticleRepository articleRepository;
+    private final ArticleTranslationRepository articleTranslationRepository;
     private final ResourceLoader resourceLoader; // 파일, url등 추상적으로 불러올 수 있도록 해줌(Spring Framework 기능)
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public SummaryResponseDto summarizeArticle(Long articleId) {
         log.info("기사 요약 시작: articleId={}", articleId);
 
-        // DB에서 Article 조회
-        Article article = articleRepository.findById(articleId)
-                .orElseThrow(() -> new RuntimeException("기사를 찾을 수 없습니다: " + articleId));
+        // 번역 데이터 조회 (KO)
+        ArticleTranslation translation = articleTranslationRepository.findByArticleIdAndLanguage(articleId, "KO")
+                .orElseThrow(() -> new RuntimeException("번역 데이터를 찾을 수 없습니다: articleId=" + articleId));
 
         // 번역된 내용이 없으면 예외 처리
-        if (article.getTranslatedContent() == null || article.getTranslatedContent().trim().isEmpty()) {
+        if (translation.getTranslatedContent() == null || translation.getTranslatedContent().trim().isEmpty()) {
             throw new RuntimeException("번역된 내용이 없습니다. 먼저 번역을 진행해주세요.");
         }
 
-        if (article.getSummary() != null && !article.getSummary().trim().isEmpty()) {
+        if (translation.getSummary() != null && !translation.getSummary().trim().isEmpty()) {
             log.info("이미 요약된 기사입니다. DB 저장된 값을 반환합니다: articleId={}", articleId);
             return SummaryResponseDto.builder()
-                    .summary(article.getSummary())
-                    .translatedContent(article.getTranslatedContent())
+                    .summary(translation.getSummary())
+                    .translatedContent(translation.getTranslatedContent())
                     .build();
         }
 
+        String summary = generateSummary(translation.getTranslatedContent(), "KO");
+        translation.updateSummary(summary);
 
-        String summary = generateSummary(article.getTranslatedContent(), "KO");
-        article.setSummary(summary);
-        articleRepository.save(article);
+        articleTranslationRepository.save(translation);
         log.info("기사 요약 완료 및 저장: articleId={}", articleId);
         return SummaryResponseDto.builder()
                 .summary(summary)
-                .translatedContent(article.getTranslatedContent())
+                .translatedContent(translation.getTranslatedContent())
                 .build();
     }
 

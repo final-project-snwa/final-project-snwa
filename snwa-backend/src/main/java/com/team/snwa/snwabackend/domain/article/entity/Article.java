@@ -26,23 +26,12 @@ public class Article extends BaseTimeEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
-    private User user;  // 글을 등록한 사용자
+    private User user; // 글을 등록한 사용자
 
     private String title;
 
     @Column(columnDefinition = "LONGTEXT")
     private String content;
-
-    @Setter
-    private String translatedTitle;
-
-    @Column(columnDefinition = "LONGTEXT")
-    @Setter
-    private String translatedContent;
-
-    @Column(columnDefinition = "LONGTEXT")
-    @Setter
-    private String summary;
 
     @Column(unique = true)
     private String originalUrl;
@@ -50,7 +39,7 @@ public class Article extends BaseTimeEntity {
     private String authorName;
     private String publisherName;
 
-    @Column(length=2000)
+    @Column(length = 2000)
     private String imageUrl;
 
     // 소프트 삭제를 위한 필드
@@ -62,22 +51,20 @@ public class Article extends BaseTimeEntity {
     private Long clickCount = 0L;
 
     @Builder
-    public Article(Category category, User user, String title, String content, String translatedContent,
-                    String summary, String originalUrl, String authorName, String publisherName,
-                    String imageUrl) {
+    public Article(Category category, User user, String title, String content, String originalUrl,
+            String authorName, String publisherName, String imageUrl) {
         this.category = category;
         this.user = user;
         this.title = title;
         this.content = content;
-        this.translatedContent = translatedContent;
-        this.summary = summary;
         this.originalUrl = originalUrl;
         this.authorName = authorName;
         this.publisherName = publisherName;
         this.imageUrl = imageUrl;
     }
 
-    public Article() {}
+    public Article() {
+    }
 
     /**
      * 소프트 삭제 메서드

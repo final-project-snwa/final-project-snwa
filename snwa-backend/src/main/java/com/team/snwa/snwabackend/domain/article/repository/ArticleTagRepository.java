@@ -13,6 +13,8 @@ public interface ArticleTagRepository extends JpaRepository<ArticleTag, Long> {
 
     boolean existsByArticleIdAndLanguage(Long articleId, String language);
 
+    List<ArticleTag> findByArticleIdAndLanguage(Long articleId, String language);
+
     List<ArticleTag> findAllByArticleId(Long articleId);
 
     @Query("SELECT DISTINCT at.tagName FROM ArticleTag at WHERE LOWER(at.tagName) LIKE LOWER(CONCAT('%', :keyword, '%'))")

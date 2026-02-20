@@ -19,15 +19,15 @@ import com.team.snwa.snwabackend.domain.crawler.repository.ArticleCrawlingTracki
 import com.team.snwa.snwabackend.domain.crawler.repository.CrawlingJobRepository;
 import com.team.snwa.snwabackend.domain.crawler.repository.CrawlingLogRepository;
 import com.team.snwa.snwabackend.domain.crawler.strategy.CrawlingStrategy;
+import com.team.snwa.snwabackend.domain.translation.entity.ArticleTranslation;
+import com.team.snwa.snwabackend.domain.translation.repository.ArticleTranslationRepository;
+import com.team.snwa.snwabackend.domain.translation.service.KeywordExtractionService;
 import com.team.snwa.snwabackend.global.annotation.LogExecutionTime;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronizationAdapter;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -35,7 +35,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 /**
@@ -58,6 +58,8 @@ public class CrawlerService {
     private final ArticleRepository articleRepository;
     private final ArticleCrawlingTrackingRepository trackingRepository;
     private final CategoryRepository categoryRepository;
+    private final ArticleTranslationRepository articleTranslationRepository;
+    private final KeywordExtractionService keywordExtractionService;
 
     private static final String ESPN_BASE_URL = "http://site.api.espn.com/apis/site/v2/sports/";
 
@@ -108,15 +110,24 @@ public class CrawlerService {
             Map<String, Article> existingArticleMap = existingArticles.stream()
                     .collect(Collectors.toMap(Article::getOriginalUrl, a -> a, (k1, k2) -> k1));
 
+            // 번역 정보 조회 (KO)
+            List<Long> existingIds = existingArticles.stream().map(Article::getId).collect(Collectors.toList());
+            Map<Long, ArticleTranslation> translationMap = articleTranslationRepository
+                    .findAllByArticleIdInAndLanguage(existingIds, "KO")
+                    .stream()
+                    .collect(Collectors.toMap(t -> t.getArticle().getId(), t -> t));
+
             List<Article> newArticles = new ArrayList<>();
             int pendingActionCount = 0;
 
             for (CrawledArticleDto dto : articles) {
                 if (existingArticleMap.containsKey(dto.getOriginalUrl())) {
                     Article existing = existingArticleMap.get(dto.getOriginalUrl());
-                    boolean hasTranslatedContent = existing.getTranslatedContent() != null;
-                    boolean hasTranslatedTitle = existing.getTranslatedTitle() != null;
-                    boolean hasSummary = existing.getSummary() != null;
+                    ArticleTranslation translation = translationMap.get(existing.getId());
+
+                    boolean hasTranslatedContent = translation != null && translation.getTranslatedContent() != null;
+                    boolean hasTranslatedTitle = translation != null && translation.getTranslatedTitle() != null;
+                    boolean hasSummary = translation != null && translation.getSummary() != null;
 
                     if (hasTranslatedContent && hasTranslatedTitle && hasSummary) {
                         // 이미 완료된 기사, 스킵
@@ -149,6 +160,24 @@ public class CrawlerService {
                 List<Article> savedArticles = articleRepository.saveAll(newArticles);
                 pendingActionCount += savedArticles.size();
 
+                // 저장된 모든 기사에 대해 한국어 태그 즉시 추출 예약
+                log.info("{}개 기사 태그 추출 시작", savedArticles.size());
+                List<CompletableFuture<Void>> futures = new ArrayList<>();
+
+                for (Article savedArticle : savedArticles) {
+                    try {
+                        futures.add(keywordExtractionService.extractKeywordsAsync(savedArticle.getId(), "KO"));
+                    } catch (Exception e) {
+                        log.error("신규 기사 태그 추출 에러: articleId={}, error={}", savedArticle.getId(), e.getMessage());
+                    }
+                }
+
+                // 모든 태그 추출이 완료되었을 때 로그 출력 (비동기 콜백)
+                if (!futures.isEmpty()) {
+                    CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+                            .thenRun(() -> log.info("{}개 기사 태그 추출 완료", savedArticles.size()));
+                }
+
                 List<ArticleCrawlingTracking> trackings = savedArticles.stream()
                         .map(savedArticle -> {
                             ArticleCrawlingTracking tracking = new ArticleCrawlingTracking();
@@ -161,7 +190,7 @@ public class CrawlerService {
                             return tracking;
                         })
                         .collect(Collectors.toList());
-                
+
                 trackingRepository.saveAll(trackings);
                 log.info("신규 기사 {}개 저장 완료", savedArticles.size());
             }
@@ -195,8 +224,6 @@ public class CrawlerService {
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("지원하지 않는 소스입니다: " + sourceName));
     }
-
-
 
     /**
      * 관리자 요청을 받아 새로운 크롤링 Job을 DB에 저장함
@@ -332,8 +359,7 @@ public class CrawlerService {
     private String generateUrl(SourceName sourceName, EspnLeague league) {
         if (sourceName == SourceName.ESPN) {
             return ESPN_BASE_URL + league.getApiPath() + "/news";
-        }
-        else if (sourceName == SourceName.SKY_SPORTS) {
+        } else if (sourceName == SourceName.SKY_SPORTS) {
             // Enum에서 바로 가져오기
             String url = league.getSkySportsUrl();
             if (url == null || url.isEmpty()) {

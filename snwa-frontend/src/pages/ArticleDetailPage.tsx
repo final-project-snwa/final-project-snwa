@@ -280,6 +280,7 @@ export default function ArticleDetailPage() {
             }
         }
 
+        setProgress(0); // 로딩바 초기화
         setTranslateLoading(true);
         // [추가] 가짜 로딩 애니메이션 (0.1초마다 조금씩 증가, 최대 90%까지만)
         const interval = setInterval(() => {
@@ -341,8 +342,14 @@ export default function ArticleDetailPage() {
         } catch (e: any) {
             clearInterval(interval);
             console.error(e);
-            // 에러 메시지가 있으면 보여주고, 없으면 기본 메시지
-            alert(e.message || '번역을 가져오는데 실패했습니다.');
+
+            // 기술적인 트랜잭션 에러 등이 사용자에게 직접 노출되지 않도록 필터링
+            let userMessage = e.message || '번역을 가져오는데 실패했습니다.';
+            if (userMessage.includes("Transaction silently rolled back") || userMessage.includes("rollback-only")) {
+                userMessage = "일시적인 서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.";
+            }
+
+            alert(userMessage);
             setTranslateLoading(false);
         }
     };

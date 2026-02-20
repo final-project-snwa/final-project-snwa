@@ -1,14 +1,17 @@
 package com.team.snwa.snwabackend.global.exception;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.transaction.UnexpectedRollbackException;
 
 import java.util.HashMap;
 import java.util.Map;
 
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -38,6 +41,14 @@ public class GlobalExceptionHandler {
                 .orElse("유효성 검증에 실패했습니다.");
         error.put("message", message);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+    }
+
+    @ExceptionHandler(UnexpectedRollbackException.class)
+    public ResponseEntity<Map<String, String>> handleUnexpectedRollbackException(UnexpectedRollbackException e) {
+        Map<String, String> error = new HashMap<>();
+        log.error("트랜잭션 롤백 오류 발생: {}", e.getMessage());
+        error.put("message", "일시적인 서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
     }
 
     @ExceptionHandler(Exception.class)

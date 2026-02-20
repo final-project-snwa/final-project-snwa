@@ -35,24 +35,16 @@ public class ArticleTranslation extends BaseTimeEntity {
     @Column(columnDefinition = "LONGTEXT")
     private String summary;
 
-    @Column(columnDefinition = "TEXT")
-    private String tags;
-
     @Builder
-    public ArticleTranslation(Article article, String language, String translatedTitle, String translatedContent, String summary, String tags) {
+    public ArticleTranslation(Article article, String language, String translatedTitle, String translatedContent, String summary) {
         this.article = article;
         this.language = language;
         this.translatedTitle = translatedTitle;
         this.translatedContent = translatedContent;
         this.summary = summary;
-        this.tags = tags;
     }
 
     public void updateSummary(String summary) {
         this.summary = summary;
-    }
-
-    public void updateTags(String tags) {
-        this.tags = tags;
     }
 }

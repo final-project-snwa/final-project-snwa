@@ -1,7 +1,8 @@
 package com.team.snwa.snwabackend.domain.translation.scheduler;
 
-import com.team.snwa.snwabackend.domain.article.entity.Article;
-import com.team.snwa.snwabackend.domain.article.repository.ArticleRepository;
+import com.team.snwa.snwabackend.domain.translation.entity.ArticleTranslation;
+import com.team.snwa.snwabackend.domain.translation.repository.ArticleTranslationRepository;
+import com.team.snwa.snwabackend.domain.translation.service.KeywordExtractionService;
 import com.team.snwa.snwabackend.domain.translation.service.SummaryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,8 +21,9 @@ import java.util.List;
 @RequiredArgsConstructor
 public class SummaryScheduler {
 
-    private final ArticleRepository articleRepository;
+    private final ArticleTranslationRepository articleTranslationRepository;
     private final SummaryService summaryService;
+    private final KeywordExtractionService keywordExtractionService;
 
     private static final int BATCH_SIZE = 2; // 한 번에 처리할 기사 개수
     private static final long API_DELAY_MS = 4000;
@@ -33,38 +35,37 @@ public class SummaryScheduler {
         log.info("🔄 요약 스케줄러 시작");
 
         try {
-            Page<Article> page = articleRepository.findArticlesNeedingSummary(
-                    PageRequest.of(0, BATCH_SIZE)
-            );
-            List<Article> articles = page.getContent();
+            Page<ArticleTranslation> page = articleTranslationRepository.findTranslationsNeedingSummary("KO",
+                    PageRequest.of(0, BATCH_SIZE));
+            List<ArticleTranslation> translations = page.getContent();
 
-            if (articles.isEmpty()) {
+            if (translations.isEmpty()) {
                 log.info("요약 대상 기사 없음");
                 return;
             }
 
             log.info("요약 대상 기사: 전체 {}개, 이번 실행 {}개",
-                    page.getTotalElements(), articles.size());
+                    page.getTotalElements(), translations.size());
 
             int failCount = 0;
 
-            for (Article article : articles) {
+            for (ArticleTranslation translation : translations) {
                 try {
                     log.debug("기사 요약 시작: articleId={}, contentLength={}",
-                            article.getId(),
-                            article.getTranslatedContent() != null
-                                    ? article.getTranslatedContent().length()
+                            translation.getArticle().getId(),
+                            translation.getTranslatedContent() != null
+                                    ? translation.getTranslatedContent().length()
                                     : 0);
-                    summaryService.summarizeArticle(article.getId());
+                    summaryService.summarizeArticle(translation.getArticle().getId());
                     Thread.sleep(API_DELAY_MS);
                 } catch (Exception e) {
                     failCount++;
-                    log.error("기사 요약 실패: articleId={}", article.getId(), e);
+                    log.error("기사 요약 실패: articleId={}", translation.getArticle().getId(), e);
                 }
             }
 
             log.info("✅ 요약 스케줄러 완료: 성공 {}, 실패 {}",
-                    articles.size() - failCount, failCount);
+                    translations.size() - failCount, failCount);
         } catch (Exception e) {
             log.error("요약 스케줄러 실행 중 오류 발생", e);
             throw e;

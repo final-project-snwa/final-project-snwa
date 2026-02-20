@@ -6,11 +6,14 @@ import com.team.snwa.snwabackend.domain.article.repository.ArticleRepository;
 import com.team.snwa.snwabackend.domain.article.repository.ArticleTagRepository;
 import com.team.snwa.snwabackend.domain.interest.entity.InterestType;
 import com.team.snwa.snwabackend.domain.notification.event.ArticleReadyForNotificationEvent;
+import com.team.snwa.snwabackend.domain.translation.entity.ArticleTranslation;
+import com.team.snwa.snwabackend.domain.translation.repository.ArticleTranslationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +21,7 @@ import org.springframework.util.StreamUtils;
 import org.springframework.context.ApplicationEventPublisher;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -30,19 +34,32 @@ public class KeywordExtractionService {
     private final ChatClient.Builder chatClientBuilder;
     private final ArticleRepository articleRepository;
     private final ArticleTagRepository articleTagRepository;
+    private final ArticleTranslationRepository articleTranslationRepository;
     private final ResourceLoader resourceLoader;
     private final com.team.snwa.snwabackend.domain.interest.service.InterestService interestService;
 
     // AI 응답에서 키워드(타입) 형식을 파싱하기 위한 정규식
     private static final Pattern KEYWORD_PATTERN = Pattern.compile("([^,()]+)\\(([^)]+)\\)");
 
+    /**
+     * 비동기로 키워드를 추출합니다. (크롤러 등에서 호출)
+     * 4초의 대기 시간을 가져 AI API의 rate limit을 방지합니다.
+     */
+    @Async
+    public CompletableFuture<Void> extractKeywordsAsync(Long articleId, String targetLang) {
+        try {
+            log.info("비동기 키워드 추출 예약됨 (4초 대기): articleId={}", articleId);
+            Thread.sleep(4000); // AI API를 위한 대기 시간
+            extractKeywords(articleId, targetLang);
+        } catch (Exception e) {
+            log.error("비동기 키워드 추출 중 오류 발생: articleId={}", articleId, e);
+        }
+        return CompletableFuture.completedFuture(null);
+    }
+
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void extractKeywords(Long articleId, String targetLang) {
         log.info("기사 키워드 추출 시작: articleId={}, lang={}", articleId, targetLang);
-
-        // DB에서 Article 조회
-        Article article = articleRepository.findById(articleId)
-                .orElseThrow(() -> new RuntimeException("기사를 찾을 수 없습니다: " + articleId));
 
         // 이미 태그가 하나라도 있으면 추출 안 함
         if (articleTagRepository.existsByArticleIdAndLanguage(articleId, targetLang)) {
@@ -50,14 +67,25 @@ public class KeywordExtractionService {
             return;
         }
 
-        // 번역된 내용이 없으면 예외 처리
-        if (article.getTranslatedContent() == null || article.getTranslatedContent().trim().isEmpty()) {
-            throw new RuntimeException("번역된 내용이 없습니다. 먼저 번역을 진행해주세요.");
+        // 1. 기사 정보 먼저 조회
+        Article article = articleRepository.findById(articleId)
+                .orElseThrow(() -> new RuntimeException("기사를 찾을 수 없습니다: id=" + articleId));
+
+        // 2. 번역 데이터 우선 조회 -> 없으면 기사 원문 조회 (Fallback)
+        String contentToExtract = articleTranslationRepository.findByArticleIdAndLanguage(articleId, targetLang)
+                .map(ArticleTranslation::getTranslatedContent)
+                .orElseGet(() -> {
+                    log.info("번역본이 없어 원문을 사용합니다: articleId={}", articleId);
+                    return article.getContent();
+                });
+
+        if (contentToExtract == null || contentToExtract.trim().isEmpty()) {
+            log.warn("추출할 내용이 없습니다: articleId={}", articleId);
+            return;
         }
 
         // 키워드 파싱 - Map<키워드, 타입>
-        Map<String, InterestType> typedKeywords = extractKeywordsFromContent(article.getTranslatedContent(),
-                targetLang);
+        Map<String, InterestType> typedKeywords = extractKeywordsFromContent(contentToExtract, targetLang);
         List<String> keywordList = new ArrayList<>(typedKeywords.keySet());
 
         // ArticleTag 엔티티 생성 및 저장
@@ -77,7 +105,7 @@ public class KeywordExtractionService {
         // 키워드 추출 완료 이벤트 발생
         eventPublisher.publishEvent(
                 new ArticleReadyForNotificationEvent(
-                        article.getId(),
+                        articleId,
                         typedKeywords));
     }
 

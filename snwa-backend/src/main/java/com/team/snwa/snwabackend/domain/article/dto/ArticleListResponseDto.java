@@ -23,17 +23,23 @@ public class ArticleListResponseDto {
     private Long clickCount;
 
     public static ArticleListResponseDto from(Article article) {
-        return from(article, false);
+        return from(article, null, false);
     }
 
     public static ArticleListResponseDto from(Article article, boolean isBookmarked) {
+        return from(article, null, isBookmarked);
+    }
+
+    public static ArticleListResponseDto from(Article article,
+            com.team.snwa.snwabackend.domain.translation.entity.ArticleTranslation translation, boolean isBookmarked) {
         return ArticleListResponseDto.builder()
                 .id(article.getId())
-                .title(article.getTitle())
-                .translatedTitle(article.getTranslatedTitle())
-                .summary(article.getSummary())
-                .categoryName(article.getCategory() != null 
-                        ? article.getCategory().getCategoryName().name() 
+                .title(article.getTitle()) // 원문 제목 (항상 존재)
+                .translatedTitle(translation != null ? translation.getTranslatedTitle() : article.getTitle()) // 번역 없으면
+                                                                                                              // 원문
+                .summary(translation != null ? translation.getSummary() : null) // 번역 없으면 요약 없음
+                .categoryName(article.getCategory() != null
+                        ? article.getCategory().getCategoryName().name()
                         : null)
                 .authorName(article.getAuthorName())
                 .publisherName(article.getPublisherName())
