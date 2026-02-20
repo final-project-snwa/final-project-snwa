@@ -12,6 +12,8 @@ export interface Article {
   summary?: string;
   /** 이미 구매한 번역 언어 코드 (KO, JA, EN, ZH) - 재열람 시 확인창 생략용 */
   purchasedTranslationLanguages?: string[];
+  /** 기사에서 추출된 태그 목록 */
+  tags?: string[];
 }
 
 export const mockArticles: Article[] = [
