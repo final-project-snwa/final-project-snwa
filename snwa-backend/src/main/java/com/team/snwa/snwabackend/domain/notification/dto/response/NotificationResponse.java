@@ -24,7 +24,7 @@ public record NotificationResponse(
     public static NotificationResponse from(Notification notification) {
         String articleTitle = null;
         if (notification.getArticle() != null) {
-            String translatedTitle = notification.getArticle().getTranslatedTitle();
+            String translatedTitle = notification.getArticle().getTitle();
             if (translatedTitle != null && !translatedTitle.isBlank()) {
                 articleTitle = translatedTitle;
             } else {

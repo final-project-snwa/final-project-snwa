@@ -61,10 +61,7 @@ public class NotificationEventHandler {
         }
 
         // 3. 알림 메시지 생성 (번역된 제목이 있으면 사용, 없으면 원문 제목 사용)
-        String articleTitle =
-                (article.getTranslatedTitle() != null && !article.getTranslatedTitle().isBlank())
-                        ? article.getTranslatedTitle()
-                        : article.getTitle();
+        String articleTitle = article.getTitle();
 
         String message = "새로운 관심 기사가 등록되었습니다: " + articleTitle;
 

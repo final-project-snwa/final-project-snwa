@@ -240,15 +240,26 @@ public class TranslationService {
         // 3. 키워드 추출
         List<String> tags = new ArrayList<>();
         try {
-            tags = keywordExtractionService.extractKeywordsToList(translatedContent, targetLang);
-            if (!tags.isEmpty()) {
-                if (!articleTagRepository.existsByArticleIdAndLanguage(articleId, targetLang)) {
-                    for (String tagName : tags) {
-                        articleTagRepository.save(ArticleTag.builder()
-                                .article(article)
-                                .tagName(tagName)
-                                .language(targetLang)
-                                .build());
+            // DB에 해당 언어의 태그가 이미 있는지 조회 (크롤링 시 생성된 KO 태그 등 재사용)
+            List<String> existingTags = articleTagRepository.findByArticleIdAndLanguage(articleId, targetLang)
+                    .stream()
+                    .map(ArticleTag::getTagName)
+                    .toList();
+
+            if (!existingTags.isEmpty()) {
+                log.info("기존 태그 재사용: articleId={}, lang={}", articleId, targetLang);
+                tags = existingTags;
+            } else {
+                tags = keywordExtractionService.extractKeywordsToList(translatedContent, targetLang);
+                if (!tags.isEmpty()) {
+                    if (!articleTagRepository.existsByArticleIdAndLanguage(articleId, targetLang)) {
+                        for (String tagName : tags) {
+                            articleTagRepository.save(ArticleTag.builder()
+                                    .article(article)
+                                    .tagName(tagName)
+                                    .language(targetLang)
+                                    .build());
+                        }
                     }
                 }
             }
@@ -271,14 +282,6 @@ public class TranslationService {
                 .build();
 
         articleTranslationRepository.save(translation);
-
-        // 한국어일 경우 원본 Article에도 업데이트 (선택사항)
-        if ("KO".equals(targetLang)) {
-            article.setTranslatedTitle(response.getTranslatedTitle());
-            article.setTranslatedContent(translatedContent);
-            article.setSummary(summary);
-            articleRepository.save(article);
-        }
 
         log.info("번역/요약/태그 처리 완료: articleId={}, lang={}", articleId, targetLang);
 

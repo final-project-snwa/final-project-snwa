@@ -27,7 +27,7 @@ public class ArticleDetailResponseDto {
     private LocalDateTime updatedDate;
     private boolean isBookmarked;
     private Long clickCount;
-    
+
     // 감정 반응 관련 필드 (좋아요 포함)
     private Long likeCount;
     private Long dislikeCount;
@@ -42,28 +42,38 @@ public class ArticleDetailResponseDto {
     private List<String> purchasedTranslationLanguages;
 
     public static ArticleDetailResponseDto from(Article article) {
-        return from(article, false, article.getClickCount(), null, false, null);
+        return from(article, null, false, article.getClickCount(), null, false, null);
     }
 
-    public static ArticleDetailResponseDto from(Article article, boolean isBookmarked, Long displayedClickCount, ReactionCountResponseDto reactionCounts) {
-        return from(article, isBookmarked, displayedClickCount, reactionCounts, false, null);
+    public static ArticleDetailResponseDto from(Article article,
+            com.team.snwa.snwabackend.domain.translation.entity.ArticleTranslation translation, boolean isBookmarked,
+            Long displayedClickCount, ReactionCountResponseDto reactionCounts) {
+        return from(article, translation, isBookmarked, displayedClickCount, reactionCounts, false, null);
     }
 
-    public static ArticleDetailResponseDto from(Article article, boolean isBookmarked, Long displayedClickCount, ReactionCountResponseDto reactionCounts, boolean hasUsedCoin) {
-        return from(article, isBookmarked, displayedClickCount, reactionCounts, hasUsedCoin, null);
+    public static ArticleDetailResponseDto from(Article article,
+            com.team.snwa.snwabackend.domain.translation.entity.ArticleTranslation translation, boolean isBookmarked,
+            Long displayedClickCount, ReactionCountResponseDto reactionCounts, boolean hasUsedCoin) {
+        return from(article, translation, isBookmarked, displayedClickCount, reactionCounts, hasUsedCoin, null);
     }
 
-    public static ArticleDetailResponseDto from(Article article, boolean isBookmarked, Long displayedClickCount, ReactionCountResponseDto reactionCounts, boolean hasUsedCoin, List<String> purchasedTranslationLanguages) {
+    public static ArticleDetailResponseDto from(Article article,
+            com.team.snwa.snwabackend.domain.translation.entity.ArticleTranslation translation, boolean isBookmarked,
+            Long displayedClickCount, ReactionCountResponseDto reactionCounts, boolean hasUsedCoin,
+            List<String> purchasedTranslationLanguages) {
         ArticleDetailResponseDtoBuilder builder = ArticleDetailResponseDto.builder()
                 .id(article.getId())
-                .title(article.getTitle())
-                .translatedTitle(article.getTranslatedTitle())
-                .content(article.getContent())
-                .translatedContent(article.getTranslatedContent())
-                .summary(article.getSummary())
+                .title(article.getTitle()) // 원문 제목
+                .translatedTitle(translation != null ? translation.getTranslatedTitle() : article.getTitle()) // 번역 없으면
+                                                                                                              // 원문
+                .content(article.getContent()) // 원문
+                .translatedContent(translation != null ? translation.getTranslatedContent() : article.getContent()) // 번역
+                                                                                                                    // 없으면
+                                                                                                                    // 원문
+                .summary(translation != null ? translation.getSummary() : null) // 번역 없으면 없음
                 .originalUrl(article.getOriginalUrl())
-                .categoryName(article.getCategory() != null 
-                        ? article.getCategory().getCategoryName().name() 
+                .categoryName(article.getCategory() != null
+                        ? article.getCategory().getCategoryName().name()
                         : null)
                 .authorName(article.getAuthorName())
                 .publisherName(article.getPublisherName())
@@ -73,7 +83,8 @@ public class ArticleDetailResponseDto {
                 .isBookmarked(isBookmarked)
                 .clickCount(displayedClickCount != null ? displayedClickCount : 0L)
                 .hasUsedCoin(hasUsedCoin)
-                .purchasedTranslationLanguages(purchasedTranslationLanguages != null ? purchasedTranslationLanguages : List.of());
+                .purchasedTranslationLanguages(
+                        purchasedTranslationLanguages != null ? purchasedTranslationLanguages : List.of());
 
         // 반응 정보 추가
         if (reactionCounts != null) {

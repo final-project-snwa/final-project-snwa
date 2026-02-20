@@ -13,7 +13,8 @@ public class AdminUserCommentResponse {
     private final String articleTitle;
     private final LocalDateTime createdAt;
 
-    public AdminUserCommentResponse(Long commentId, String content, Long articleId, String articleTitle, LocalDateTime createdAt) {
+    public AdminUserCommentResponse(Long commentId, String content, Long articleId, String articleTitle,
+            LocalDateTime createdAt) {
         this.commentId = commentId;
         this.content = content;
         this.articleId = articleId;
@@ -22,15 +23,12 @@ public class AdminUserCommentResponse {
     }
 
     public static AdminUserCommentResponse from(Comment comment) {
-        String title = comment.getArticle().getTranslatedTitle() != null
-                ? comment.getArticle().getTranslatedTitle()
-                : comment.getArticle().getTitle();
+        String title = comment.getArticle().getTitle();
         return new AdminUserCommentResponse(
                 comment.getId(),
                 comment.getContent(),
                 comment.getArticle().getId(),
                 title,
-                comment.getCreatedDate()
-        );
+                comment.getCreatedDate());
     }
 }
