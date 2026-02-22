@@ -140,7 +140,7 @@ jobs:
             cd /home/ec2-user/final-project-snwa
 
             # 1. 현재 어떤 색상(blue, green)이 떠 있는지 확인 (백엔드 기준)
-            if docker ps --format '{{.Names}}' | grep -q snwa-backend-blue; then
+            if docker ps --format '{{.Names}}' | grep -q snwa-backend-server-blue; then
               NEW=green
               OLD=blue
               NEW_PORT=8081
