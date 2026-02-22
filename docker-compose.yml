@@ -90,10 +90,18 @@ services:
       - backend-net
       - db-net
 
-  snwa-frontend:
+  snwa-frontend-blue:
     build: ./snwa-frontend
-    image: snwa-frontend-server:v1
-    container_name: snwa-frontend-server
+    image: snwa-frontend-server:blue
+    container_name: snwa-frontend-server-blue
+    networks:
+      - frontend-net
+
+  snwa-frontend-green:
+    profiles: ["deploy"]
+    build: ./snwa-frontend
+    image: snwa-frontend-server:green
+    container_name: snwa-frontend-server-green
     networks:
       - frontend-net
 
@@ -117,8 +125,8 @@ services:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
     ports:
       - "9090:9090"
-    depends_on:
-      - snwa-backend-blue
+#    depends_on:
+#      - snwa-backend-blue
     networks:
       - backend-net
 
