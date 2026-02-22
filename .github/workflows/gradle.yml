@@ -163,7 +163,7 @@ jobs:
             echo "$NEW 서버가 $NEW_PORT 포트에서 준비될 때까지 대기 중입니다..."
             for i in {1..20}; do
               # curl 대신 alpine에 내장된 wget 사용 (alpine 이미지 용량을 줄이기 위해 curl을 뺐다. -> 내장된 wget사용)
-              if docker exec snwa-nginx wget -q --spider http://snwa-backend-$NEW:$NEW_PORT/; then
+              if docker exec snwa-nginx wget -q --spider http://snwa-backend-$NEW:$NEW_PORT/actuator/health; then
                 echo "Success: $NEW 서버가 정상적으로 응답합니다."
                 break
               fi
