@@ -140,7 +140,7 @@ jobs:
             cd /home/ec2-user/final-project-snwa
 
             # 1. 현재 어떤 색상(blue, green)이 떠 있는지 확인 (백엔드 기준)
-            if docker ps --format '{{.Names}}' | grep -q snwa-backend-blue; then
+            if docker ps --format '{{.Names}}' | grep -q snwa-backend-server-blue; then
               NEW=green
               OLD=blue
               NEW_PORT=8081
@@ -179,7 +179,7 @@ jobs:
           
             # 4. [핵심] Nginx가 바라보는 변수 파일 수정
             echo "Nginx 라우팅 주소를 $NEW 버전으로 업데이트합니다."
-            echo -e "set \$service_url http://snwa-backend-$NEW:$NEW_PORT;\nset \$frontend_url http://snwa-frontend-$NEW:80;" | sudo tee /home/ec2-user/final-project-snwa/nginx/service-url.inc
+            echo -e "set \$service_url http://snwa-backend-$NEW:$NEW_PORT;\nset \$frontend_url http://snwa-frontend-$NEW:80;" | sudo tee /home/ec2-user/final-project-snwa/nginx/conf/service-url.inc
           
             # 5. Nginx 설정 재로드
             docker exec snwa-nginx nginx -s reload
