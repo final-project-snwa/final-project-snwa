@@ -318,7 +318,7 @@ export default function MainPage() {
     const filterTags = (
         <div className="mb-6 flex flex-col gap-4">
             <div className="flex flex-col gap-2">
-                <span className="text-sm font-medium text-gray-700">스포츠 종목</span>
+                <span className="text-sm font-medium text-gray-700">스포츠 종목 123</span>
                 <div className="flex flex-wrap gap-2">
                     <button
                         type="button"
