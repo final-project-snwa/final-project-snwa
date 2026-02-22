@@ -151,6 +151,9 @@ jobs:
             fi          
             echo "새 버전: $NEW (Port:$NEW_PORT), 이전 버전: $OLD"
           
+            # EC2 서버 내 도커 컨테이너가 모두 꺼져(down)있는 상태일 수 있으므로,필수 인프라(Nginx) 먼저 실행
+            docker compose up -d --build nginx prometheus grafana
+          
             # 2. 새 컨테이너 빌드 및 실행 (백엔드와 프론트엔드 새 버전을 동시에 빌드 및 실행)
             echo "백엔드와 프론트엔드 새 버전 빌드 및 실행 ($NEW)..."
             docker compose build snwa-backend-$NEW snwa-frontend-$NEW
