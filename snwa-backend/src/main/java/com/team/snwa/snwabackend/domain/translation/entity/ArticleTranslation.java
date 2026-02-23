@@ -27,6 +27,7 @@ public class ArticleTranslation extends BaseTimeEntity {
     @Column(nullable = false, length = 10)
     private String language; // e.g., "KO", "JA", "EN"
 
+    @Column(columnDefinition = "TEXT")
     private String translatedTitle;
 
     @Column(columnDefinition = "LONGTEXT")

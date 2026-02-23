@@ -28,6 +28,7 @@ public class Article extends BaseTimeEntity {
     @JoinColumn(name = "user_id")
     private User user; // 글을 등록한 사용자
 
+    @Column(columnDefinition = "TEXT")
     private String title;
 
     @Column(columnDefinition = "LONGTEXT")
