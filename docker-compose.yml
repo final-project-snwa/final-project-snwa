@@ -91,15 +91,21 @@ services:
       - db-net
 
   snwa-frontend-blue:
-    build: ./snwa-frontend
+    build:
+      context: ./snwa-frontend
+      args:
+        VITE_TOSS_CLIENT_KEY: ${VITE_TOSS_CLIENT_KEY}
     image: snwa-frontend-server:blue
     container_name: snwa-frontend-server-blue
     networks:
       - frontend-net
 
   snwa-frontend-green:
-    profiles: ["deploy"]
-    build: ./snwa-frontend
+    profiles: [ "deploy" ]
+    build:
+      context: ./snwa-frontend
+      args:
+        VITE_TOSS_CLIENT_KEY: ${VITE_TOSS_CLIENT_KEY}
     image: snwa-frontend-server:green
     container_name: snwa-frontend-server-green
     networks:
