@@ -138,7 +138,10 @@ export default function ProfilePage() {
                 body: JSON.stringify({ contentType: file.type }),
             });
 
-            if (!presignedRes.ok) throw new Error('Presigned URL 발급 실패');
+            if (!presignedRes.ok) {
+                const errText = await presignedRes.text();
+                throw new Error(`Presigned URL 발급 실패 (${presignedRes.status})`);
+            }
 
             const { presignedUrl, imageUrl } = await presignedRes.json();
 
@@ -149,13 +152,13 @@ export default function ProfilePage() {
                 body: file,
             });
 
-            if (!uploadRes.ok) throw new Error('이미지 업로드 실패');
+            if (!uploadRes.ok) throw new Error(`S3 업로드 실패 (${uploadRes.status})`);
 
             // 3. 이미지 URL 상태 업데이트
             setProfileImageUrl(imageUrl);
-        } catch (error) {
-            console.error('이미지 업로드 실패:', error);
-            alert('이미지 업로드에 실패했습니다.');
+        } catch (error: any) {
+            console.error('이미지 업로드 상세 에러:', error);
+            alert(`업로드 에러 발생: ${error.message}`);
         } finally {
             setUploading(false);
         }

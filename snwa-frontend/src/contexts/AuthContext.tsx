@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { createContext, useContext, useState, ReactNode } from 'react';
 
 interface User {
   email: string;
@@ -29,29 +29,25 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [attendanceRewardJustGiven, setAttendanceRewardJustGiven] = useState(false);
-  const [expGrantInfo, setExpGrantInfo] = useState<ExpGrantInfo | null>(null);
-
-  // Load user from sessionStorage on mount (탭/창 닫으면 로그아웃됨)
-  useEffect(() => {
+  const [user, setUser] = useState<User | null>(() => {
     const token = sessionStorage.getItem('snwa_token');
     const savedUser = sessionStorage.getItem('snwa_user');
 
-
-
-    if (!token || !savedUser) {
-      sessionStorage.removeItem('snwa_user');
-      return;
-    }
-
-    try {
-      setUser(JSON.parse(savedUser));
-    } catch (e) {
-      console.error('Failed to parse user data:', e);
+    if (token && savedUser) {
+      try {
+        return JSON.parse(savedUser);
+      } catch (e) {
+        console.error('Failed to parse user data:', e);
+        sessionStorage.removeItem('snwa_user');
+      }
+    } else if (!token || !savedUser) {
       sessionStorage.removeItem('snwa_user');
     }
-  }, []);
+    return null;
+  });
+
+  const [attendanceRewardJustGiven, setAttendanceRewardJustGiven] = useState(false);
+  const [expGrantInfo, setExpGrantInfo] = useState<ExpGrantInfo | null>(null);
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {

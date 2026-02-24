@@ -24,54 +24,62 @@ import java.util.List;
 @EnableWebSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
-    private final JwtAuthenticationFilter jwtAuthenticationFilter;
+        private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
+        @Bean
+        public PasswordEncoder passwordEncoder() {
+                return new BCryptPasswordEncoder();
+        }
 
-    @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration configuration = new CorsConfiguration();
-        // allowCredentials가 true일 때는 와일드카드 사용 불가
-        configuration.setAllowedOriginPatterns(List.of("*")); // 모든 origin 허용 (패턴 사용)
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("*"));
-        configuration.setAllowCredentials(true);
-        configuration.setExposedHeaders(List.of("Authorization"));
-        configuration.setMaxAge(3600L); // Preflight 요청 캐시 시간
+        @Bean
+        public CorsConfigurationSource corsConfigurationSource() {
+                CorsConfiguration configuration = new CorsConfiguration();
+                // 실제 운영 환경의 프론트엔드 도메인과 로컬 개발 환경만 허용하도록 제한합니다.
+                configuration.setAllowedOriginPatterns(
+                                Arrays.asList("http://localhost:5173", "https://*.surge.sh", "https://*.vercel.app"));
+                configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+                configuration.setAllowedHeaders(List.of("*"));
+                configuration.setAllowCredentials(true);
+                configuration.setExposedHeaders(List.of("Authorization"));
+                configuration.setMaxAge(3600L); // Preflight 요청 캐시 시간
 
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration);
-        return source;
-    }
+                UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+                source.registerCorsConfiguration("/**", configuration);
+                return source;
+        }
 
-    @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .csrf(AbstractHttpConfigurer::disable)
-                .sessionManagement(session -> session
-                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**").permitAll()  // 인증 관련 엔드포인트는 허용
-                                .requestMatchers("/api/scheduler/**").permitAll()  // 요약 및 번역테스트용 스케줄러
-                        .requestMatchers("/actuator/**").permitAll() // 모니터링용
-                        .requestMatchers("/error").permitAll()  // 에러 페이지 허용
-                        .requestMatchers("/api/notifications/subscribe").permitAll() // SSE는 토큰 쿼리로 처리
-//                        .requestMatchers("/api/admin/**").hasRole("ADMIN")  // 관리자 전용 실제 서비스용
-                        .requestMatchers("/api/admin/**").permitAll() // 테스트용
-                        //.requestMatchers("/api/orders/**","/api/coins/**","/api/payments/**").permitAll() //결제테스트용
-                                .requestMatchers(HttpMethod.GET, "/api/articles", "/api/articles/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/exp/leaderboard").permitAll()
-                        // 일부 클라이언트가 호출할 수 있는 크롤 경로(실제 실행은 /api/admin/crawler/jobs/{id}/run)
-                        .requestMatchers(HttpMethod.POST, "/api/articles/crawl", "/api/articles/crawl/**").permitAll()
-                        .anyRequest().authenticated()  // 나머지는 인증 필요
-                );
-        
-        http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+        @Bean
+        public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+                http
+                                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                                .csrf(AbstractHttpConfigurer::disable)
+                                .sessionManagement(session -> session
+                                                .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                                .authorizeHttpRequests(auth -> auth
+                                                .requestMatchers("/api/auth/**").permitAll() // 인증 관련 엔드포인트 허용
+                                                .requestMatchers("/actuator/health", "/actuator/prometheus").permitAll() // 시스템
+                                                                                                                         // 필수
+                                                                                                                         // 모니터링만
+                                                                                                                         // 허용
+                                                .requestMatchers("/actuator/**").hasRole("ADMIN") // 나머지는 관리자 전용
+                                                .requestMatchers("/api/notifications/subscribe").permitAll() // SSE 토큰
+                                                                                                             // 쿼리 처리
+                                                .requestMatchers("/api/admin/**").hasRole("ADMIN") // 관리자 전용 서비스 보호
+                                                .requestMatchers("/api/scheduler/**").hasRole("ADMIN") // 스케줄러 수동 조작 관리자
+                                                                                                       // 전용
+                                                .requestMatchers(HttpMethod.GET, "/api/articles", "/api/articles/**")
+                                                .permitAll() // 기사 조회 허용
+                                                .requestMatchers(HttpMethod.GET, "/api/exp/leaderboard").permitAll() // 랭킹
+                                                                                                                     // 조회
+                                                                                                                     // 허용
+                                                .requestMatchers(HttpMethod.POST, "/api/articles/crawl",
+                                                                "/api/articles/crawl/**")
+                                                .hasRole("ADMIN") // 크롤링 트리거 관리자 전용 보호
+                                                .anyRequest().authenticated() // 나머지는 인증 필요
+                                );
 
-        return http.build();
-    }
+                http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+
+                return http.build();
+        }
 }
