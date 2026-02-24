@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../contexts/AuthContext';
 import Header from '../components/Header';
-import { User, Camera, Lock, LogOut, AlertTriangle, Check,  Calendar, Shield, Mail, Hash } from 'lucide-react';
+import { User, Camera, Lock, LogOut, AlertTriangle, Check, Calendar, Shield, Mail, Hash } from 'lucide-react';
 
 interface UserProfile {
     id: number;
@@ -87,9 +87,11 @@ export default function ProfilePage() {
         }
     };
 
-    const handleSaveProfile = async () => {
+    const handleSaveProfile = async (newImageUrl?: string | any) => {
         const auth = getAuthHeader();
         if (!auth) return;
+
+        const finalImageUrl = typeof newImageUrl === 'string' ? newImageUrl : profileImageUrl;
 
         setSaving(true);
         try {
@@ -101,7 +103,7 @@ export default function ProfilePage() {
                     introduction: introduction || null,
                     phoneNumber: phoneNumber || null,
                     discordWebhookUrl: discordWebhookUrl || null,
-                    profileImageUrl: profileImageUrl,
+                    profileImageUrl: finalImageUrl,
                 }),
             });
 
@@ -154,8 +156,9 @@ export default function ProfilePage() {
 
             if (!uploadRes.ok) throw new Error(`S3 업로드 실패 (${uploadRes.status})`);
 
-            // 3. 이미지 URL 상태 업데이트
+            // 3. 이미지 URL 상태 업데이트 및 자동 저장
             setProfileImageUrl(imageUrl);
+            await handleSaveProfile(imageUrl);
         } catch (error: any) {
             console.error('이미지 업로드 상세 에러:', error);
             alert(`업로드 에러 발생: ${error.message}`);
