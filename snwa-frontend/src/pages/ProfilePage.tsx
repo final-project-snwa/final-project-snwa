@@ -110,11 +110,17 @@ export default function ProfilePage() {
             if (res.ok) {
                 const updatedProfile: UserProfile = await res.json();
                 setProfile(updatedProfile);
+                setProfileImageUrl(updatedProfile.profileImageUrl); // Ensure state matches DB exactly
                 setSaved(true);
                 setTimeout(() => setSaved(false), 2000);
+            } else {
+                const errData = await res.text();
+                console.error('프로필 저장 실패 응답:', res.status, errData);
+                alert(`프로필 저장 실패: ${errData}`);
             }
         } catch (error) {
-            console.error('프로필 저장 실패:', error);
+            console.error('프로필 저장 네트워크 에러:', error);
+            alert('프로필 저장 중 네트워크 오류가 발생했습니다.');
         } finally {
             setSaving(false);
         }
@@ -145,7 +151,7 @@ export default function ProfilePage() {
                 throw new Error(`Presigned URL 발급 실패 (${presignedRes.status})`);
             }
 
-            const { presignedUrl, imageUrl } = await presignedRes.json();
+            const { presignedUrl, fileUrl } = await presignedRes.json();
 
             // 2. S3에 이미지 업로드
             const uploadRes = await fetch(presignedUrl, {
@@ -154,11 +160,15 @@ export default function ProfilePage() {
                 body: file,
             });
 
-            if (!uploadRes.ok) throw new Error(`S3 업로드 실패 (${uploadRes.status})`);
+            if (!uploadRes.ok) {
+                const errorText = await uploadRes.text();
+                throw new Error(`S3 업로드 실패 (${uploadRes.status}): ${errorText}`);
+            }
 
             // 3. 이미지 URL 상태 업데이트 및 자동 저장
-            setProfileImageUrl(imageUrl);
-            await handleSaveProfile(imageUrl);
+            setProfileImageUrl(fileUrl);
+            // S3 업로드가 비동기 완료된 직후, 바뀐 URL로 저장 요청
+            await handleSaveProfile(fileUrl);
         } catch (error: any) {
             console.error('이미지 업로드 상세 에러:', error);
             alert(`업로드 에러 발생: ${error.message}`);
