@@ -43,16 +43,14 @@ public class DeepLClient implements TranslationClient {
             String translatedContent = "";
 
             if (translatedCombined != null) {
-                // 2. 특수 구분자를 기준으로 다시 분리
-                // 정규식 특수문자([]) 이스케이프 처리 필요
+                // 2. 특수 구분자를 기준으로 제목, 본문 두 덩어리로 나누기 ([0]=제목, [1]=본문)
                 String[] parts = translatedCombined.split("<\\|\\|SMA_SEPARATOR\\|\\|>", 2);
 
                 if (parts.length >= 2) {
                     translatedTitle = parts[0].trim();
                     translatedContent = parts[1].trim();
                 } else {
-                    // 혹시라도 구분자가 변형되었을 경우를 대비해 기존 줄바꿈 로직도 유지하거나,
-                    // 로그를 남기고 전체를 본문에 넣는 식의 처리가 필요할 수 있음
+                    // 혹시라도 구분자가 변형되었을 경우를 대비해 기존 줄바꿈 로직도 유지
                     // 여기서는 일단 제목에 다 들어간 것으로 보임
                     translatedTitle = translatedCombined;
                     translatedContent = "";
@@ -87,7 +85,7 @@ public class DeepLClient implements TranslationClient {
         try {
             // targetLang을 null로 설정하면 자동 감지(KO를 기본값으로 사용)
             String lang = (targetLang == null || targetLang.isBlank()) ? "KO" : targetLang;
-            TextResult result = translator.translateText(text, null, lang);
+            TextResult result = translator.translateText(text, null, lang); // 번역하고 싶은 문장, 언어, 어떤 언어로 번역할 것인가
             return result.getText();
         } catch (Exception e) {
             log.error("텍스트 번역 실패: {}", e.getMessage(), e);

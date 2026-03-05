@@ -13,7 +13,7 @@ import com.team.snwa.snwabackend.domain.article.repository.ClickLogRepository;
 import com.team.snwa.snwabackend.domain.translation.entity.ArticleTranslation;
 import com.team.snwa.snwabackend.domain.translation.repository.ArticleTranslationRepository;
 import com.team.snwa.snwabackend.domain.translation.repository.TranslationAccessLogRepository;
-import com.team.snwa.snwabackend.domain.translation.service.TranslationService;
+
 import com.team.snwa.snwabackend.domain.user.entity.User;
 import com.team.snwa.snwabackend.domain.user.entity.enums.UserRole;
 import com.team.snwa.snwabackend.domain.wallet.service.CoinTransactionService;
@@ -41,7 +41,7 @@ public class ArticleService {
         private final ReactionService reactionService;
         private final ClickLogRepository clickLogRepository;
         private final CoinTransactionService coinTransactionService;
-        private final TranslationService translationService;
+
         private final TranslationAccessLogRepository translationAccessLogRepository;
         private final ArticleTranslationRepository articleTranslationRepository;
 
