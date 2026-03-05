@@ -51,10 +51,11 @@ export default function TranslationManager() {
         return data.filter(group => {
             // 검색: ID나 번역본 중 하나라도 검색어 포함되면 표시
             if (String(group.id).includes(q)) return true;
-            return group.translations.some(t =>
-                t.translatedTitle.toLowerCase().includes(q) ||
-                t.tagNames.some(tag => tag.toLowerCase().includes(q))
-            );
+            return group.translations.some(t => {
+                const titleMatch = (t.translatedTitle || '').toLowerCase().includes(q);
+                const tagMatch = (t.tagNames || []).some(tag => (tag || '').toLowerCase().includes(q));
+                return titleMatch || tagMatch;
+            });
         });
     }, [data, search]);
 
@@ -181,11 +182,11 @@ function TranslationRow({ group, onDetailView }: { group: AdminArticleGroup, onD
                 {current.translatedTitle}
             </td>
             <td className="px-6 py-4 text-gray-600 line-clamp-2 mt-4 align-top text-xs leading-relaxed">
-                {current.summary.length > 100 ? current.summary.substring(0, 100) + '...' : current.summary}
+                {current.summary ? (current.summary.length > 100 ? current.summary.substring(0, 100) + '...' : current.summary) : '-'}
             </td>
             <td className="px-6 py-4 align-top">
                 <div className="flex flex-wrap gap-1">
-                    {current.tagNames.map((name, i) => (
+                    {current.tagNames && current.tagNames.map((name, i) => (
                         <span key={i} className="bg-sky-50 text-sky-600 px-2 py-0.5 rounded text-[10px] border border-sky-100 font-medium">
                             #{name}
                         </span>
