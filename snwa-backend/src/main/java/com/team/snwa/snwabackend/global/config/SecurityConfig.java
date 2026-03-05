@@ -36,7 +36,8 @@ public class SecurityConfig {
                 CorsConfiguration configuration = new CorsConfiguration();
                 // 실제 운영 환경의 프론트엔드 도메인과 로컬 개발 환경만 허용하도록 제한합니다.
                 configuration.setAllowedOriginPatterns(
-                                Arrays.asList("http://localhost:5173", "https://*.surge.sh", "https://*.vercel.app","http://3.39.237.24:70"));
+                                Arrays.asList("http://localhost:5173", "http://localhost:70", "https://*.surge.sh",
+                                                "https://*.vercel.app", "http://3.39.237.24:70"));
                 configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
                 configuration.setAllowedHeaders(List.of("*"));
                 configuration.setAllowCredentials(true);

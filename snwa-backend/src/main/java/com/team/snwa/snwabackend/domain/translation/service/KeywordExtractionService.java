@@ -57,6 +57,7 @@ public class KeywordExtractionService {
         return CompletableFuture.completedFuture(null);
     }
 
+    // 번역-요약하기 버튼을 눌렀을 때 실행
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void extractKeywords(Long articleId, String targetLang) {
         log.info("기사 키워드 추출 시작: articleId={}, lang={}", articleId, targetLang);
@@ -71,7 +72,7 @@ public class KeywordExtractionService {
         Article article = articleRepository.findById(articleId)
                 .orElseThrow(() -> new RuntimeException("기사를 찾을 수 없습니다: id=" + articleId));
 
-        // 2. 번역 데이터 우선 조회 -> 없으면 기사 원문 조회 (Fallback)
+        // 2. 번역 데이터 우선 조회 -> 없으면 기사 원문 조회 -> contentToExtract=번역된 본문 or 원본 본문
         String contentToExtract = articleTranslationRepository.findByArticleIdAndLanguage(articleId, targetLang)
                 .map(ArticleTranslation::getTranslatedContent)
                 .orElseGet(() -> {
@@ -109,6 +110,42 @@ public class KeywordExtractionService {
                         typedKeywords));
     }
 
+    @Transactional
+    public List<String> extractKeywordsIfNeeded(ArticleTranslation translation, String targetLang) {
+        List<String> tags = articleTagRepository
+                .findByArticleIdAndLanguage(translation.getArticle().getId(), targetLang)
+                .stream()
+                .map(ArticleTag::getTagName)
+                .toList();
+
+        if (!tags.isEmpty()) {
+            return tags;
+        }
+
+        try {
+            tags = extractKeywordsToList(translation.getTranslatedContent(), targetLang);
+            if (!tags.isEmpty()) {
+                for (String tagName : tags) {
+                    articleTagRepository.save(ArticleTag.builder()
+                            .article(translation.getArticle())
+                            .tagName(tagName)
+                            .language(targetLang)
+                            .build());
+                }
+            }
+            return tags;
+        } catch (com.team.snwa.snwabackend.global.exception.CustomException e) {
+            if (e.getErrorCode() == com.team.snwa.snwabackend.global.exception.ErrorCode.AI_API_QUOTA_EXCEEDED) {
+                throw e;
+            }
+            log.error("태그기능 실패(Skipped): {}", e.getMessage());
+            return new ArrayList<>();
+        } catch (Exception e) {
+            log.error("태그기능 실패(Skipped): {}", e.getMessage());
+            return new ArrayList<>();
+        }
+    }
+
     public List<String> extractKeywordsToList(String translatedContent, String targetLang) {
         Map<String, InterestType> typedKeywords = extractKeywordsFromContent(translatedContent, targetLang);
         return new ArrayList<>(typedKeywords.keySet());
@@ -125,7 +162,8 @@ public class KeywordExtractionService {
                 languageName);
         ChatClient chatClient = chatClientBuilder.build();
         try {
-            String keywordsResponse = chatClient.prompt(prompt).call().content();
+            String keywordsResponse = chatClient.prompt(prompt).call().content(); // "손흥민(Player), 토트넘(Team),
+                                                                                  // 프리미어리그(League), 축구(Sport)"
             return parseTypedKeywords(keywordsResponse);
         } catch (Exception e) {
             log.error("AI 키워드 추출 중 오류 발생: {}", e.getMessage(), e);
@@ -140,7 +178,7 @@ public class KeywordExtractionService {
     }
 
     /**
-     * AI 응답에서 "키워드(타입)" 형식을 파싱하여 Map으로 반환
+     * AI 응답에서 "키워드(타입)" 형식을 파싱하여 Map으로 반환(key, value 형식)
      * 예: "호날두(Player), 맨유(Team)" -> {호날두=PLAYER, 맨유=TEAM}
      */
     private Map<String, InterestType> parseTypedKeywords(String keywordsResponse) {

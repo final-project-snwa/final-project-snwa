@@ -2,8 +2,8 @@ package com.team.snwa.snwabackend.domain.translation.controller;
 
 import com.team.snwa.snwabackend.domain.translation.dto.response.SummaryResponseDto;
 import com.team.snwa.snwabackend.domain.translation.dto.response.TranslatedArticleResponseDto;
+import com.team.snwa.snwabackend.domain.translation.service.ArticleOrchestratorService;
 import com.team.snwa.snwabackend.domain.translation.service.SummaryService;
-import com.team.snwa.snwabackend.domain.translation.service.TranslationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class TranslationController {
 
-    private final TranslationService translationService;
+    private final ArticleOrchestratorService articleOrchestratorService;
     private final SummaryService summaryService;
 
     @PostMapping("/translation/test")
@@ -23,7 +23,7 @@ public class TranslationController {
             @PathVariable Long articleId) {
         log.info("번역 요청 받음: articleId={}", articleId);
 
-        TranslatedArticleResponseDto response = translationService.translateArticle(articleId);
+        TranslatedArticleResponseDto response = articleOrchestratorService.translateArticle(articleId);
 
         return ResponseEntity.ok(response);
     }

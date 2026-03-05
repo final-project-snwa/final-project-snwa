@@ -56,6 +56,29 @@ public class SummaryService {
                 .build();
     }
 
+    @Transactional
+    public String summarizeIfNeeded(ArticleTranslation translation, String targetLang) {
+        if (translation.getSummary() != null && !translation.getSummary().trim().isEmpty()) {
+            return translation.getSummary();
+        }
+
+        try {
+            String summary = generateSummary(translation.getTranslatedContent(), targetLang);
+            translation.updateSummary(summary);
+            articleTranslationRepository.save(translation);
+            return summary;
+        } catch (com.team.snwa.snwabackend.global.exception.CustomException e) {
+            if (e.getErrorCode() == com.team.snwa.snwabackend.global.exception.ErrorCode.AI_API_QUOTA_EXCEEDED) {
+                throw e;
+            }
+            log.error("요약기능 실패(Skipped): {}", e.getMessage());
+            return null;
+        } catch (Exception e) {
+            log.error("요약기능 실패(Skipped): {}", e.getMessage());
+            return null;
+        }
+    }
+
     /**
      * 번역된 기사 내용을 지정된 언어로 요약합니다.
      *
@@ -97,7 +120,8 @@ public class SummaryService {
 
     private String loadPromptTemplate() {
         try {
-            Resource resource = resourceLoader.getResource("classpath:prompts/summary-prompt.txt");
+            Resource resource = resourceLoader.getResource("classpath:prompts/summary-prompt.txt"); // classpath =
+                                                                                                    // src/main/resources
             return StreamUtils.copyToString(resource.getInputStream(), StandardCharsets.UTF_8);
         } catch (Exception e) {
             log.error("프롬프트 템플릿 로드 실패: {}", e.getMessage(), e);

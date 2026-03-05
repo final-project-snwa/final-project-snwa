@@ -2,7 +2,7 @@ package com.team.snwa.snwabackend.domain.translation.scheduler;
 
 import com.team.snwa.snwabackend.domain.article.entity.Article;
 import com.team.snwa.snwabackend.domain.article.repository.ArticleRepository;
-import com.team.snwa.snwabackend.domain.translation.service.TranslationService;
+import com.team.snwa.snwabackend.domain.translation.service.ArticleOrchestratorService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -21,7 +21,7 @@ import java.util.List;
 public class TranslationScheduler {
 
     private final ArticleRepository articleRepository;
-    private final TranslationService translationService;
+    private final ArticleOrchestratorService articleOrchestratorService;
 
     private static final int BATCH_SIZE = 2; // 한 번에 처리할 기사 개수
     private static final long API_DELAY_MS = 4000;
@@ -50,7 +50,7 @@ public class TranslationScheduler {
             for (Article article : articles) {
                 try {
                     log.debug("기사 번역 시작: articleId={}", article.getId());
-                    translationService.translateArticle(article.getId());
+                    articleOrchestratorService.translateArticle(article.getId());
                     Thread.sleep(API_DELAY_MS);
                 } catch (Exception e) {
                     failCount++;
