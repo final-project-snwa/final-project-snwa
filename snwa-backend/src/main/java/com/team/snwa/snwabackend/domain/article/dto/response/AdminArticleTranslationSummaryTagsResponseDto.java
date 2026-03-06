@@ -10,6 +10,7 @@ import java.util.List;
 public class AdminArticleTranslationSummaryTagsResponseDto {
 
     private final Long id;
+    private final String originalTitle;
 
     // 번역 정보 리스트 (KO, JA, ZH 등)
     private final List<TranslationDetail> translations;

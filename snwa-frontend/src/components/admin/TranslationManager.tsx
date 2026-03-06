@@ -12,6 +12,7 @@ type TranslationDetail = {
 
 type AdminArticleGroup = {
     id: number;
+    originalTitle: string;    // 원본 제목 (번역 전용)
     translations: TranslationDetail[];
 };
 
@@ -179,7 +180,11 @@ function TranslationRow({ group, onDetailView }: { group: AdminArticleGroup, onD
                 </div>
             </td>
             <td className="px-6 py-4 font-medium align-top">
-                {current.translatedTitle}
+                {current.translatedTitle || (
+                    <span className="text-gray-400 italic font-normal text-xs">
+                        [Original] {group.originalTitle}
+                    </span>
+                )}
             </td>
             <td className="px-6 py-4 text-gray-600 line-clamp-2 mt-4 align-top text-xs leading-relaxed">
                 {current.summary ? (current.summary.length > 100 ? current.summary.substring(0, 100) + '...' : current.summary) : '-'}
