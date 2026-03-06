@@ -6,7 +6,7 @@ import com.team.snwa.snwabackend.domain.article.entity.Article;
 import com.team.snwa.snwabackend.domain.comment.entity.Comment;
 import com.team.snwa.snwabackend.domain.comment.repository.CommentRepository;
 import com.team.snwa.snwabackend.domain.translation.entity.ArticleTranslation;
-import com.team.snwa.snwabackend.domain.translation.repository.ArticleTranslationRepository;    //
+import com.team.snwa.snwabackend.domain.translation.repository.ArticleTranslationRepository; //
 import com.team.snwa.snwabackend.domain.user.dto.response.AdminUserCommentResponse;
 import com.team.snwa.snwabackend.domain.article.entity.ArticleTag;
 import com.team.snwa.snwabackend.domain.article.repository.ArticleRepository;
@@ -143,18 +143,16 @@ public class AdminService {
 
         // 삭제되지 않은 글만 조회 (등록 날짜 내림차순)
         List<Article> articles = articleRepository.findAllByDeletedAtIsNull(
-            Sort.by("createdDate").descending()
-        );
+                Sort.by("createdDate").descending());
 
         // DTO로 변환
         return articles.stream()
                 .map(article -> new AdminArticleListResponse(
-                    article.getId(),
-                    article.getTitle(),
-                    article.getUser() != null ? article.getUser().getNickname() :
-                        (article.getAuthorName() != null ? article.getAuthorName() : "알 수 없음"),
-                    article.getCreatedDate()
-                ))
+                        article.getId(),
+                        article.getTitle(),
+                        article.getUser() != null ? article.getUser().getNickname()
+                                : (article.getAuthorName() != null ? article.getAuthorName() : "알 수 없음"),
+                        article.getCreatedDate()))
                 .collect(Collectors.toList());
     }
 
@@ -221,27 +219,42 @@ public class AdminService {
 
         return articles.stream().map(article -> {
             List<ArticleTranslation> translations = articleTranslationRepository.findAllByArticleId(article.getId());
+            List<ArticleTag> allTags = articleTagRepository.findAllByArticleId(article.getId());
 
-            List<AdminArticleTranslationSummaryTagsResponseDto.TranslationDetail> details = translations.stream().map(t -> {
-                List<String> tags = articleTagRepository.findAllByArticleId(article.getId())
-                        .stream()
-                        .filter(tag -> t.getLanguage().equals(tag.getLanguage())) // 언어 일치하는 것만
-                        .map(ArticleTag::getTagName)
-                        .collect(Collectors.toList());
-                return new AdminArticleTranslationSummaryTagsResponseDto.TranslationDetail(
-                        t.getLanguage(),
-                        t.getTranslatedTitle(),
-                        t.getTranslatedContent(),
-                        t.getSummary(),
-                        tags
-                );
-            }).collect(Collectors.toList());
+            // 모든 관련 언어 추출 (번역이 있거나 태그가 있는 경우)
+            java.util.Set<String> languages = new java.util.TreeSet<>();
+            translations.forEach(t -> languages.add(t.getLanguage()));
+            allTags.forEach(tag -> languages.add(tag.getLanguage()));
 
-            // 요청하신 5개 필드(ID, 번역제목, 번역내용, 요약, 태그) 반환
+            // 만약 아무 정보도 없으면 기본적으로 "KO"라도 보여주기 위해 추가 (관리자가 번역 시작할 수 있게)
+            if (languages.isEmpty()) {
+                languages.add("KO");
+            }
+
+            List<AdminArticleTranslationSummaryTagsResponseDto.TranslationDetail> details = languages.stream()
+                    .map(lang -> {
+                        ArticleTranslation translation = translations.stream()
+                                .filter(t -> t.getLanguage().equals(lang))
+                                .findFirst()
+                                .orElse(null);
+
+                        List<String> tags = allTags.stream()
+                                .filter(tag -> tag.getLanguage().equals(lang))
+                                .map(ArticleTag::getTagName)
+                                .collect(Collectors.toList());
+
+                        return new AdminArticleTranslationSummaryTagsResponseDto.TranslationDetail(
+                                lang,
+                                translation != null ? translation.getTranslatedTitle() : null,
+                                translation != null ? translation.getTranslatedContent() : null,
+                                translation != null ? translation.getSummary() : null,
+                                tags);
+                    }).collect(Collectors.toList());
+
             return new AdminArticleTranslationSummaryTagsResponseDto(
                     article.getId(),
-                    details
-                );
-            }).collect(Collectors.toList());
+                    article.getTitle(), // 원본 제목 추가
+                    details);
+        }).collect(Collectors.toList());
     }
 }
