@@ -91,10 +91,8 @@ services:
       - db-net
 
   snwa-frontend-blue:
-    build:
+    build: 
       context: ./snwa-frontend
-      args:
-        VITE_TOSS_CLIENT_KEY: ${VITE_TOSS_CLIENT_KEY}
     image: snwa-frontend-server:blue
     container_name: snwa-frontend-server-blue
     networks:
@@ -104,8 +102,6 @@ services:
     profiles: [ "deploy" ]
     build:
       context: ./snwa-frontend
-      args:
-        VITE_TOSS_CLIENT_KEY: ${VITE_TOSS_CLIENT_KEY}
     image: snwa-frontend-server:green
     container_name: snwa-frontend-server-green
     networks:
@@ -132,8 +128,6 @@ services:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
     ports:
       - "9090:9090"
-#    depends_on:
-#      - snwa-backend-blue
     networks:
       - backend-net
 
