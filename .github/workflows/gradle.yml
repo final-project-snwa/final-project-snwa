@@ -92,6 +92,8 @@ jobs:
       - name: Build frontend
         run: npm run build
         working-directory: ./snwa-frontend
+        env:
+          VITE_TOSS_CLIENT_KEY: ${{ secrets.VITE_TOSS_CLIENT_KEY }}
 
       - name: Upload frontend artifact
         uses: actions/upload-artifact@v4
