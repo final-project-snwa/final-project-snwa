@@ -24,7 +24,9 @@ services:
       - db-net
 
   snwa-backend-blue:
-    build: ./snwa-backend
+    build:
+      context: ./snwa-backend
+      target: ${DOCKER_TARGET:-prod}
     image: snwa-backend-server:blue
     container_name: snwa-backend-server-blue
     expose:
@@ -37,8 +39,7 @@ services:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      APP_BASE_URL: ${APP_BASE_URL}
-#      APP_BASE_URL: http://localhost:70
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:70}   # 배포 서버 내에서는 http://3.39.237.24:70
       DEEPL_API_KEY: ${DEEPL_API_KEY}
       DEEPL_API_BASE_URL: ${DEEPL_API_BASE_URL}
       GEMINI_API_KEY: ${GEMINI_API_KEY}
@@ -58,7 +59,9 @@ services:
 
   snwa-backend-green:
     profiles: ["deploy"]
-    build: ./snwa-backend
+    build:
+      context: ./snwa-backend
+      target: ${DOCKER_TARGET:-prod}
     image: snwa-backend-server:green
     container_name: snwa-backend-server-green
     expose:
@@ -71,8 +74,7 @@ services:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      APP_BASE_URL: ${APP_BASE_URL}
-#      APP_BASE_URL: http://localhost:70
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:70}  # 배포 서버 내에서는 http://3.39.237.24:70
       DEEPL_API_KEY: ${DEEPL_API_KEY}
       DEEPL_API_BASE_URL: ${DEEPL_API_BASE_URL}
       GEMINI_API_KEY: ${GEMINI_API_KEY}
@@ -93,6 +95,9 @@ services:
   snwa-frontend-blue:
     build: 
       context: ./snwa-frontend
+      target: ${DOCKER_TARGET:-prod}
+      args:
+        VITE_TOSS_CLIENT_KEY: ${VITE_TOSS_CLIENT_KEY}
     image: snwa-frontend-server:blue
     container_name: snwa-frontend-server-blue
     networks:
@@ -102,6 +107,9 @@ services:
     profiles: [ "deploy" ]
     build:
       context: ./snwa-frontend
+      target: ${DOCKER_TARGET:-prod}
+      args:
+        VITE_TOSS_CLIENT_KEY: ${VITE_TOSS_CLIENT_KEY}
     image: snwa-frontend-server:green
     container_name: snwa-frontend-server-green
     networks:
