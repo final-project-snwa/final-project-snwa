@@ -32,3 +32,6 @@ inspect_output*.txt
 *.log
 
 .skills/
+
+.CLAUDE.md
+.claude/
