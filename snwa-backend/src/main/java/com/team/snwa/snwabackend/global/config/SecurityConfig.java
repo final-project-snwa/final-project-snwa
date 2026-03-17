@@ -58,6 +58,7 @@ public class SecurityConfig {
                                                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                                 .authorizeHttpRequests(auth -> auth
                                                 .requestMatchers("/api/auth/**").permitAll() // 인증 관련 엔드포인트 허용
+                                .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll() // Swagger UI
                                                 .requestMatchers("/actuator/health", "/actuator/prometheus").permitAll() // 시스템
                                                                                                                          // 필수
                                                                                                                          // 모니터링만
