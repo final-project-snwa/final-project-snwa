@@ -61,14 +61,13 @@ jobs:
           SPRING_DATASOURCE_USERNAME: root
           SPRING_DATASOURCE_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
 
-      # 빌드된 JAR 파일을 artifact로 업로드
       - name: Upload backend JAR artifact
         uses: actions/upload-artifact@v4
         with:
           name: backend-jar
           path: |
             ./snwa-backend/build/libs/*.jar
-            !./snwa-backend/build/libs/*-plain.jar          
+            !./snwa-backend/build/libs/*-plain.jar
 
   # 2. 프론트엔드 빌드
   frontend-build:
@@ -101,44 +100,65 @@ jobs:
           name: frontend-build-result
           path: ./snwa-frontend/build/
 
-  # 3. EC2 Blue-Green 배포
-  deploy:
+  # 3. Docker 이미지 빌드 및 Docker Hub push
+  docker-build-push:
     needs: [build, frontend-build]
     if: github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'develop'
     runs-on: ubuntu-latest
 
     steps:
-      - name: Download All Artifacts  #백엔드, 프론트 모두 빌드
+      - uses: actions/checkout@v4
+
+      - name: Download All Artifacts
         uses: actions/download-artifact@v4
         with:
           path: ./artifacts
 
+      - name: Prepare build contexts
+        run: |
+          cp ./artifacts/backend-jar/*.jar ./snwa-backend/app.jar
+          cp -r ./artifacts/frontend-build-result/. ./snwa-frontend/build/
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./snwa-backend
+          target: prod
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/snwa-backend:latest
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./snwa-frontend
+          target: prod
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/snwa-frontend:latest
+
+  # 4. EC2 Blue-Green 배포
+  deploy:
+    needs: [docker-build-push]
+    if: github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'develop'
+    runs-on: ubuntu-latest
+
+    steps:
       - name: Setup SSH agent
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
 
-      # 빌드된 JAR를 EC2로 복사
-      - name: Copy backend JAR and front file to EC2
-        run: |
-          # 파일 전송 전, EC2 서버의 소스코드를 GitHub 최신 상태와 동기화
-          ssh -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_HOST }} << 'EOF'
-            cd /home/ec2-user/final-project-snwa
-            git fetch origin develop   # 원격의 최신 정보를 가져옴
-            git checkout develop
-            git reset --hard origin/develop    # GitHub의 develop 상태와 서버를 동기화
-          EOF
-          
-          # 백엔드 .jar파일 ec2 전송
-          scp -o StrictHostKeyChecking=no ./artifacts/backend-jar/*.jar ec2-user@${{ secrets.EC2_HOST }}:/home/ec2-user/final-project-snwa/snwa-backend/app.jar
-          
-          # 프론트 빌드파일 ec2 전송    
-          ssh -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_HOST }} "mkdir -p /home/ec2-user/final-project-snwa/snwa-frontend/build && rm -rf /home/ec2-user/final-project-snwa/snwa-frontend/build/*"
-          scp -r -o StrictHostKeyChecking=no ./artifacts/frontend-build-result/* ec2-user@${{ secrets.EC2_HOST }}:/home/ec2-user/final-project-snwa/snwa-frontend/build/  
-
       - name: Deploy to EC2 (Blue-Green)
         run: |
-          ssh -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_HOST }} << 'EOF'
+          ssh -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_HOST }} << EOF
             cd /home/ec2-user/final-project-snwa
 
             # 1. 현재 어떤 색상(blue, green)이 떠 있는지 확인 (백엔드 기준)
@@ -150,45 +170,53 @@ jobs:
               NEW=blue
               OLD=green
               NEW_PORT=8080
-            fi          
-            echo "새 버전: $NEW (Port:$NEW_PORT), 이전 버전: $OLD"
-          
-            # EC2 서버 내 도커 컨테이너가 모두 꺼져(down)있는 상태일 수 있으므로,필수 인프라(Nginx) 먼저 실행
-            docker compose up -d --build nginx prometheus grafana
-          
-            # 2. 새 컨테이너 빌드 및 실행 (백엔드와 프론트엔드 새 버전을 동시에 빌드 및 실행)
-            echo "백엔드와 프론트엔드 새 버전 빌드 및 실행 ($NEW)..."
-            docker compose build snwa-backend-$NEW snwa-frontend-$NEW
-            docker compose up -d snwa-backend-$NEW snwa-frontend-$NEW
-          
-            # 3. 신규 컨테이너가 뜰 때까지 잠시 대기 (Health Check 대용)
-            echo "$NEW 서버가 $NEW_PORT 포트에서 준비될 때까지 대기 중입니다..."
+            fi
+            echo "새 버전: \$NEW (Port:\$NEW_PORT), 이전 버전: \$OLD"
+
+            # EC2 서버 내 도커 컨테이너가 모두 꺼져(down)있는 상태일 수 있으므로, 필수 인프라(Nginx) 먼저 실행
+            docker compose up -d nginx prometheus grafana
+
+            # 2. Docker Hub에서 최신 이미지 pull
+            echo "Docker Hub에서 최신 이미지를 가져옵니다..."
+            echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/snwa-backend:latest
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/snwa-frontend:latest
+
+            # 3. 새 슬롯(blue or green)에 맞게 re-tag
+            docker tag ${{ secrets.DOCKERHUB_USERNAME }}/snwa-backend:latest snwa-backend-server:\$NEW
+            docker tag ${{ secrets.DOCKERHUB_USERNAME }}/snwa-frontend:latest snwa-frontend-server:\$NEW
+
+            # 4. 새 컨테이너 실행 (빌드 없이 pull한 이미지 그대로 사용)
+            echo "백엔드와 프론트엔드 새 버전 실행 (\$NEW)..."
+            docker compose up -d snwa-backend-\$NEW snwa-frontend-\$NEW
+
+            # 5. 신규 컨테이너가 뜰 때까지 대기 (Health Check)
+            echo "\$NEW 서버가 \$NEW_PORT 포트에서 준비될 때까지 대기 중입니다..."
             for i in {1..20}; do
-              # curl 대신 alpine에 내장된 wget 사용 (alpine 이미지 용량을 줄이기 위해 curl을 뺐다. -> 내장된 wget사용)
-              if docker exec snwa-nginx wget -q --spider http://snwa-backend-$NEW:$NEW_PORT/actuator/health; then
-                echo "Success: $NEW 서버가 정상적으로 응답합니다."
+              if docker exec snwa-nginx wget -q --spider http://snwa-backend-\$NEW:\$NEW_PORT/actuator/health; then
+                echo "Success: \$NEW 서버가 정상적으로 응답합니다."
                 break
               fi
-          
-              if [ $i -eq 20 ]; then
-                echo "Error: $NEW 서버가 100초 이내에 시작되지 않았습니다. 배포를 중단합니다."
+
+              if [ \$i -eq 20 ]; then
+                echo "Error: \$NEW 서버가 100초 이내에 시작되지 않았습니다. 배포를 중단합니다."
                 exit 1
               fi
-          
-              echo "응답 대기 중... ($i/20)"
+
+              echo "응답 대기 중... (\$i/20)"
               sleep 5
             done
-          
-            # 4. [핵심] Nginx가 바라보는 변수 파일 수정
-            echo "Nginx 라우팅 주소를 $NEW 버전으로 업데이트합니다."
-            echo -e "set \$service_url http://snwa-backend-$NEW:$NEW_PORT;\nset \$frontend_url http://snwa-frontend-$NEW:80;" | sudo tee /home/ec2-user/final-project-snwa/nginx/conf/service-url.inc
-          
-            # 5. Nginx 설정 재로드
+
+            # 6. [핵심] Nginx가 바라보는 변수 파일 수정
+            echo "Nginx 라우팅 주소를 \$NEW 버전으로 업데이트합니다."
+            echo -e "set \\$service_url http://snwa-backend-\$NEW:\$NEW_PORT;\nset \\$frontend_url http://snwa-frontend-\$NEW:80;" | sudo tee /home/ec2-user/final-project-snwa/nginx/conf/service-url.inc
+
+            # 7. Nginx 설정 재로드
             docker exec snwa-nginx nginx -s reload
-          
-            # 6. 이전 컨테이너 종료
-            echo "이전 버전($OLD) 컨테이너를 종료합니다."
-            docker compose stop snwa-backend-$OLD snwa-frontend-$OLD || true
-          
-            echo "모든 배포 과정이 성공적으로 완료되었습니다! 🚀"
+
+            # 8. 이전 컨테이너 종료
+            echo "이전 버전(\$OLD) 컨테이너를 종료합니다."
+            docker compose stop snwa-backend-\$OLD snwa-frontend-\$OLD || true
+
+            echo "모든 배포 과정이 성공적으로 완료되었습니다!"
           EOF
