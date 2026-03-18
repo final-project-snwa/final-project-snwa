@@ -36,7 +36,6 @@ public class KeywordExtractionService {
     private final ArticleTagRepository articleTagRepository;
     private final ArticleTranslationRepository articleTranslationRepository;
     private final ResourceLoader resourceLoader;
-    private final com.team.snwa.snwabackend.domain.interest.service.InterestService interestService;
 
     // AI 응답에서 키워드(타입) 형식을 파싱하기 위한 정규식
     private static final Pattern KEYWORD_PATTERN = Pattern.compile("([^,()]+)\\(([^)]+)\\)");
@@ -160,19 +159,8 @@ public class KeywordExtractionService {
         // 프롬프트 내 {language} 치환 추가
         String prompt = promptTemplate.replace("{translatedContent}", translatedContent).replace("{language}",
                 languageName);
-        try {
-            String keywordsResponse = geminiClientManager.generate(prompt);
-            return parseTypedKeywords(keywordsResponse);
-        } catch (Exception e) {
-            log.error("AI 키워드 추출 중 오류 발생: {}", e.getMessage(), e);
-            // Gemini 할당량 초과(429, Resource exhausted) 확인
-            if (e.getMessage().contains("429") || e.getMessage().contains("Resource exhausted")) {
-                throw new com.team.snwa.snwabackend.global.exception.CustomException(
-                        com.team.snwa.snwabackend.global.exception.ErrorCode.AI_API_QUOTA_EXCEEDED);
-            }
-            throw new com.team.snwa.snwabackend.global.exception.CustomException(
-                    com.team.snwa.snwabackend.global.exception.ErrorCode.AI_API_ERROR);
-        }
+        String keywordsResponse = geminiClientManager.generate(prompt);
+        return parseTypedKeywords(keywordsResponse);
     }
 
     /**
