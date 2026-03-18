@@ -7,8 +7,8 @@ spring:
 
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/snwa?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Seoul}
-    username: ${SPRING_DATASOURCE_USERNAME:root}
-    password: ${SPRING_DATASOURCE_PASSWORD:root1234}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
     # driver-class-name은 Spring Boot 3.x에서 자동 감지되므로 생략 가능
     hikari:
       connection-timeout: 30000
@@ -79,21 +79,16 @@ spring:
           timeout: 5000
           writetimeout: 5000
 
-  ai:
-    enabled: true
-    google:
-      genai:
-        api-key: ${GEMINI_API_KEY}
-        chat:
-          options:
-            model: gemini-2.5-flash
-            temperature: 0.2
-
 translation:
   deepl:
     api:
-      key: ${DEEPL_API_KEY}
+      keys: ${DEEPL_API_KEYS}
       base-url: ${DEEPL_API_BASE_URL}
+  gemini:
+    api:
+      keys: ${GEMINI_API_KEYS}
+    model: gemini-2.5-flash
+    temperature: 0.2
 
 management:
   endpoints:
@@ -109,7 +104,7 @@ management:
 
 # JWT 설정
 jwt:
-  secret: ${JWT_SECRET:your-secret-key-minimum-512-bits-for-hs512-algorithm-please-use-a-strong-secret-key-in-production-environment}
+  secret: ${JWT_SECRET}
   expiration: 86400  # 24시간 (초 단위)
 
 # 앱 설정

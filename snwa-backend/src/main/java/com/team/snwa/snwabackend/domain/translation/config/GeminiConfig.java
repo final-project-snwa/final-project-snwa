@@ -9,13 +9,16 @@ import java.util.List;
 
 @Getter
 @Configuration
-public class DeepLConfig {
+public class GeminiConfig {
 
-    @Value("${translation.deepl.api.keys}")
+    @Value("${translation.gemini.api.keys}")
     private String rawKeys;
 
-    @Value("${translation.deepl.api.base-url}")
-    private String baseUrl;
+    @Value("${translation.gemini.model:gemini-2.5-flash}")
+    private String model;
+
+    @Value("${translation.gemini.temperature:0.2}")
+    private float temperature;
 
     public List<String> getApiKeys() {
         return Arrays.stream(rawKeys.split(","))
