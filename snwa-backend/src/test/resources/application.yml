@@ -49,8 +49,13 @@ spring:
 translation:
   deepl:
     api:
-      key: test-deepl-api-key
+      keys: test-deepl-api-key
       base-url: https://api.test.com
+  gemini:
+    api:
+      keys: test-gemini-api-key
+    model: gemini-2.5-flash
+    temperature: 0.2
 
 jwt:
   secret: this-is-a-very-long-dummy-secret-key-for-test-environment-configuration-to-pass-security-config
