@@ -160,6 +160,7 @@ jobs:
         run: |
           ssh -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_HOST }} << EOF
             cd /home/ec2-user/final-project-snwa
+            git pull origin develop
 
             # 1. 현재 어떤 색상(blue, green)이 떠 있는지 확인 (백엔드 기준)
             if docker ps --format '{{.Names}}' | grep -q snwa-backend-server-blue; then
