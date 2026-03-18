@@ -79,21 +79,16 @@ spring:
           timeout: 5000
           writetimeout: 5000
 
-  ai:
-    enabled: true
-    google:
-      genai:
-        api-key: ${GEMINI_API_KEY}
-        chat:
-          options:
-            model: gemini-2.5-flash
-            temperature: 0.2
-
 translation:
   deepl:
     api:
       keys: ${DEEPL_API_KEYS}
       base-url: ${DEEPL_API_BASE_URL}
+  gemini:
+    api:
+      keys: ${GEMINI_API_KEYS}
+    model: gemini-2.5-flash
+    temperature: 0.2
 
 management:
   endpoints:

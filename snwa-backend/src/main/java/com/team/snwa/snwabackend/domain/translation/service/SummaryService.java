@@ -3,9 +3,9 @@ package com.team.snwa.snwabackend.domain.translation.service;
 import com.team.snwa.snwabackend.domain.translation.dto.response.SummaryResponseDto;
 import com.team.snwa.snwabackend.domain.translation.entity.ArticleTranslation;
 import com.team.snwa.snwabackend.domain.translation.repository.ArticleTranslationRepository;
+import com.team.snwa.snwabackend.domain.translation.client.GeminiClientManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Service;
@@ -20,9 +20,9 @@ import java.nio.charset.StandardCharsets;
 @RequiredArgsConstructor
 public class SummaryService {
 
-    private final ChatClient.Builder chatClientBuilder;
+    private final GeminiClientManager geminiClientManager;
     private final ArticleTranslationRepository articleTranslationRepository;
-    private final ResourceLoader resourceLoader; // 파일, url등 추상적으로 불러올 수 있도록 해줌(Spring Framework 기능)
+    private final ResourceLoader resourceLoader;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public SummaryResponseDto summarizeArticle(Long articleId) {
@@ -91,9 +91,8 @@ public class SummaryService {
         String prompt = promptTemplate
                 .replace("{targetLanguage}", langName)
                 .replace("{translatedContent}", translatedContent);
-        ChatClient chatClient = chatClientBuilder.build();
         try {
-            return chatClient.prompt(prompt).call().content();
+            return geminiClientManager.generate(prompt);
         } catch (Exception e) {
             log.error("AI 요약 생성 중 오류 발생: {}", e.getMessage(), e);
             // Gemini 할당량 초과(429, Resource exhausted) 확인

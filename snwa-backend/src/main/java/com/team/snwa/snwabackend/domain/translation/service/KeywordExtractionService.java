@@ -6,11 +6,11 @@ import com.team.snwa.snwabackend.domain.article.repository.ArticleRepository;
 import com.team.snwa.snwabackend.domain.article.repository.ArticleTagRepository;
 import com.team.snwa.snwabackend.domain.interest.entity.InterestType;
 import com.team.snwa.snwabackend.domain.notification.event.ArticleReadyForNotificationEvent;
+import com.team.snwa.snwabackend.domain.translation.client.GeminiClientManager;
 import com.team.snwa.snwabackend.domain.translation.entity.ArticleTranslation;
 import com.team.snwa.snwabackend.domain.translation.repository.ArticleTranslationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.scheduling.annotation.Async;
@@ -31,7 +31,7 @@ import java.util.regex.Pattern;
 public class KeywordExtractionService {
 
     private final ApplicationEventPublisher eventPublisher;
-    private final ChatClient.Builder chatClientBuilder;
+    private final GeminiClientManager geminiClientManager;
     private final ArticleRepository articleRepository;
     private final ArticleTagRepository articleTagRepository;
     private final ArticleTranslationRepository articleTranslationRepository;
@@ -160,10 +160,8 @@ public class KeywordExtractionService {
         // 프롬프트 내 {language} 치환 추가
         String prompt = promptTemplate.replace("{translatedContent}", translatedContent).replace("{language}",
                 languageName);
-        ChatClient chatClient = chatClientBuilder.build();
         try {
-            String keywordsResponse = chatClient.prompt(prompt).call().content(); // "손흥민(Player), 토트넘(Team),
-                                                                                  // 프리미어리그(League), 축구(Sport)"
+            String keywordsResponse = geminiClientManager.generate(prompt);
             return parseTypedKeywords(keywordsResponse);
         } catch (Exception e) {
             log.error("AI 키워드 추출 중 오류 발생: {}", e.getMessage(), e);
