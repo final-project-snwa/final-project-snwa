@@ -102,6 +102,8 @@ management:
   endpoint:
     health:
       show-details: always
+      probes:
+        enabled: true
   metrics:
     tags:
       application: ${spring.application.name} # snwa-backend라는 이름표를 붙여줌
