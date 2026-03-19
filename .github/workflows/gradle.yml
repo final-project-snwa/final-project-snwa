@@ -194,7 +194,7 @@ jobs:
             # 5. 신규 컨테이너가 뜰 때까지 대기 (Health Check)
             echo "\$NEW 서버가 \$NEW_PORT 포트에서 준비될 때까지 대기 중입니다..."
             for i in {1..20}; do
-              if docker exec snwa-nginx wget -q --spider http://snwa-backend-\$NEW:\$NEW_PORT/actuator/health; then
+              if docker exec snwa-nginx wget -q --spider http://snwa-backend-\$NEW:\$NEW_PORT/actuator/health/readiness; then
                 echo "Success: \$NEW 서버가 정상적으로 응답합니다."
                 break
               fi
