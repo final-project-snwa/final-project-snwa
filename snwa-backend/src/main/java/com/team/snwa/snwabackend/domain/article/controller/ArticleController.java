@@ -180,6 +180,11 @@ public class ArticleController {
     /**
      * 기사 번역 조회 (On-Demand)
      * 프론트엔드에서 /api/articles/{id}/translation?lang=KO 형태로 호출
+     *
+     * @param principal JWT 인증 정보 (getName()으로 이메일 추출 → User 조회)
+     * @param id        번역할 기사 ID (@PathVariable)
+     * @param lang      번역 대상 언어 코드 (예: "KO", "EN", "JA", "ZH") — 없으면 기본값 "KO"
+     * @return 번역된 제목·본문·요약·태그가 담긴 응답 DTO
      */
     @GetMapping("/{id}/translation")
     public ResponseEntity<TranslatedArticleResponseDto> getTranslatedArticle(
