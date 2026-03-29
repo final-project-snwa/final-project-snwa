@@ -34,6 +34,7 @@ public class ArticleOrchestratorService {
     private final UserRepository userRepository;
     private final ArticleRepository articleRepository;
 
+    // ArticleController 호출함
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public TranslatedArticleResponseDto getTranslation(Long userId, Long articleId, String language) {
         String targetLang = (language == null || language.isBlank()) ? "KO" : language.toUpperCase();
@@ -75,12 +76,9 @@ public class ArticleOrchestratorService {
                 .build();
     }
 
+    // 코인 결제 및 권한 체크
     private void checkAccessAndSpendCoin(Long userId, Long articleId, String targetLang) {
-        if (userId == null)
-            return;
-
-        boolean hasAccess = translationAccessLogRepository.existsByUserIdAndArticleIdAndLanguage(userId, articleId,
-                targetLang);
+        boolean hasAccess = translationAccessLogRepository.existsByUserIdAndArticleIdAndLanguage(userId, articleId, targetLang);
         if (hasAccess)
             return;
 
@@ -91,6 +89,7 @@ public class ArticleOrchestratorService {
                     .orElseThrow(() -> new RuntimeException("기사를 찾을 수 없습니다."));
 
             // 코인 차감 (1코인)
+            // ex: TRANS_100_KO_1711695540123
             String externalRef = "TRANS_" + articleId + "_" + targetLang + "_" + System.currentTimeMillis();
             walletTransactionService.spend(user, 1L, externalRef);
 

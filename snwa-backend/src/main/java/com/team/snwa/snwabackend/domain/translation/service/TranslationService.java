@@ -53,12 +53,4 @@ public class TranslationService {
                     return articleTranslationRepository.save(translation);
                 });
     }
-
-    /**
-     * 외부 AI API(또는 번역 API)를 호출하여 순수하게 번역만 수행합니다.
-     */
-    public TranslatedArticleResponseDto translateOnly(CrawledArticleRequestDto request, String targetLang) {
-        log.info("순수 번역 API 호출 시작: 언어={}", targetLang);
-        return translationClient.translate(request, targetLang);
-    }
 }

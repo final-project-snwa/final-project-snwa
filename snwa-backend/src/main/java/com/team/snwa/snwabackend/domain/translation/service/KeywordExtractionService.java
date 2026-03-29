@@ -79,7 +79,7 @@ public class KeywordExtractionService {
                     return article.getContent();
                 });
 
-        if (contentToExtract == null || contentToExtract.trim().isEmpty()) {
+        if (contentToExtract == null || contentToExtract.isBlank()) {
             log.warn("추출할 내용이 없습니다: articleId={}", articleId);
             return;
         }

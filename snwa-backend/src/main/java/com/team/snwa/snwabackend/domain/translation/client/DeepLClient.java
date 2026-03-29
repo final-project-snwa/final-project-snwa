@@ -21,14 +21,21 @@ public class DeepLClient implements TranslationClient {
     private final DeepLConfig deepLConfig;
     private final AtomicInteger currentKeyIndex = new AtomicInteger(0);
 
+    /**
+     * DeepL API를 사용하여 기사를 번역
+     *
+     * @param request    번역할 원문 데이터 (title, content, authorName, publisherName, originalUrl)
+     * @param targetLang 번역 대상 언어 코드 (예: "KO", "EN", "JA", "ZH")
+     * @return 번역된 제목·본문이 담긴 응답 DTO
+     */
     @Override
     public TranslatedArticleResponseDto translate(CrawledArticleRequestDto request, String targetLang) {
-        List<String> keys = deepLConfig.getApiKeys();
+        List<String> keys = deepLConfig.getApiKeys();   //keys = ["key-A", "key-B", "key-C"] 리스트 형식
         if (keys.isEmpty()) {
             throw new CustomException(ErrorCode.TRANSLATION_API_ERROR);
         }
 
-        int startIndex = currentKeyIndex.get();
+        int startIndex = currentKeyIndex.get(); //현재 사용중인 key 번호 가져오기
         for (int i = 0; i < keys.size(); i++) {
             int index = (startIndex + i) % keys.size();
             try {
@@ -49,6 +56,14 @@ public class DeepLClient implements TranslationClient {
         throw new CustomException(ErrorCode.TRANSLATION_API_QUOTA_EXCEEDED);
     }
 
+    /**
+     * 단일 API 키로 실제 DeepL 번역을 수행합니다.
+     *
+     * @param apiKey     현재 사용할 DeepL API 키 (예: "key-A", "key-B", "key-C" 중 하나)
+     * @param request    번역할 원문 데이터 (title, content, authorName, publisherName, originalUrl)
+     * @param targetLang 번역 대상 언어 코드 (예: "KO", "EN", "JA", "ZH")
+     * @return 번역된 제목·본문이 담긴 응답 DTO
+     */
     private TranslatedArticleResponseDto doTranslate(String apiKey, CrawledArticleRequestDto request, String targetLang) {
         try {
             Translator translator = new Translator(apiKey);
@@ -59,6 +74,7 @@ public class DeepLClient implements TranslationClient {
             String content = request.getContent() != null ? request.getContent() : "";
             String combinedText = title + "\n" + separator + "\n" + content;
 
+            //translateText()는 DeepL SDK 제공 메서드 / 파라미터: (번역할 텍스트, 원본언어:null(자동감지), 번역할 언어:targetLang)
             String translatedCombined = translator.translateText(combinedText, null, lang).getText();
 
             String translatedTitle = "";

@@ -33,11 +33,11 @@ public class SummaryService {
                 .orElseThrow(() -> new RuntimeException("번역 데이터를 찾을 수 없습니다: articleId=" + articleId));
 
         // 번역된 내용이 없으면 예외 처리
-        if (translation.getTranslatedContent() == null || translation.getTranslatedContent().trim().isEmpty()) {
+        if (translation.getTranslatedContent() == null || translation.getTranslatedContent().isBlank()) {
             throw new RuntimeException("번역된 내용이 없습니다. 먼저 번역을 진행해주세요.");
         }
 
-        if (translation.getSummary() != null && !translation.getSummary().trim().isEmpty()) {
+        if (translation.getSummary() != null && !translation.getSummary().isBlank()) {
             log.info("이미 요약된 기사입니다. DB 저장된 값을 반환합니다: articleId={}", articleId);
             return SummaryResponseDto.builder()
                     .summary(translation.getSummary())
@@ -56,9 +56,16 @@ public class SummaryService {
                 .build();
     }
 
+    /**
+     * 요약본이 없을 때만 Gemini API를 호출하여 요약을 생성하고 저장합니다.
+     *
+     * @param translation 번역 엔티티 (요약 여부 확인 및 저장 대상)
+     * @param targetLang  요약 출력 언어 코드 (예: "KO", "EN", "JA", "ZH")
+     * @return 요약 문자열 — DB에 이미 있으면 바로 반환, API 실패 시 null 반환 (QUOTA 초과는 예외 전파)
+     */
     @Transactional
     public String summarizeIfNeeded(ArticleTranslation translation, String targetLang) {
-        if (translation.getSummary() != null && !translation.getSummary().trim().isEmpty()) {
+        if (translation.getSummary() != null && !translation.getSummary().isBlank()) {
             return translation.getSummary();
         }
 
@@ -86,7 +93,7 @@ public class SummaryService {
      * @param targetLang        요약 출력 언어 (KO, JA, EN, ZH 등)
      */
     public String generateSummary(String translatedContent, String targetLang) {
-        String langName = toLanguageName(targetLang);
+        String langName = toLanguageName(targetLang);   //Ex: 日本語
         String promptTemplate = loadPromptTemplate();
         String prompt = promptTemplate
                 .replace("{targetLanguage}", langName)
@@ -108,8 +115,8 @@ public class SummaryService {
 
     private String loadPromptTemplate() {
         try {
-            Resource resource = resourceLoader.getResource("classpath:prompts/summary-prompt.txt"); // classpath =
-                                                                                                    // src/main/resources
+            //notes.md 파일 참조  classpath = src/main/resources
+            Resource resource = resourceLoader.getResource("classpath:prompts/summary-prompt.txt");
             return StreamUtils.copyToString(resource.getInputStream(), StandardCharsets.UTF_8);
         } catch (Exception e) {
             log.error("프롬프트 템플릿 로드 실패: {}", e.getMessage(), e);
