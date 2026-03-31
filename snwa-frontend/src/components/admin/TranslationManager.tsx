@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { Search, Eye, Tag, Globe } from 'lucide-react';
+import { Search, Eye, Tag, Globe, Languages, FileText, RefreshCw } from 'lucide-react';
 
 // [변경] 백엔드 DTO 구조에 맞춘 새 타입 정의
 type TranslationDetail = {
@@ -16,11 +16,43 @@ type AdminArticleGroup = {
     translations: TranslationDetail[];
 };
 
+type SchedulerKey = 'translate' | 'summary' | 'keywords';
+
+async function runScheduler(type: SchedulerKey): Promise<string> {
+    const token = sessionStorage.getItem('snwa_token');
+    const res = await fetch(`/api/scheduler/${type}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.message || '실행 실패');
+    return json.message;
+}
+
 export default function TranslationManager() {
     const [data, setData] = useState<AdminArticleGroup[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [search, setSearch] = useState('');
+    const [schedulerLoading, setSchedulerLoading] = useState<Record<SchedulerKey, boolean>>({
+        translate: false, summary: false, keywords: false,
+    });
+    const [schedulerMsg, setSchedulerMsg] = useState<Record<SchedulerKey, string>>({
+        translate: '', summary: '', keywords: '',
+    });
+
+    const handleScheduler = async (type: SchedulerKey) => {
+        setSchedulerLoading(prev => ({ ...prev, [type]: true }));
+        setSchedulerMsg(prev => ({ ...prev, [type]: '' }));
+        try {
+            const msg = await runScheduler(type);
+            setSchedulerMsg(prev => ({ ...prev, [type]: msg }));
+        } catch (e) {
+            setSchedulerMsg(prev => ({ ...prev, [type]: e instanceof Error ? e.message : '오류 발생' }));
+        } finally {
+            setSchedulerLoading(prev => ({ ...prev, [type]: false }));
+        }
+    };
 
     // 상세보기 모달용 상태
     const [selectedDetail, setSelectedDetail] = useState<{ id: number; detail: TranslationDetail } | null>(null);
@@ -65,19 +97,50 @@ export default function TranslationManager() {
 
     return (
         <div className="space-y-6">
-            {/* 검색바 */}
-            <div className="flex items-center gap-4">
-                <div className="relative flex-1 max-w-sm">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <input
-                        type="text"
-                        placeholder="ID, 제목, 태그로 검색..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
-                    />
+            {/* 검색바 + 스케줄러 버튼 */}
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div className="flex items-center gap-4">
+                    <div className="relative flex-1 max-w-sm">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input
+                            type="text"
+                            placeholder="ID, 제목, 태그로 검색..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
+                        />
+                    </div>
+                    <div className="text-sm text-gray-500">총 {filtered.length}건 (기사 기준)</div>
                 </div>
-                <div className="text-sm text-gray-500">총 {filtered.length}건 (기사 기준)</div>
+
+                {/* 스케줄러 수동 실행 */}
+                <div className="flex items-center gap-2">
+                    {([
+                        { key: 'translate' as SchedulerKey, label: '번역', Icon: Languages },
+                        { key: 'summary' as SchedulerKey, label: '요약', Icon: FileText },
+                        { key: 'keywords' as SchedulerKey, label: '태그', Icon: Tag },
+                    ] as const).map(({ key, label, Icon }) => (
+                        <div key={key} className="flex flex-col items-center gap-1">
+                            <button
+                                onClick={() => handleScheduler(key)}
+                                disabled={schedulerLoading[key]}
+                                title={`${label} 스케줄러 실행`}
+                                className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:border-gray-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            >
+                                {schedulerLoading[key]
+                                    ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                    : <Icon className="w-3.5 h-3.5" />
+                                }
+                                {label}
+                            </button>
+                            {schedulerMsg[key] && (
+                                <span className="text-[10px] text-gray-400 max-w-[80px] text-center leading-tight">
+                                    {schedulerMsg[key]}
+                                </span>
+                            )}
+                        </div>
+                    ))}
+                </div>
             </div>
 
             {/* 테이블 */}

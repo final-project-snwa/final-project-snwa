@@ -2,13 +2,14 @@ package com.team.snwa.snwabackend.domain.translation.scheduler;
 
 import com.team.snwa.snwabackend.domain.article.entity.Article;
 import com.team.snwa.snwabackend.domain.article.repository.ArticleRepository;
-import com.team.snwa.snwabackend.domain.translation.service.ArticleOrchestratorService;
+import com.team.snwa.snwabackend.domain.translation.service.TranslationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -21,7 +22,7 @@ import java.util.List;
 public class TranslationScheduler {
 
     private final ArticleRepository articleRepository;
-    private final ArticleOrchestratorService articleOrchestratorService;
+    private final TranslationService translationService;
 
     private static final int BATCH_SIZE = 2; // 한 번에 처리할 기사 개수
     private static final long API_DELAY_MS = 4000;
@@ -46,11 +47,13 @@ public class TranslationScheduler {
                     page.getTotalElements(), articles.size());
 
             int failCount = 0;
+            List<Long> successIds = new ArrayList<>();
 
             for (Article article : articles) {
                 try {
                     log.debug("기사 번역 시작: articleId={}", article.getId());
-                    articleOrchestratorService.translateArticle(article.getId());
+                    translationService.getOrTranslate(article.getId(), "KO");
+                    successIds.add(article.getId());
                     Thread.sleep(API_DELAY_MS);
                 } catch (Exception e) {
                     failCount++;
@@ -58,8 +61,8 @@ public class TranslationScheduler {
                 }
             }
 
-            log.info("✅ 번역 스케줄러 완료: 성공 {}, 실패 {}",
-                    articles.size() - failCount, failCount);
+            log.info("✅ 번역 스케줄러 완료: articleId {} 번역 완료 (성공 {}, 실패 {})",
+                    successIds, successIds.size(), failCount);
         } catch (Exception e) {
             log.error("번역 스케줄러 실행 중 오류 발생", e);
             throw e;

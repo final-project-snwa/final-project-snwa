@@ -9,6 +9,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -46,11 +47,13 @@ public class KeywordsTagScheduler {
                     page.getTotalElements(), translations.size());
 
             int failCount = 0;
+            List<Long> successIds = new ArrayList<>();
 
             for (ArticleTranslation translation : translations) {
                 try {
                     log.debug("기사 키워드 추출 시작: articleId={}", translation.getArticle().getId());
                     keywordExtractionService.extractKeywords(translation.getArticle().getId(), "KO");
+                    successIds.add(translation.getArticle().getId());
                     Thread.sleep(API_DELAY_MS);
                 } catch (Exception e) {
                     failCount++;
@@ -58,8 +61,8 @@ public class KeywordsTagScheduler {
                 }
             }
 
-            log.info("✅ 키워드 태그 추출 스케줄러 완료: 성공 {}, 실패 {}",
-                    translations.size() - failCount, failCount);
+            log.info("✅ 키워드 태그 추출 스케줄러 완료: articleId {} 태그 추출 완료 (성공 {}, 실패 {})",
+                    successIds, successIds.size(), failCount);
         } catch (Exception e) {
             log.error("키워드 태그 추출 스케줄러 실행 중 오류 발생", e);
             throw e;
