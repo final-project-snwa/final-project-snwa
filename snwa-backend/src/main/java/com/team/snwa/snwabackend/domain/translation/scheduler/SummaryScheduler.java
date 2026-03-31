@@ -10,6 +10,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -48,6 +49,7 @@ public class SummaryScheduler {
                     page.getTotalElements(), translations.size());
 
             int failCount = 0;
+            List<Long> successIds = new ArrayList<>();
 
             for (ArticleTranslation translation : translations) {
                 try {
@@ -57,6 +59,7 @@ public class SummaryScheduler {
                                     ? translation.getTranslatedContent().length()
                                     : 0);
                     summaryService.summarizeArticle(translation.getArticle().getId());
+                    successIds.add(translation.getArticle().getId());
                     Thread.sleep(API_DELAY_MS);
                 } catch (Exception e) {
                     failCount++;
@@ -64,8 +67,8 @@ public class SummaryScheduler {
                 }
             }
 
-            log.info("✅ 요약 스케줄러 완료: 성공 {}, 실패 {}",
-                    translations.size() - failCount, failCount);
+            log.info("✅ 요약 스케줄러 완료: articleId {} 요약 완료 (성공 {}, 실패 {})",
+                    successIds, successIds.size(), failCount);
         } catch (Exception e) {
             log.error("요약 스케줄러 실행 중 오류 발생", e);
             throw e;

@@ -86,7 +86,7 @@ public class KeywordExtractionService {
 
         // 키워드 파싱 - Map<키워드, 타입>
         Map<String, InterestType> typedKeywords = extractKeywordsFromContent(contentToExtract, targetLang);
-        List<String> keywordList = new ArrayList<>(typedKeywords.keySet());
+        List<String> keywordList = new ArrayList<>(typedKeywords.keySet()); // 벨류값은 버리고 키값만 사용 keywordList = ["손흥민", "토트넘"]
 
         // ArticleTag 엔티티 생성 및 저장
         for (String keyword : keywordList) {
@@ -159,7 +159,7 @@ public class KeywordExtractionService {
         // 프롬프트 내 {language} 치환 추가
         String prompt = promptTemplate.replace("{translatedContent}", translatedContent).replace("{language}",
                 languageName);
-        String keywordsResponse = geminiClientManager.generate(prompt);
+        String keywordsResponse = geminiClientManager.generate(prompt); // keywordsResponse = 태그추출이 완료된 데이터
         return parseTypedKeywords(keywordsResponse);
     }
 
