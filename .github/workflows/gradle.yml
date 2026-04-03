@@ -10,7 +10,7 @@ jobs:
     if: github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'develop'
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: read  #권한 부여 (읽을 권한으로 최소한의 권한만 부여함)
     services:
       mysql:
         image: mysql:8.0
@@ -28,11 +28,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up JDK 21
+      - name: Set up JDK 21 # uses가 무엇을 설치하는지 알려주는 이름표
         uses: actions/setup-java@v4
         with:
           java-version: '21'
-          distribution: 'temurin'
+          distribution: 'temurin' #브랜드? 제조사
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -62,7 +62,7 @@ jobs:
           SPRING_DATASOURCE_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
 
       - name: Upload backend JAR artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4  #깃허브 임시 창고(Artifact) 생성
         with:
           name: backend-jar
           path: |
@@ -72,7 +72,7 @@ jobs:
   # 2. 프론트엔드 빌드
   frontend-build:
     if: github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'develop'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest  #가상머신 생성
 
     steps:
       - uses: actions/checkout@v4
@@ -120,7 +120,7 @@ jobs:
           cp -r ./artifacts/frontend-build-result/. ./snwa-frontend/build/
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v3  #Buildx: 최신 도커 빌드 도구
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -129,7 +129,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build and push backend image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v6 #도커 이미지를 만드는(build) 기계
         with:
           context: ./snwa-backend
           target: prod
@@ -183,7 +183,7 @@ jobs:
             docker pull ${{ secrets.DOCKERHUB_USERNAME }}/snwa-backend:latest
             docker pull ${{ secrets.DOCKERHUB_USERNAME }}/snwa-frontend:latest
 
-            # 3. 새 슬롯(blue or green)에 맞게 re-tag
+            # 3. 새 슬롯(blue or green)에 맞게 re-tag (docker tag [기존 이름] [새 이름])
             docker tag ${{ secrets.DOCKERHUB_USERNAME }}/snwa-backend:latest snwa-backend-server:\$NEW
             docker tag ${{ secrets.DOCKERHUB_USERNAME }}/snwa-frontend:latest snwa-frontend-server:\$NEW
 
@@ -210,7 +210,11 @@ jobs:
 
             # 6. [핵심] Nginx가 바라보는 변수 파일 수정
             echo "Nginx 라우팅 주소를 \$NEW 버전으로 업데이트합니다."
-            printf 'set $service_url http://snwa-backend-%s:%s;\nset $frontend_url http://snwa-frontend-%s:80;\n' "\$NEW" "\$NEW_PORT" "\$NEW" | sudo tee /home/ec2-user/final-project-snwa/nginx/conf/service-url.inc
+            printf 'set $service_url http://snwa-backend-%s:%s;\nset $frontend_url http://snwa-frontend-%s:80;\n' \
+                "\$NEW" \
+                "\$NEW_PORT" \
+                "\$NEW" \
+                | sudo tee /home/ec2-user/final-project-snwa/nginx/conf/service-url.inc
 
             # 7. Nginx 설정 재로드
             docker exec snwa-nginx nginx -s reload
